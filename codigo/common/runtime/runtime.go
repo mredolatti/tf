@@ -18,7 +18,7 @@ type Impl struct {
 	blocker chan struct{}
 }
 
-func NewImpl(logger log.Interface) (*Impl, error) {
+func New(logger log.Interface) (*Impl, error) {
 	if logger == nil {
 		return nil, ErrNoLogger
 	}
@@ -31,13 +31,13 @@ func NewImpl(logger log.Interface) (*Impl, error) {
 
 func (i *Impl) Block() {
 	<-i.blocker
+	i.logger.Info("Finalizando ejecucion de servidor de la aplicacion.")
 }
 
 func (i *Impl) Unblock() {
 	select {
 	case i.blocker <- struct{}{}:
 	default:
-		i.logger.Info("Finalizando ejecucion de servidor de indexado.")
 	}
 }
 

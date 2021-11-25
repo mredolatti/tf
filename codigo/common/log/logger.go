@@ -51,30 +51,30 @@ func New(w io.Writer, level int) (*Impl, error) {
 
 func (i *Impl) Error(tpl string, params ...interface{}) {
 	if i.level >= Error {
-		i.errLogger.Output(3, fmt.Sprintf(tpl, params...))
+		i.errLogger.Output(2, fmt.Sprintf(tpl, params...))
 	}
 }
 
 func (i *Impl) Warning(tpl string, params ...interface{}) {
 	if i.level >= Warning {
-		i.warnLogger.Output(3, fmt.Sprintf(tpl, params...))
+		i.warnLogger.Output(2, fmt.Sprintf(tpl, params...))
 	}
 }
 
 func (i *Impl) Info(tpl string, params ...interface{}) {
 	if i.level >= Info {
-		i.infoLogger.Output(3, fmt.Sprintf(tpl, params...))
+		i.infoLogger.Output(2, fmt.Sprintf(tpl, params...))
 	}
 }
 
 func (i *Impl) Debug(tpl string, params ...interface{}) {
 	if i.level >= Debug {
-		i.debugLogger.Output(3, fmt.Sprintf(tpl, params...))
+		i.debugLogger.Output(2, fmt.Sprintf(tpl, params...))
 	}
 }
 
 func (i *Impl) Verbose(tpl string, params ...interface{}) {
 	if i.level >= Verbose {
-		i.verLogger.Output(3, fmt.Sprintf(tpl, params...))
+		i.verLogger.Output(2, fmt.Sprintf(tpl, params...))
 	}
 }
