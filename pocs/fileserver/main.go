@@ -14,21 +14,22 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type context struct {
+	debugStream io.Writer
+	readOnly    bool
+}
+
 // Based on example server code from golang.org/x/crypto/ssh and server_standalone
 func main() {
 
-	var (
-		readOnly    bool
-		debugStderr bool
-	)
-
-	flag.BoolVar(&readOnly, "R", false, "read-only server")
+	var debugStderr bool
+	ctx := context{debugStream: ioutil.Discard}
+	flag.BoolVar(&ctx.readOnly, "R", false, "read-only server")
 	flag.BoolVar(&debugStderr, "e", false, "debug to stderr")
 	flag.Parse()
 
-	debugStream := ioutil.Discard
 	if debugStderr {
-		debugStream = os.Stderr
+		ctx.debugStream = os.Stderr
 	}
 
 	knownKeys := map[string]ssh.PublicKey{
@@ -39,7 +40,6 @@ func main() {
 	// certificate details and handles authentication of ServerConns.
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-			fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 			knownKeyForUser, ok := knownKeys[conn.User()]
 			if !ok {
 				return nil, fmt.Errorf("unknown user %s", conn.User())
@@ -72,18 +72,25 @@ func main() {
 	}
 	fmt.Printf("Listening on %v\n", listener.Addr())
 
-	nConn, err := listener.Accept()
-	if err != nil {
-		log.Fatal("failed to accept incoming connection", err)
+	for {
+
+		nConn, err := listener.Accept()
+		if err != nil {
+			log.Fatal("failed to accept incoming connection", err)
+		}
+		go handleConnection(nConn, config, ctx)
 	}
 
+}
+
+func handleConnection(nConn net.Conn, config *ssh.ServerConfig, ctx context) {
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
 	_, chans, reqs, err := ssh.NewServerConn(nConn, config)
 	if err != nil {
 		log.Fatal("failed to handshake", err)
 	}
-	fmt.Fprintf(debugStream, "SSH server established\n")
+	fmt.Fprintf(ctx.debugStream, "SSH server established\n")
 
 	// The incoming Request channel must be serviced.
 	go ssh.DiscardRequests(reqs)
@@ -93,46 +100,46 @@ func main() {
 		// Channels have a type, depending on the application level
 		// protocol intended. In the case of an SFTP session, this is "subsystem"
 		// with a payload string of "<length=4>sftp"
-		fmt.Fprintf(debugStream, "Incoming channel: %s\n", newChannel.ChannelType())
+		fmt.Fprintf(ctx.debugStream, "Incoming channel: %s\n", newChannel.ChannelType())
 		if newChannel.ChannelType() != "session" {
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
-			fmt.Fprintf(debugStream, "Unknown channel type: %s\n", newChannel.ChannelType())
+			fmt.Fprintf(ctx.debugStream, "Unknown channel type: %s\n", newChannel.ChannelType())
 			continue
 		}
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
 			log.Fatal("could not accept channel.", err)
 		}
-		fmt.Fprintf(debugStream, "Channel accepted\n")
+		fmt.Fprintf(ctx.debugStream, "Channel accepted\n")
 
 		// Sessions have out-of-band requests such as "shell",
 		// "pty-req" and "env".  Here we handle only the
 		// "subsystem" request.
 		go func(in <-chan *ssh.Request) {
 			for req := range in {
-				fmt.Fprintf(debugStream, "Request: %v\n", req.Type)
+				fmt.Fprintf(ctx.debugStream, "Request: %v\n", req.Type)
 				ok := false
 				switch req.Type {
 				case "subsystem":
-					fmt.Fprintf(debugStream, "Subsystem: %s\n", req.Payload[4:])
+					fmt.Fprintf(ctx.debugStream, "Subsystem: %s\n", req.Payload[4:])
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
 					}
 				}
-				fmt.Fprintf(debugStream, " - accepted: %v\n", ok)
+				fmt.Fprintf(ctx.debugStream, " - accepted: %v\n", ok)
 				req.Reply(ok, nil)
 			}
 		}(requests)
 
 		serverOptions := []sftp.ServerOption{
-			sftp.WithDebug(debugStream),
+			sftp.WithDebug(ctx.debugStream),
 		}
 
-		if readOnly {
+		if ctx.readOnly {
 			serverOptions = append(serverOptions, sftp.ReadOnly())
-			fmt.Fprintf(debugStream, "Read-only server\n")
+			fmt.Fprintf(ctx.debugStream, "Read-only server\n")
 		} else {
-			fmt.Fprintf(debugStream, "Read write server\n")
+			fmt.Fprintf(ctx.debugStream, "Read write server\n")
 		}
 
 		server, err := sftp.NewServer(
