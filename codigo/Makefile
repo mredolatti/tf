@@ -1,12 +1,17 @@
+.PHONY: all clean build build_indexserver test testrace
+
 all: test testrace build
 
-build: build_testserver
+clean:
+	@[[ -f ./index-server ]] && rm ./index-server
 
-build_testserver:
-	go build -o index-server ./indexsrv/cmd/server/main.go
+build: build_indexserver
+
+build_indexserver:
+	@go build -o index-server ./indexsrv/cmd/server/main.go
 
 test:
-	go test ./... -count=1
+	@go test ./... -count=1
 
 testrace:
-	go test ./... -count=1 -race
+	@go test ./... -count=1 -race
