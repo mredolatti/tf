@@ -1,6 +1,8 @@
 package organizations
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers"
@@ -11,18 +13,13 @@ import (
 // Controller bundles endpoints used by the user to interact with sources and files
 type Controller struct {
 	logger log.Interface
-	repo   repository.OrganizationRepository
+	repo   repository.OrganizationRepository // TODO: usar el registrar en lugar del repo directo
 }
 
 // Register mounts the endpoints exposed by this controller on a route
 func (c *Controller) Register(router gin.IRouter) {
 	router.GET("/organizations", c.list)
 	router.GET("/organizations/:orgId", c.get)
-
-	/* TODO: Mover a FileController
-	router.GET("/organizations/:orgId/files", c.getFiles)
-	router.GET("/organizations/:orgId/files/:fileId", c.getFile)
-	*/
 	router.POST("/organizations", c.link)
 }
 
@@ -32,7 +29,7 @@ func (c *Controller) list(ctx *gin.Context) {
 		return
 	}
 
-	orgs, err := c.repo.List(userID)
+	orgs, err := c.repo.List(ctx.Request.Context())
 	if err != nil {
 		c.logger.Error("error fetching organizations for user %s: %s", userID, err)
 		// TODO: Verificar el error
@@ -56,7 +53,7 @@ func (c *Controller) get(ctx *gin.Context) {
 		return
 	}
 
-	org, err := c.repo.Get(userID, orgID)
+	org, err := c.repo.Get(context.Background(), orgID)
 	if err != nil {
 		c.logger.Error("error fetching organization with id '%s' for user %s: %s", orgID, userID, err)
 		// TODO: Verificar el error
