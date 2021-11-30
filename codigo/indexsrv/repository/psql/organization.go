@@ -13,14 +13,11 @@ import (
 )
 
 const (
-	listQuery = "SELECT * FROM organizations"
-	getQuery  = "SELECT * FROM organizations WHERE id = $1"
-	addQuery  = "INSERT INTO organizations(name) VALUES ($1) RETURNING *"
-	delQuery  = "DELETE FROM organizations WHERE id = $1"
+	orgListQuery = "SELECT * FROM organizations"
+	orgGetQuery  = "SELECT * FROM organizations WHERE id = $1"
+	ogAddQuery   = "INSERT INTO organizations(name) VALUES ($1) RETURNING *"
+	orgDelQuery  = "DELETE FROM organizations WHERE id = $1"
 )
-
-// ErrNilDB is returned when constructing a postgresql-based repository with a nil connection
-var ErrNilDB = errors.New("db cannot be nil")
 
 // Organization is a postgres-compatible struct implementing models.Organization interface
 type Organization struct {
@@ -55,7 +52,7 @@ func NewOrganizationRepository(db *sqlx.DB) (*OrganizationRepository, error) {
 // List returns a list of all the organizations
 func (r *OrganizationRepository) List(ctx context.Context) ([]models.Organization, error) {
 	var orgs []Organization
-	err := r.db.SelectContext(ctx, &orgs, listQuery)
+	err := r.db.SelectContext(ctx, &orgs, orgListQuery)
 	if err != nil {
 		return nil, fmt.Errorf("error executing organizations::list in postgres: %w", err)
 	}
@@ -71,7 +68,7 @@ func (r *OrganizationRepository) List(ctx context.Context) ([]models.Organizatio
 // Get returns an organization that matches the supplied id
 func (r *OrganizationRepository) Get(ctx context.Context, id string) (models.Organization, error) {
 	var org Organization
-	err := r.db.QueryRowxContext(ctx, getQuery, id).StructScan(&org)
+	err := r.db.QueryRowxContext(ctx, orgGetQuery, id).StructScan(&org)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrNotFound
@@ -85,7 +82,7 @@ func (r *OrganizationRepository) Get(ctx context.Context, id string) (models.Org
 // Add adds an organization with the supplied name
 func (r *OrganizationRepository) Add(ctx context.Context, name string) (models.Organization, error) {
 	var org Organization
-	err := r.db.QueryRowxContext(ctx, addQuery, name).StructScan(&org)
+	err := r.db.QueryRowxContext(ctx, ogAddQuery, name).StructScan(&org)
 	if err != nil {
 		return nil, fmt.Errorf("error executing organizations::add in postgres: %w", err)
 	}
@@ -95,7 +92,7 @@ func (r *OrganizationRepository) Add(ctx context.Context, name string) (models.O
 
 // Remove deletes an organization that matches the supplied id
 func (r *OrganizationRepository) Remove(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, delQuery, id)
+	_, err := r.db.ExecContext(ctx, orgDelQuery, id)
 	if err != nil {
 		return fmt.Errorf("error executiong organizations::del in postgres: %w", err)
 	}

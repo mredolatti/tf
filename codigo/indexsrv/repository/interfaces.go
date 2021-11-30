@@ -7,6 +7,7 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 )
 
+// ErrNotFound is an error to be returned when a requested item is not found
 var ErrNotFound = errors.New("not found")
 
 // UserRepository defines the interface for a user storage access class

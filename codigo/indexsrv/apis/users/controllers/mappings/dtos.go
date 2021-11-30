@@ -4,21 +4,21 @@ import "time"
 
 // DTO is a JSON-serializable representation of a file
 type DTO struct {
-	IDField      string `json:"id"`
-	UserIDField  string `json:"userId"`
-	PathField    string `json:"path"`
-	FileIDField  string `json:"fileId"`
-	UpdatedField int64  `json:"updated"`
+	UserIDField   string `json:"userId"`
+	ServerIDField string `json:"serverId"`
+	PathField     string `json:"path"`
+	RefField      string `json:"ref"`
+	UpdatedField  int64  `json:"updated"`
 }
 
-// ID returns the id of the mapping
-func (d *DTO) ID() string {
-	return d.IDField
-}
-
-// UserID returns the userId of the mapping
+// UserID returns the id of the user
 func (d *DTO) UserID() string {
 	return d.UserIDField
+}
+
+// FileServerID returns the userId of the mapping
+func (d *DTO) FileServerID() string {
+	return d.ServerIDField
 }
 
 // Path returns the path of the mapping
@@ -26,9 +26,9 @@ func (d *DTO) Path() string {
 	return d.PathField
 }
 
-// FileID returns the id of the mapped file
-func (d *DTO) FileID() string {
-	return d.FileIDField
+// Ref returns the internal reference to the file on the actual server
+func (d *DTO) Ref() string {
+	return d.RefField
 }
 
 // Updated returns the time when the mapping was last updated

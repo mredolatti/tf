@@ -186,10 +186,10 @@ func formatMappings(mappings []models.Mapping) []DTO {
 
 func formatMapping(mapping models.Mapping) DTO {
 	return DTO{
-		IDField:      mapping.ID(),
-		UserIDField:  mapping.UserID(),
-		PathField:    mapping.Path(),
-		FileIDField:  mapping.FileID(),
-		UpdatedField: mapping.Updated().Unix(),
+		UserIDField:   mapping.UserID(),
+		ServerIDField: mapping.FileServerID(),
+		PathField:     mapping.Path(),
+		RefField:      mapping.Ref(),
+		UpdatedField:  mapping.Updated().Unix(),
 	}
 }

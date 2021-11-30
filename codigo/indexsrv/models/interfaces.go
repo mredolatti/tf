@@ -7,6 +7,7 @@ import (
 // User defines the user model
 type User interface {
 	ID() string
+	Name() string
 }
 
 // Organization defines the institute model
@@ -17,14 +18,24 @@ type Organization interface {
 
 // FileServer defines the file-server model
 type FileServer interface {
-	ID() string
-	URL() string
+	ID() int64
+	Name() string
+	AuthURL() string
+	FetchURL() string
 	OrganizationID() string
 }
 
 // Patient defines the patient model
 type Patient interface {
 	ID() string
+}
+
+// UserAccount defines the `user account in file server` model
+type UserAccount interface {
+	UserID() string
+	FileServerID() string
+	Token() string
+	RefreshToken() string
 }
 
 // File defines the File model
@@ -37,6 +48,15 @@ type File interface {
 	Updated() time.Time
 }
 
+// Mapping defines the mapping model
+type Mapping interface {
+	UserID() string
+	FileServerID() string
+	Ref() string
+	Path() string
+	Updated() time.Time
+}
+
 // FileQuery has optional fields that can be set to narrow the search for a file/path
 // filtering by the following criteria
 type FileQuery struct {
@@ -46,15 +66,6 @@ type FileQuery struct {
 	PatientID     *string
 	UpdatedAfter  *time.Time
 	UpdatedBefore *time.Time
-}
-
-// Mapping defines the mapping model
-type Mapping interface {
-	ID() string
-	UserID() string
-	Path() string
-	FileID() string
-	Updated() time.Time
 }
 
 // MappingQuery has optional fields that can be set to narrow the search for mapping
