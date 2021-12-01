@@ -8,6 +8,7 @@ import (
 
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/common/runtime"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users"
 )
 
 func main() {
@@ -23,6 +24,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	userAPI, err := users.New(&users.Options{
+		Host: "0.0.0.0",
+		Port: 9876,
+	})
+	if err != nil {
+		logger.Error("error constructing user-facing API: %s", err)
+		os.Exit(1)
+	}
+
+	go userAPI.Start()
+
 	setupShutdown(rtm)
 	rtm.Block()
 }
@@ -30,6 +42,7 @@ func main() {
 func setupShutdown(rtm runtime.Interface) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+
 	go func() {
 		<-sigs
 		rtm.Unblock()
