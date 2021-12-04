@@ -4,19 +4,32 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/memstore"
+	"github.com/mredolatti/tf/codigo/common/log"
+	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/login"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/ui"
+	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Options contins user-api configuration parameters
 type Options struct {
-	Host string
-	Port int
+	Host              string
+	Port              int
+	OAuthClientID     string
+	OAuthClientSecret string
+	UserManager       authentication.UserManager
+	Mapper            mapper.Interface
+	Logger            log.Interface
 }
 
 // API is the user-facing API serving the frontend assets and incoming client api calls
 type API struct {
 	ui     *ui.Controller
+	login  *login.Controller
 	server http.Server
 }
 
@@ -26,11 +39,22 @@ func New(options *Options) (*API, error) {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	uiController := &ui.Controller{}
+	// TODO: Cambiar esto a postgres o redis
+	store := memstore.NewStore([]byte("secret"))
+	router.Use(sessions.Sessions("mysession", store))
+
+	loginController, err := login.New(options.UserManager, options.Logger, options.OAuthClientID, options.OAuthClientSecret)
+	if err != nil {
+		return nil, fmt.Errorf("error instantiating login controller: %w", err)
+	}
+	loginController.Register(router)
+
+	uiController := ui.New(options.Logger, options.Mapper)
 	uiController.Register(router)
 
 	return &API{
-		ui: uiController,
+		ui:    uiController,
+		login: loginController,
 		server: http.Server{
 			Addr:    fmt.Sprintf("%s:%d", options.Host, options.Port),
 			Handler: router,

@@ -8,7 +8,10 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR NOT NULL PRIMARY KEY,
-    name VARCHAR NOT NULL
+    name VARCHAR NOT NULL,
+    email VARCHAR NOT NULL,
+    access_token VARCHAR NOT NULL,
+    refresh_token VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS file_servers (

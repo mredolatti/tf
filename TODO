@@ -1,0 +1,5 @@
+Index server BE:
+ - Mejorar sesiones
+    * usar mail en lugar de id de google como pk
+    * ver de usar un token en lugar de cookies para la sesion
+

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 )
@@ -12,9 +13,10 @@ var ErrNotFound = errors.New("not found")
 
 // UserRepository defines the interface for a user storage access class
 type UserRepository interface {
-	Get(id string) (models.User, error)
-	Add(user models.User) (models.User, error)
-	Remove(userID string) error
+	Get(ctx context.Context, id string) (models.User, error)
+	Add(ctx context.Context, id string, name string, email string, accessToken string, refreshToken string) (models.User, error)
+	UpdateTokens(ctx context.Context, id string, accessToken string, refreshToken string) (models.User, error)
+	Remove(ctx context.Context, userID string) error
 }
 
 // OrganizationRepository defines the interface for an Organization storage access class
@@ -34,8 +36,8 @@ type FileRepository interface {
 
 // MappingRepository defines the interface for a Mapping storage access class
 type MappingRepository interface {
-	List(userID string, query models.MappingQuery) ([]models.Mapping, error)
-	Add(userID string, mapping models.Mapping) (models.Mapping, error)
-	Update(userID string, mappingID string, mapping models.Mapping) (models.Mapping, error)
-	Delete(userID string, mappingID string) error
+	List(ctx context.Context, userID string, query models.MappingQuery) ([]models.Mapping, error)
+	Add(ctx context.Context, userID string, serverID string, ref string, path string, created time.Time) (models.Mapping, error)
+	Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error)
+	Remove(ctx context.Context, userID string, mappingID string) error
 }

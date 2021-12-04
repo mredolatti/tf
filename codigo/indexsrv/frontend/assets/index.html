@@ -1,76 +1,122 @@
+<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <meta name="google-signin-client_id" content="814369198327-87scglsh39f1880okndq4vpe3b3e83lf.apps.googleusercontent.com">
-        <link rel="stylesheet"
-              href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" 
-              integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
-              crossorigin="anonymous">
-        <title>index-server</title>
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-            <a class="navbar-brand" href="#">Index-Server</a>
-            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault"
-                    aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+  <head>
+    <title>Tree View</title>
+    <script src="https://unpkg.com/vue"></script>
+    <link rel="stylesheet" type="text/css" href="/style.css" />
 
-            <div class="collapse navbar-collapse" id="navbarsExampleDefault">
-                <ul class="navbar-nav mr-auto">
-                    <li class="nav-item active">
-                        <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Linked accounts</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link disabled" href="#">Admin</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="http://example.com" id="dropdown01" data-toggle="dropdown"
-                           aria-haspopup="true" aria-expanded="false">
-                            Account
-                        </a>
-                        <div class="dropdown-menu" aria-labelledby="dropdown01">
-                            <a class="dropdown-item" href="#">Profile settings</a>
-                            <a class="dropdown-item" href="#">Log out</a>
-                        </div>
-                    </li>
-                </ul>
-                <form class="form-inline my-2 my-lg-0">
-                    <input class="form-control mr-sm-2" type="text" placeholder="Search" aria-label="Search">
-                    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
-                </form>
-            </div>
-        </nav>
+    <!-- item template -->
+    <script type="text/x-template" id="item-template">
+      <li>
+        <div
+          :class="{bold: isFolder}"
+          @click="toggle"
+          @dblclick="makeFolder">
+          {{ item.name }}
+          <span v-if="isFolder">[{{ isOpen ? '-' : '+' }}]</span>
+        </div>
+        <ul v-show="isOpen" v-if="isFolder">
+          <tree-item
+            class="item"
+            v-for="(child, index) in item.children"
+            :key="index"
+            :item="child"
+            @make-folder="$emit('make-folder', $event)"
+            @add-item="$emit('add-item', $event)"
+          ></tree-item>
+          <li class="add" @click="$emit('add-item', item)">+</li>
+        </ul>
+      </li>
+    </script>
+  </head>
+  <body>
+    <p>(You can double click on an item to turn it into a folder.)</p>
 
-        <main role="main" class="container">
-            <div class="starter-template">
-            </div>
-        </main>
-        <br><br><br>
-        <div class="g-signin2" data-onsuccess="onSignIn"></div>
-        <p class="lead">TODO: file list</p>
+    <!-- the demo root element -->
+    <ul id="demo">
+      <tree-item
+        class="item"
+        :item="treeData"
+        @make-folder="makeFolder"
+        @add-item="addItem"
+      ></tree-item>
+    </ul>
 
-        <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" 
-                integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" 
-                crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" 
-                integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" 
-                crossorigin="anonymous"></script>
-        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" 
-                integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" 
-                crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/vue@next"></script>
-        <script src="https://apis.google.com/js/platform.js" async defer></script>
-        <script>
-            function onSignIn(googleUser) {
-                const googleJWT = googleUser.getAuthResponse().id_token;
-                console.log("token: ", googleJWT);
-                // TODO: Llamar al backend para hacer autenticacion
+    <script>
+      // demo data
+      var treeData = {
+        name: "My Tree",
+        children: [
+          { name: "hello" },
+          { name: "wat" },
+          {
+            name: "child folder",
+            children: [
+              {
+                name: "child folder",
+                children: [{ name: "hello" }, { name: "wat" }]
+              },
+              { name: "hello" },
+              { name: "wat" },
+              {
+                name: "child folder",
+                children: [{ name: "hello" }, { name: "wat" }]
+              }
+            ]
+          }
+        ]
+      };
+
+      // define the tree-item component
+      Vue.component("tree-item", {
+        template: "#item-template",
+        props: {
+          item: Object
+        },
+        data: function() {
+          return {
+            isOpen: false
+          };
+        },
+        computed: {
+          isFolder: function() {
+            return this.item.children && this.item.children.length;
+          }
+        },
+        methods: {
+          toggle: function() {
+            if (this.isFolder) {
+              this.isOpen = !this.isOpen;
             }
-        </script>
-    </body>
+          },
+          makeFolder: function() {
+            if (!this.isFolder) {
+              this.$emit("make-folder", this.item);
+              this.isOpen = true;
+            }
+          }
+        }
+      });
+
+      // boot up the demo
+      var demo = new Vue({
+        el: "#demo",
+        data: {
+          treeData: treeData
+        },
+        methods: {
+          makeFolder: function(item) {
+            Vue.set(item, "children", []);
+            this.addItem(item);
+          },
+          addItem: function(item) {
+            item.children.push({
+              name: "new stuff"
+            });
+          }
+        }
+      });
+    </script>
+  </body>
 </html>
+

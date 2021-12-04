@@ -163,7 +163,7 @@ func TestIntegrationUsers(t *testing.T) {
 	// Cleanup
 	defer db.Query("DELETE FROM users WHERE name = 'user_1'")
 
-	added, err := repo.Add(context.Background(), "some_id", "user1")
+	added, err := repo.Add(context.Background(), "some_id", "user1", "some@pepe.com", "qwerty", "asdfg")
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}
@@ -177,6 +177,19 @@ func TestIntegrationUsers(t *testing.T) {
 	}
 	if fetched.Name() != "user1" {
 		t.Error("wrong name. Got: ", fetched.Name())
+	}
+
+	if fetched.Email() != "some@pepe.com" || fetched.AccessToken() != "qwerty" || fetched.RefreshToken() != "asdfg" {
+		t.Error("wrong mail or tokens. Got: ", fetched)
+	}
+
+	updated, err := repo.UpdateTokens(context.Background(), fetched.ID(), "ytrewq", "gfdsa")
+	if err != nil {
+		t.Error("expected no error. Got: ", err)
+	}
+
+	if updated.AccessToken() != "ytrewq" || updated.RefreshToken() != "gfdsa" {
+		t.Error("wrong tokens. Got: ", updated)
 	}
 
 	list, err := repo.List(context.Background())

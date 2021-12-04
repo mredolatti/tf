@@ -8,6 +8,9 @@ import (
 type User interface {
 	ID() string
 	Name() string
+	Email() string
+	AccessToken() string
+	RefreshToken() string
 }
 
 // Organization defines the institute model

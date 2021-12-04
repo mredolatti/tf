@@ -13,16 +13,20 @@ import (
 )
 
 const (
-	userListQuery = "SELECT * FROM users"
-	userGetQuery  = "SELECT * FROM users WHERE id = $1"
-	userAddQuery  = "INSERT INTO users(id, name) VALUES ($1, $2) RETURNING *"
-	userDelQuery  = "DELETE FROM users WHERE id = $1"
+	userListQuery         = "SELECT * FROM users"
+	userGetQuery          = "SELECT * FROM users WHERE id = $1"
+	userAddQuery          = "INSERT INTO users(id, name,email,access_token,refresh_token) VALUES ($1, $2, $3, $4, $5) RETURNING *"
+	userUpdateTokensQuery = "UPDATE users SET access_token = $2, refresh_token = $3 WHERE id = $1 RETURNING *"
+	userDelQuery          = "DELETE FROM users WHERE id = $1"
 )
 
 // User is a postgres-compatible struct implementing models.User interface
 type User struct {
-	IDField   string `db:"id"`
-	NameField string `db:"name"`
+	IDField           string `db:"id"`
+	NameField         string `db:"name"`
+	EmailField        string `db:"email"`
+	AccessTokenField  string `db:"access_token"`
+	RefreshTokenField string `db:"refresh_token"`
 }
 
 // ID returns the id of the user
@@ -33,6 +37,21 @@ func (f *User) ID() string {
 // Name returns the name of the user
 func (f *User) Name() string {
 	return f.NameField
+}
+
+// Email returns the email of the user
+func (f *User) Email() string {
+	return f.EmailField
+}
+
+// AccessToken returns the last access token of the user
+func (f *User) AccessToken() string {
+	return f.AccessTokenField
+}
+
+// RefreshToken returns the refresh token for the user
+func (f *User) RefreshToken() string {
+	return f.RefreshTokenField
 }
 
 // UserRepository is a mapping to a table in postgres that allows enables operations on users
@@ -79,9 +98,9 @@ func (r *UserRepository) Get(ctx context.Context, id string) (models.User, error
 }
 
 // Add adds a new user to the system
-func (r *UserRepository) Add(ctx context.Context, id string, name string) (models.User, error) {
+func (r *UserRepository) Add(ctx context.Context, id string, name string, email string, accessToken string, refreshToken string) (models.User, error) {
 	var user User
-	err := r.db.QueryRowxContext(ctx, userAddQuery, id, name).StructScan(&user)
+	err := r.db.QueryRowxContext(ctx, userAddQuery, id, name, email, accessToken, refreshToken).StructScan(&user)
 	if err != nil {
 		return nil, fmt.Errorf("error executing users::add in postgres: %w", err)
 	}
@@ -96,3 +115,15 @@ func (r *UserRepository) Remove(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// UpdateTokens updates the access & refresh tokens for a specific user
+func (r *UserRepository) UpdateTokens(ctx context.Context, id string, accessToken string, refreshToken string) (models.User, error) {
+	var user User
+	err := r.db.QueryRowxContext(ctx, userUpdateTokensQuery, id, accessToken, refreshToken).StructScan(&user)
+	if err != nil {
+		return nil, fmt.Errorf("error executing users::update_tokens in postgres: %w", err)
+	}
+	return &user, nil
+}
+
+var _ repository.UserRepository = (*UserRepository)(nil)

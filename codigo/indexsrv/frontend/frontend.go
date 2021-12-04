@@ -15,3 +15,12 @@ func Index() []byte {
 	}
 	return data
 }
+
+// Login returns the contents (in bytes) of login.html
+func Login() []byte {
+	data, err := assets.ReadFile("assets/login.html")
+	if err != nil {
+		panic("Error fetching static asset login.html: " + err.Error())
+	}
+	return data
+}

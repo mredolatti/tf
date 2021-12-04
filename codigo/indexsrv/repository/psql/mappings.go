@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
@@ -20,13 +21,18 @@ const (
 	mappingDelQuery        = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
 )
 
+var normalizer *strings.Replacer = strings.NewReplacer(
+	".", "/",
+	"__DOT__", ".",
+)
+
 // Mapping is a postgres-compatible struct implementing models.Mapping interface
 type Mapping struct {
-	UserIDField   string
-	ServerIDField string
-	PathField     string
-	RefField      string
-	UpdatedField  time.Time
+	UserIDField   string    `db:"user_id"`
+	ServerIDField string    `db:"server_id"`
+	PathField     string    `db:"path"`
+	RefField      string    `db:"ref"`
+	UpdatedField  time.Time `db:"updated"`
 }
 
 // UserID returns the if of the user who has an mapping in a file server
@@ -46,7 +52,7 @@ func (m *Mapping) Ref() string {
 
 // Path returns the virtual path as seen by the user
 func (m *Mapping) Path() string {
-	return m.PathField
+	return normalizer.Replace(m.PathField)
 }
 
 // Updated returns the time when this mapping was last updated
@@ -68,7 +74,8 @@ func NewMappingRepository(db *sqlx.DB) (*MappingRepository, error) {
 }
 
 // List returns a list of all mappings for a specific user
-func (r *MappingRepository) List(ctx context.Context, userID string) ([]models.Mapping, error) {
+func (r *MappingRepository) List(ctx context.Context, userID string, query models.MappingQuery) ([]models.Mapping, error) {
+	// TODO: User or stop accepting query
 	var mappings []Mapping
 	err := r.db.SelectContext(ctx, &mappings, mappingListQuery, userID)
 	if err != nil {
@@ -107,6 +114,12 @@ func (r *MappingRepository) Add(ctx context.Context, userID string, serverID str
 	return &mapping, nil
 }
 
+// Update TODO!
+func (r *MappingRepository) Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error) {
+	// TODO!
+	return nil, nil
+}
+
 // Remove deletes a file server that matches the supplied id
 func (r *MappingRepository) Remove(ctx context.Context, userID string, path string) error {
 	_, err := r.db.ExecContext(ctx, mappingDelQuery, userID, path)
@@ -115,3 +128,5 @@ func (r *MappingRepository) Remove(ctx context.Context, userID string, path stri
 	}
 	return nil
 }
+
+var _ repository.MappingRepository = (*MappingRepository)(nil)
