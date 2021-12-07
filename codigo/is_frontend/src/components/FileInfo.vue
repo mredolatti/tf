@@ -1,37 +1,41 @@
 <template>
   <table class="table">
     <tr>
+      <th>Ruta completa</th>
+      <td>{{ selectedMapping.isData.path }}</td>
+    </tr>
+    <tr>
       <th>Archivo remoto</th>
-      <td>{{ file.serverName }}</td>
+      <td>{{ selectedMapping.fsData.serverName }}</td>
     </tr>
     <tr>
       <th>Paciente</th>
-      <td>{{ file.patient }}</td>
+      <td>{{ selectedMapping.fsData.patient }}</td>
     </tr>
     <tr>
       <th>Ultima actualizacion</th>
-      <td>{{ file.updatedAt }}</td>
+      <td>{{ selectedMapping.fsData.updatedAt }}</td>
     </tr>
     <tr>
-      <th>Descarga</th>
-      <td><a href="#">Descargar archivo</a></td>
+      <th>Operaciones</th>
+      <td><button type="button" class="btn btn-outline-primary">Descargar</button></td>
+      <td><button type="button" class="btn btn-outline-primary">Mover</button></td>
     </tr>
   </table>
-  <!--
-  <ul class="list-group list-group-flush">
-    <li class="list-group-item"><p><b>Archivo remoto</b> {{ file.serverName }}</p></li>
-    <li class="list-group-item"><p><b>Paciente</b> {{ file.patient }} </p></li>
-    <li class="list-group-item"><p><b>Ultima actualizacion</b> {{ file.updatedAt }}</p></li>
-    <li class="list-group-item"><p><b>Descarga</b> <a href="#">Descargar archivo</a></p></li>
-  </ul>
-  -->
 </template>
 
 <script>
+
+import { mapGetters } from 'vuex';
+
 export default {
   name: 'FileInfo',
-  props: {
-    file: Object
-  },
+  computed: {
+    ...mapGetters('mappings', ['selectedMapping']),
+  }
 }
 </script>
+
+<style scoped>
+
+</style>

@@ -74,24 +74,15 @@ type nodes []node
 type node struct {
 	ID       string `json:"id"`
 	Text     string `json:"text"`
-	Type     string `json:"type"`
+	Path     string `json:"path"`
 	Children nodes  `json:"children"`
 }
 
 func (n *nodes) lookupChild(text string) *node {
-
-	/*
-		for idx := range *n {
-			if (*n)[idx].Text == text {
-				return &(*n)[idx]
-			}
-		}
-	*/
-
+	// busq binaria
 	i, j := 0, len(*n)
 	for i < j {
-		currIndex := int(uint(i+j) >> 1) // avoid overflow when computing h
-
+		currIndex := int(uint(i+j) >> 1)
 		curr := (*n)[currIndex].Text
 		if curr == text {
 			return &(*n)[currIndex]
@@ -104,11 +95,11 @@ func (n *nodes) lookupChild(text string) *node {
 	return nil
 }
 
-func (n *nodes) getOrAdd(id string, text string, t string) *node {
+func (n *nodes) getOrAdd(id string, text string, path string) *node {
 	if found := n.lookupChild(text); found != nil {
 		return found
 	}
-	(*n) = append(*n, node{ID: id, Text: text, Type: t})
+	(*n) = append(*n, node{ID: id, Text: text, Path: path})
 	return &(*n)[len(*n)-1]
 }
 
@@ -126,15 +117,14 @@ func formatMappings(mappings []models.Mapping) []node {
 			continue
 		}
 
-		curr := n.getOrAdd(strconv.Itoa(i), pathComponents[0], "folder")
+		curr := n.getOrAdd(strconv.Itoa(i), pathComponents[0], "")
 		for _, pathComponent := range pathComponents[1 : len(pathComponents)-1] {
 			i++
-			curr = curr.Children.getOrAdd(strconv.Itoa(i), pathComponent, "folder")
+			curr = curr.Children.getOrAdd(strconv.Itoa(i), pathComponent, "")
 		}
 		i++
-		curr.Children.getOrAdd(strconv.Itoa(i), pathComponents[len(pathComponents)-1], "file")
+		curr.Children.getOrAdd(strconv.Itoa(i), pathComponents[len(pathComponents)-1], mapping.Path())
 
 	}
-
 	return n
 }

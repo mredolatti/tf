@@ -1,7 +1,7 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <a class="navbar-brand" href="/">SIDM</a>
+      <router-link class="navbar-brand" to="/">SIDM</router-link>
       <button
         class="navbar-toggler"
         type="button"
@@ -15,26 +15,27 @@
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="/">Principal</a>
+            <router-link class="nav-link active" aria-current="page" to="/">Principal</router-link>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/orgLink">Vinculaciones</a>
+            <router-link class="nav-link" to="/orgLink">Vinculaciones</router-link>
           </li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <router-link class="nav-link dropdown-toggle" to="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               Usuario
-            </a>
+            </router-link>
             <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-              <li><a class="dropdown-item" href="#">Perfil</a></li>
-              <li><a class="dropdown-item" href="#">Cerrar sesion</a></li>
+              <li><router-link class="dropdown-item" to="#">Perfil</router-link></li>
+              <li><router-link class="dropdown-item" to="#">Cerrar sesion</router-link></li>
               <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="#">Something else here</a></li>
+              <li><router-link class="dropdown-item" to="#">Something else here</router-link></li>
             </ul>
           </li>
           <li class="nav-item">
-            <a class="nav-link disabled">TODO</a>
+            <router-link class="nav-link disabled" to="#">TODO</router-link>
           </li>
         </ul>
+        <button class="btn btn-outline-primary">Login</button>
       </div>
     </div>
   </nav>

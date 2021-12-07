@@ -9,13 +9,15 @@
         class="item"
         v-for="(child, index) in root.children" :key="index"
         :root="child"
-        @display-file-info="propagateDisplayInfo"
       />
     </ul>
   </li>
 </template>
 
 <script>
+
+import { mapActions } from 'vuex';
+
 export default {
   name: 'Tree',
   data() {
@@ -32,6 +34,7 @@ export default {
     }
   },
   methods: {
+    ...mapActions('mappings', ['updateSelected']),
     toggle() {
       if (this.isFolder) {
         this.isOpen = !this.isOpen;
@@ -41,12 +44,9 @@ export default {
       if (this.isFolder) {
         this.toggle();
       } else {
-        this.$emit('display-file-info', node);
+        this.updateSelected(node);
       }
     },
-    propagateDisplayInfo(data) {
-      this.$emit("display-file-info", data);
-    }
   }
 }
 </script>
