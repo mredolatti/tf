@@ -55,7 +55,7 @@ fileserver: sub
 		-key fileserver/private/fs_server.key \
 		-new \
 		-sha256 \
-		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=FileServer/emailAddress=some@localhost' \
+		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=file-server/emailAddress=some@localhost' \
 		-out fileserver/csr/fs_server.csr
 	# Firmar certificado con el CA intermedio
 	openssl ca -config sub/sub-ca.conf \
@@ -76,7 +76,7 @@ indexserver: sub
 		-key indexserver/private/idx_server.key \
 		-new \
 		-sha256 \
-		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=IndexServer/emailAddress=some@localhost' \
+		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=index-server/emailAddress=some@localhost' \
 		-out indexserver/csr/idx_server.csr
 	# Firmar certificado con el CA intermedio
 	openssl ca -config sub/sub-ca.conf \
