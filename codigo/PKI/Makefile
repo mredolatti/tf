@@ -66,6 +66,8 @@ fileserver: sub
 		-passin env:SUB_CA_PASSPHRASE \
 		-in fileserver/csr/fs_server.csr \
 		-out fileserver/certs/fs_server.crt
+	# Armar certificate chain
+	cat fileserver/certs/fs_server.crt sub/certs/sub-ca.crt > fileserver/certs/chain.pem
 
 indexserver: sub
 	# Generar clave privada (sin passphrase)
@@ -87,6 +89,8 @@ indexserver: sub
 		-passin env:SUB_CA_PASSPHRASE \
 		-in indexserver/csr/idx_server.csr \
 		-out indexserver/certs/idx_server.crt
+	# Armar certificate chain
+	cat indexserver/certs/idx_server.crt sub/certs/sub-ca.crt > indexserver/certs/chain.pem
 
 clean:
 	rm -f root/{index,index.old,serial,serial.old,index.attr,index.attr.old}
@@ -96,4 +100,4 @@ clean:
 	rm -f fileserver/{private,certs,newcerts,crl,csr}/*
 	rm -f indexserver/{private,certs,newcerts,crl,csr}/*
 
-all: root sub fileserver indexserver
+all: clean root sub fileserver indexserver
