@@ -2,7 +2,9 @@ package client
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/mredolatti/tf/codigo/common/log"
@@ -18,6 +20,7 @@ type Options struct {
 	Port                     int
 	ServerCertificateChainFN string
 	ServerPrivateKeyFN       string
+	RootCAFn                 string
 	Logger                   log.Interface
 }
 
@@ -39,6 +42,13 @@ func New(options *Options) (*API, error) {
 	login := login.New(options.Logger)
 	login.Register(router)
 
+	certBytes, err := ioutil.ReadFile(options.RootCAFn)
+	if err != nil {
+		panic(err.Error())
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(certBytes)
+
 	return &API{
 		logger:                   options.Logger,
 		serverCertificateChainFN: options.ServerCertificateChainFN,
@@ -49,6 +59,8 @@ func New(options *Options) (*API, error) {
 			TLSConfig: &tls.Config{
 				ServerName: options.Host,
 				MinVersion: tls.VersionTLS13,
+				ClientCAs:  certPool,
+				ClientAuth: tls.RequireAndVerifyClientCert,
 			},
 		},
 	}, nil

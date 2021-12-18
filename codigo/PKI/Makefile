@@ -1,6 +1,9 @@
 .PHONY: root sub indexserver fileserver
 
-root:
+folders:
+	@mkdir -p {root,sub,fileserver,indexserver,client}/{private,csr,crl,certs,newcerts}
+
+root: folders
 	touch root/index
 	openssl rand -hex 16 > root/serial
 	# generar clave privada encriptada con passphrase (leida desde env)
@@ -20,7 +23,7 @@ root:
 		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=RootCA/emailAddress=some@localhost' \
 		-out root/certs/ca.crt
 
-sub: root
+sub: folders root
 	touch sub/index
 	openssl rand -hex 16 > sub/serial
 	# generar clave privada encriptada con passphrase (leida desde env)
@@ -46,7 +49,7 @@ sub: root
 		-in sub/csr/sub-ca.csr \
 		-out sub/certs/sub-ca.crt
 
-fileserver: sub
+fileserver: folders sub
 	# Generar clave privada (sin passphrase)
 	openssl genrsa \
 		-out fileserver/private/fs_server.key 2048
@@ -69,7 +72,7 @@ fileserver: sub
 	# Armar certificate chain
 	cat fileserver/certs/fs_server.crt sub/certs/sub-ca.crt > fileserver/certs/chain.pem
 
-indexserver: sub
+indexserver: folders sub
 	# Generar clave privada (sin passphrase)
 	openssl genrsa \
 		-out indexserver/private/idx_server.key 2048
@@ -92,6 +95,25 @@ indexserver: sub
 	# Armar certificate chain
 	cat indexserver/certs/idx_server.crt sub/certs/sub-ca.crt > indexserver/certs/chain.pem
 
+client: folders root
+	# Generar claves y certificado p/cliente
+	openssl genrsa \
+		-out client/private/client.key 2048
+	openssl req \
+		-key client/private/client.key \
+		-new \
+		-sha256 \
+		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=martin.redolatti/emailAddress=martinredolatti@gmail.com' \
+		-out client/csr/client.csr
+	openssl x509 -req \
+		-in client/csr/client.csr \
+		-out client/certs/client.crt \
+		-CA root/certs/ca.crt \
+		-CAkey root/private/ca.key \
+		-passin env:ROOT_CA_PASSPHRASE \
+		-set_serial 01 -days 365
+
+
 clean:
 	rm -f root/{index,index.old,serial,serial.old,index.attr,index.attr.old}
 	rm -f root/{private,certs,newcerts,crl,csr}/*
@@ -100,4 +122,4 @@ clean:
 	rm -f fileserver/{private,certs,newcerts,crl,csr}/*
 	rm -f indexserver/{private,certs,newcerts,crl,csr}/*
 
-all: clean root sub fileserver indexserver
+all: clean root sub fileserver indexserver client

@@ -21,12 +21,12 @@ func main() {
 	}
 
 	api, err := client.New(&client.Options{
-		Logger:              logger,
-		Host:                "file-server",
-		Port:                9877,
-		ServerCertificateFN: "/home/martin/Projects/tf/codigo/PKI/fileserver/certs/chain.pem",
-		ServerPrivateKeyFN:  "/home/martin/Projects/tf/codigo/PKI/fileserver/private/fs_server.key",
-		SubCACertificateFN:  "/home/martin/Projects/tf/codigo/PKI/sub/certs/sub-ca.crt",
+		Logger:                   logger,
+		Host:                     "file-server",
+		Port:                     9877,
+		ServerCertificateChainFN: "/home/martin/projects/tf/codigo/PKI/fileserver/certs/chain.pem",
+		ServerPrivateKeyFN:       "/home/martin/projects/tf/codigo/PKI/fileserver/private/fs_server.key",
+		RootCAFn:                 "/home/martin/projects/tf/codigo/PKI/root/certs/ca.crt",
 	})
 	if err != nil {
 		panic(err.Error())

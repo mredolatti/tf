@@ -1,0 +1,2 @@
+export ROOT_CA_PASSPHRASE="someverylargestring1234"
+export SUB_CA_PASSPHRASE="someotherverylargestring5678"
