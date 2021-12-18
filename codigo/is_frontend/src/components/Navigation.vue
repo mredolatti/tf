@@ -15,27 +15,27 @@
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <router-link class="nav-link active" aria-current="page" to="/">Principal</router-link>
+            <router-link class="nav-link active" aria-current="page" to="/main">Principal</router-link>
           </li>
           <li class="nav-item">
             <router-link class="nav-link" to="/orgLink">Vinculaciones</router-link>
           </li>
           <li class="nav-item dropdown">
-            <router-link class="nav-link dropdown-toggle" to="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Usuario
-            </router-link>
-            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-              <li><router-link class="dropdown-item" to="#">Perfil</router-link></li>
-              <li><router-link class="dropdown-item" to="#">Cerrar sesion</router-link></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><router-link class="dropdown-item" to="#">Something else here</router-link></li>
-            </ul>
           </li>
           <li class="nav-item">
             <router-link class="nav-link disabled" to="#">TODO</router-link>
           </li>
         </ul>
-        <button class="btn btn-outline-primary">Login</button>
+        <ul class="navbar-nav mb-2 mb-lg-0">
+          <li v-if="!logged" class="nav-item"><router-link class="btn btn-outline-primary" to="/login">Iniciar sesion</router-link></li>
+          <router-link v-if="logged" class="nav-link dropdown-toggle" to="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ userName }}
+          </router-link>
+          <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+            <li><router-link class="dropdown-item" to="#">Perfil</router-link></li>
+            <li><router-link class="dropdown-item" to="#">Cerrar sesion</router-link></li>
+          </ul>
+        </ul>
       </div>
     </div>
   </nav>
@@ -44,5 +44,11 @@
 <script>
 export default  {
   name: 'Navigation',
+  data() {
+    return {
+      logged: false,
+      userName: '',
+    };
+  },
 }
 </script>
