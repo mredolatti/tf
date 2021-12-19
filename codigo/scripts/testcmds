@@ -1,0 +1,22 @@
+# file server auth call with mutual tls / client certificate authentication
+curl \
+    -XGET \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    'https://file-server:9877/authorize'
+
+# get oauth2 auth code
+curl \
+    -XGET \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    'https://file-server:9877/authorize?client_id=000000&response_type=code' -v
+
+curl \
+    -XGET \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    'https://file-server:9877/token?grant_type=authorization_code&client_id=000000&client_secret=999999&scope=read'

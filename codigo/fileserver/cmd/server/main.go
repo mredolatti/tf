@@ -24,9 +24,9 @@ func main() {
 		Logger:                   logger,
 		Host:                     "file-server",
 		Port:                     9877,
-		ServerCertificateChainFN: "/home/martin/projects/tf/codigo/PKI/fileserver/certs/chain.pem",
-		ServerPrivateKeyFN:       "/home/martin/projects/tf/codigo/PKI/fileserver/private/fs_server.key",
-		RootCAFn:                 "/home/martin/projects/tf/codigo/PKI/root/certs/ca.crt",
+		ServerCertificateChainFN: "./PKI/fileserver/certs/chain.pem",
+		ServerPrivateKeyFN:       "./PKI/fileserver/private/fs_server.key",
+		RootCAFn:                 "./PKI/root/certs/ca.crt",
 	})
 	if err != nil {
 		panic(err.Error())
