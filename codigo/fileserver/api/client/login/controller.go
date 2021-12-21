@@ -100,6 +100,6 @@ func (c *Controller) authorize(ctx *gin.Context) {
 func (c *Controller) token(ctx *gin.Context) {
 	gt, tkr, err := c.oauth2Server.ValidationTokenRequest(ctx.Request)
 	fmt.Println(gt, err)
-	fmt.Println("code:", tkr.Code)
+	fmt.Println("code:", tkr)
 	c.oauth2Server.HandleTokenRequest(ctx.Writer, ctx.Request)
 }

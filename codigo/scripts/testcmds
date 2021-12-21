@@ -1,22 +1,19 @@
-# file server auth call with mutual tls / client certificate authentication
-curl \
+# get oauth2 authorization code
+AUTH_CODE=$(curl -v \
     -XGET \
     --cacert PKI/root/certs/ca.crt \
     --cert PKI/client/certs/client.crt \
     --key PKI/client/private/client.key \
-    'https://file-server:9877/authorize'
+    'https://file-server:9877/authorize?client_id=000000&response_type=code' 2>&1 | grep "< location:" | cut -d'=' -f2)
 
-# get oauth2 auth code
-curl \
+# exchange authorization code for access & refresh tokens
+RESPONSE=$(curl \
     -XGET \
     --cacert PKI/root/certs/ca.crt \
     --cert PKI/client/certs/client.crt \
     --key PKI/client/private/client.key \
-    'https://file-server:9877/authorize?client_id=000000&response_type=code' -v
+    "https://file-server:9877/token?grant_type=authorization_code&client_id=000000&client_secret=999999&scope=read&code=${AUTH_CODE//[$'\t\r\n ']}&redirect_uri=http://localhost")
 
-curl \
-    -XGET \
-    --cacert PKI/root/certs/ca.crt \
-    --cert PKI/client/certs/client.crt \
-    --key PKI/client/private/client.key \
-    'https://file-server:9877/token?grant_type=authorization_code&client_id=000000&client_secret=999999&scope=read'
+
+AUTH_TOKEN=$(echo $RESPONSE | jq '.access_token')
+REFRESH_TOKEN=$(echo $RESPONSE | jq '.refresh_token')
