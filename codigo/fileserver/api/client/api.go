@@ -7,9 +7,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/fileserver/api/client/login"
 	"github.com/mredolatti/tf/codigo/fileserver/api/client/middleware"
+	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
+
+	"github.com/mredolatti/tf/codigo/common/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,6 +23,7 @@ type Options struct {
 	ServerCertificateChainFN string
 	ServerPrivateKeyFN       string
 	RootCAFn                 string
+	OAuht2Wrapper            oauth2.Interface
 	Logger                   log.Interface
 }
 
@@ -39,7 +42,7 @@ func New(options *Options) (*API, error) {
 	router.Use(gin.Recovery())
 	router.Use(middleware.NewPkAuth(options.Logger).Handle)
 
-	login := login.New(options.Logger)
+	login := login.New(options.Logger, options.OAuht2Wrapper)
 	login.Register(router)
 
 	certBytes, err := ioutil.ReadFile(options.RootCAFn)

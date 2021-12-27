@@ -6,6 +6,7 @@ import (
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/common/runtime"
 	"github.com/mredolatti/tf/codigo/fileserver/api/client"
+	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
 )
 
 func main() {
@@ -20,8 +21,14 @@ func main() {
 		panic(err.Error())
 	}
 
+	oauth2W, err := oauth2.New(logger, "user")
+	if err != nil {
+		panic(err.Error())
+	}
+
 	api, err := client.New(&client.Options{
 		Logger:                   logger,
+		OAuht2Wrapper:            oauth2W,
 		Host:                     "file-server",
 		Port:                     9877,
 		ServerCertificateChainFN: "./PKI/fileserver/certs/chain.pem",
