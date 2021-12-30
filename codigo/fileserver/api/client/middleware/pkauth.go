@@ -33,7 +33,7 @@ func (a *PKAuth) Handle(ctx *gin.Context) {
 		ctx.AbortWithStatus(401)
 	}
 
-	a.logger.Debug("found valid certificate for: ", clientCertficate.Subject.CommonName)
+	a.logger.Debug("found valid certificate for: %s", clientCertficate.Subject.CommonName)
 	ctx.Set("user", clientCertficate.Subject.CommonName)
 
 	ctx.Next()

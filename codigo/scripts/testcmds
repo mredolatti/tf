@@ -17,3 +17,48 @@ RESPONSE=$(curl \
 
 AUTH_TOKEN=$(echo $RESPONSE | jq '.access_token')
 REFRESH_TOKEN=$(echo $RESPONSE | jq '.refresh_token')
+
+
+# get a list of files
+FILE_LIST_RESP=$(curl \
+    -XGET \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    'https://file-server:9877/files')
+
+# create a file
+CREATED=$(curl \
+    -XPOST \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    -H'Content-Type: application/json' \
+    -d'{"name": "file1.txt", "notes": "something", "patientId": "abc", "type": "text"}' \
+    'https://file-server:9877/files')
+
+# get a single file
+FILE_META=$(curl \
+    -XGET \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    'https://file-server:9877/files/1')
+
+# update a file
+UPDATED=$(curl \
+    -XPUT \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    -H'Content-Type: application/json' \
+    -d'{"name": "file2.txt", "notes": "something", "patientId": "abc", "type": "text"}' \
+    'https://file-server:9877/files/2')
+
+# delete a file entry
+curl \
+    -XDELETE \
+    --cacert PKI/root/certs/ca.crt \
+    --cert PKI/client/certs/client.crt \
+    --key PKI/client/private/client.key \
+    'https://file-server:9877/files/2'

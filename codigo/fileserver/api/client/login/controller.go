@@ -8,12 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ctxKey int
-
-const (
-	ctxUser ctxKey = iota + 100
-)
-
 // Controller implements authorization/token fetching endpoints for offline oauth2 login
 type Controller struct {
 	logger        log.Interface

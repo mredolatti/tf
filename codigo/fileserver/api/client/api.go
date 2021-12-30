@@ -7,9 +7,12 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/mredolatti/tf/codigo/fileserver/api/client/files"
 	"github.com/mredolatti/tf/codigo/fileserver/api/client/login"
 	"github.com/mredolatti/tf/codigo/fileserver/api/client/middleware"
 	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
+	"github.com/mredolatti/tf/codigo/fileserver/authz"
+	"github.com/mredolatti/tf/codigo/fileserver/storage"
 
 	"github.com/mredolatti/tf/codigo/common/log"
 
@@ -24,6 +27,9 @@ type Options struct {
 	ServerPrivateKeyFN       string
 	RootCAFn                 string
 	OAuht2Wrapper            oauth2.Interface
+	Authorization            authz.Authorization
+	FileStorage              storage.Files
+	FileMetaStorage          storage.FilesMetadata
 	Logger                   log.Interface
 }
 
@@ -44,6 +50,9 @@ func New(options *Options) (*API, error) {
 
 	login := login.New(options.Logger, options.OAuht2Wrapper)
 	login.Register(router)
+
+	files := files.New(options.Logger, options.OAuht2Wrapper, options.Authorization, options.FileStorage, options.FileMetaStorage)
+	files.Register(router)
 
 	certBytes, err := ioutil.ReadFile(options.RootCAFn)
 	if err != nil {
