@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
 	"github.com/mredolatti/tf/codigo/fileserver/storage"
 
@@ -17,7 +16,6 @@ import (
 // Controller implements file-interaction endpoints
 type Controller struct {
 	logger        log.Interface
-	oauth2Wrapper oauth2.Interface
 	authorization authz.Authorization
 	fileMetas     storage.FilesMetadata
 	files         storage.Files
@@ -25,14 +23,12 @@ type Controller struct {
 
 // New constructs a new controller
 func New(logger log.Interface,
-	oauth2Wrapper oauth2.Interface,
 	authorization authz.Authorization,
 	files storage.Files,
 	metas storage.FilesMetadata,
 ) *Controller {
 	return &Controller{
 		logger:        logger,
-		oauth2Wrapper: oauth2Wrapper,
 		authorization: authorization,
 		files:         files,
 		fileMetas:     metas,

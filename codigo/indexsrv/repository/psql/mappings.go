@@ -105,13 +105,13 @@ func (r *MappingRepository) ListByPath(ctx context.Context, userID string, path 
 }
 
 // Add adds a mapping
-func (r *MappingRepository) Add(ctx context.Context, userID string, serverID string, ref string, path string, created time.Time) (models.Mapping, error) {
-	var mapping Mapping
-	err := r.db.QueryRowxContext(ctx, mappingAddQuery, userID, serverID, ref, path, created).StructScan(&mapping)
+func (r *MappingRepository) Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error) {
+	var fetched Mapping
+	err := r.db.QueryRowxContext(ctx, mappingAddQuery, userID, mapping.FileServerID(), mapping.Ref(), mapping.Path(), mapping.Updated()).StructScan(&fetched)
 	if err != nil {
 		return nil, fmt.Errorf("error executing users::add in postgres: %w", err)
 	}
-	return &mapping, nil
+	return &fetched, nil
 }
 
 // Update TODO!

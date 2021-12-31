@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 )
@@ -37,7 +36,7 @@ type FileRepository interface {
 // MappingRepository defines the interface for a Mapping storage access class
 type MappingRepository interface {
 	List(ctx context.Context, userID string, query models.MappingQuery) ([]models.Mapping, error)
-	Add(ctx context.Context, userID string, serverID string, ref string, path string, created time.Time) (models.Mapping, error)
+	Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error)
 	Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error)
 	Remove(ctx context.Context, userID string, mappingID string) error
 }

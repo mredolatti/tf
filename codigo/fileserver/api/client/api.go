@@ -51,7 +51,7 @@ func New(options *Options) (*API, error) {
 	login := login.New(options.Logger, options.OAuht2Wrapper)
 	login.Register(router)
 
-	files := files.New(options.Logger, options.OAuht2Wrapper, options.Authorization, options.FileStorage, options.FileMetaStorage)
+	files := files.New(options.Logger, options.Authorization, options.FileStorage, options.FileMetaStorage)
 	files.Register(router)
 
 	certBytes, err := ioutil.ReadFile(options.RootCAFn)

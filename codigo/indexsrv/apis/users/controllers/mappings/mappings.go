@@ -39,7 +39,7 @@ func (c *Controller) list(ctx *gin.Context) {
 		query.Path = refutil.StrRef(path)
 	}
 
-	mappings, err := c.repo.List(userID, query)
+	mappings, err := c.repo.List(ctx.Request.Context(), userID, query)
 	if err != nil {
 		c.logger.Error("error fetching mappings for user %s: %s", userID, err)
 		// TODO: Verificar el error
@@ -63,7 +63,7 @@ func (c *Controller) get(ctx *gin.Context) {
 		return
 	}
 
-	mappings, err := c.repo.List(userID, models.MappingQuery{ID: refutil.StrRef(mappingID)})
+	mappings, err := c.repo.List(ctx.Request.Context(), userID, models.MappingQuery{ID: refutil.StrRef(mappingID)})
 	if err != nil {
 		c.logger.Error("error fetching mappings for user %s: %s", userID, err)
 		// TODO: Verificar el error
@@ -103,7 +103,7 @@ func (c *Controller) create(ctx *gin.Context) {
 		return
 	}
 
-	added, err := c.repo.Add(userID, &dto)
+	added, err := c.repo.Add(ctx.Request.Context(), userID, &dto)
 	if err != nil {
 		c.logger.Error("error adding new mapping for user %s: %s", userID, err)
 		c.logger.Debug("recieved mapping that failed: %+v", dto)
@@ -142,7 +142,7 @@ func (c *Controller) update(ctx *gin.Context) {
 		return
 	}
 
-	added, err := c.repo.Update(userID, mappingID, &dto)
+	added, err := c.repo.Update(ctx.Request.Context(), userID, mappingID, &dto)
 	if err != nil {
 		c.logger.Error("error updting mapping for user %s: %s", userID, err)
 		c.logger.Debug("recieved mapping that failed: %+v", dto)
@@ -166,7 +166,7 @@ func (c *Controller) remove(ctx *gin.Context) {
 		return
 	}
 
-	err := c.repo.Delete(userID, mappingID)
+	err := c.repo.Remove(ctx.Request.Context(), userID, mappingID)
 	if err != nil {
 		c.logger.Error("error deleting mapping for user %s: %s", userID, err)
 		ctx.AbortWithStatus(500)
