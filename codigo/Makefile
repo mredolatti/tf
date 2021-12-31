@@ -3,8 +3,8 @@
 all: test testrace build
 
 clean:
-	rm ./index-server
-	rm ./file-server
+	rm -f ./index-server
+	rm -f ./file-server
 
 build: build_indexserver build_fileserver
 
