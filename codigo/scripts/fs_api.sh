@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 FS_CACERT=${FS_CACERT:-'PKI/root/certs/ca.crt'}
 FS_CERT=${FS_CERT:-'PKI/client/certs/client.crt'}
@@ -15,11 +15,12 @@ function fs_list() {
 
 function fs_get() {
     usage="usage: fs_get -i <file_id>"
+    local OPTIND
     while getopts "i:" options; do
         case ${options} in
             i) local fid=${OPTARG} ;;
-            :) echo ${usage} ;;
-            *) echo ${usage} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
         esac
     done
 
@@ -32,15 +33,16 @@ function fs_get() {
 }
 
 function fs_create() {
-    usage="usage: fs_create -n <name> -s <notes> -p <patient> -t <type>"
-    while getopts "n:s:p:t:" options; do
-        case ${options} in
+    local usage="usage: fs_create -n <name> -s <notes> -p <patient> -t <type>"
+    local OPTIND
+    while getopts "hn:s:p:t:" option; do
+        case ${option} in
             n) local name=${OPTARG} ;;
             s) local notes=${OPTARG} ;;
             p) local patient=${OPTARG} ;;
             t) local typ=${OPTARG} ;;
-            :) echo ${usage} ;;
-            *) echo ${usage} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
         esac
     done
 
@@ -54,5 +56,46 @@ function fs_create() {
         'https://file-server:9877/files'
 }
 
+function fs_update() {
+    local usage="usage: fs_update -i <id> -n <name> -s <notes> -p <patient> -t <type>"
+    local OPTIND
+    while getopts "hi:n:s:p:t:" option; do
+        case ${option} in
+            i) local id=${OPTARG} ;;
+            n) local name=${OPTARG} ;;
+            s) local notes=${OPTARG} ;;
+            p) local patient=${OPTARG} ;;
+            t) local typ=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
 
+    curl \
+        -XPUT \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        -H'Content-Type: application/json' \
+        -d"{\"name\": \"${name}\", \"notes\": \"${notes}\", \"patientId\": \"${patient}\", \"type\": \"${typ}\"}" \
+        "https://file-server:9877/files/${id}"
+}
 
+function fs_del() {
+    usage="usage: fs_del -i <file_id>"
+    local OPTIND
+    while getopts "i:" options; do
+        case ${options} in
+            i) local fid=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+
+    curl \
+        -XDELETE \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        "https://file-server:9877/files/${fid}"
+}
