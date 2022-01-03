@@ -24,6 +24,8 @@ function fs_get() {
         esac
     done
 
+    [ -z ${fid+x} ] && echo ${usage} && return 1
+
     curl \
         -XGET \
         --cacert ${FS_CACERT} \
@@ -45,6 +47,9 @@ function fs_create() {
             *) echo ${usage} && return 1 ;;
         esac
     done
+
+    [ -z "${name+x}" ] || [ -z "${notes+x}" ] || [ -z "${patient+x}" ] || [ -z "${typ+x}" ] \
+        && echo ${usage} && return 1
 
     curl \
         -XPOST \
@@ -71,6 +76,9 @@ function fs_update() {
         esac
     done
 
+    [ -z "${name+x}" || -z "${notes+x}" ||-z "${patient+x}" ||-z "${typ+x}" ] \
+        && echo ${usage} && return 1
+
     curl \
         -XPUT \
         --cacert ${FS_CACERT} \
@@ -92,10 +100,77 @@ function fs_del() {
         esac
     done
 
+    [ -z "${fid+x}" ] && echo ${usage} && return 1
+
     curl \
         -XDELETE \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
         "https://file-server:9877/files/${fid}"
+}
+
+function fs_get_contents() {
+    usage="usage: fs_get_contents -i <file_id>"
+    local OPTIND
+    while getopts "i:" options; do
+        case ${options} in
+            i) local fid=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+
+    [ -z "${fid+x}" ] && echo ${usage} && return 1
+
+    curl \
+        -XGET \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        "https://file-server:9877/files/${fid}/contents"
+}
+
+function fs_update_contents() {
+    usage="usage: fs_update_contents -i <file_id>"
+    local OPTIND
+    while getopts "i:f:" options; do
+        case ${options} in
+            i) local fid=${OPTARG} ;;
+            f) local fname=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+
+    [ -z "${fid+x}" ] || [ -z "${fname+x}" ] && echo ${usage} && return 1
+
+    curl \
+        -XPUT \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        --data-binary "@${fname}" \
+        "https://file-server:9877/files/${fid}/contents"
+}
+
+function fs_delete_contents() {
+    usage="usage: fs_delete_contents -i <file_id>"
+    local OPTIND
+    while getopts "i:" options; do
+        case ${options} in
+            i) local fid=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+
+    [ -z "${fid+x}" ] && echo ${usage} && return 1
+
+    curl \
+        -XDELETE \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        "https://file-server:9877/files/${fid}/contents"
 }

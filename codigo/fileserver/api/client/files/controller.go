@@ -307,6 +307,13 @@ func (c *Controller) updateContents(ctx *gin.Context) {
 		return
 	}
 
+	id := ctx.Param("id")
+	if id == "" {
+		c.logger.Error("files.contents.get: no id supplied")
+		ctx.AbortWithStatus(400)
+		return
+	}
+
 	allowed, err := c.authorization.Can(user, authz.Create, authz.AnyObject)
 	if err != nil {
 		c.logger.Error("files.contents.update: failed to get permission: %s", err)
@@ -318,6 +325,19 @@ func (c *Controller) updateContents(ctx *gin.Context) {
 		c.logger.Error("files.contents.update: user %s is not allowed to create files", user)
 		ctx.AbortWithStatus(403)
 		return
+	}
+
+	body, err := ioutil.ReadAll(ctx.Request.Body)
+	if err != nil {
+		c.logger.Error("files.contents.update: failed to read body: %s", err)
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	err = c.files.Write(id, body, true)
+	if err != nil {
+		c.logger.Error("files.contents.update: failed to write file in storage: %s", err)
+		ctx.AbortWithStatus(500)
 	}
 
 }

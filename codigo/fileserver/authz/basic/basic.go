@@ -1,6 +1,7 @@
 package basic
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
@@ -23,8 +24,11 @@ func (i *InMemoryAuthz) Can(subject string, operation int, object string) (bool,
 	defer i.mutex.Unlock()
 	p := i.permissions.forSubjectAndObject(subject, object)
 	if p == nil {
+		fmt.Println("no existe el user")
 		return false, nil // TODO: we shold return whether the user or the object wasn't found
 	}
+
+	fmt.Println("p: ", *p)
 
 	return p.Can(operation)
 }
