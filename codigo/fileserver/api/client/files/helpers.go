@@ -15,3 +15,11 @@ func toFileMetaDTO(meta models.FileMetadata) dtos.FileMetadata {
 		PContentID: meta.ContentID(),
 	}
 }
+
+func toFileMetaDTOs(metas []models.FileMetadata) []dtos.FileMetadata {
+	result := make([]dtos.FileMetadata, 0, len(metas))
+	for _, meta := range metas {
+		result = append(result, toFileMetaDTO(meta))
+	}
+	return result
+}

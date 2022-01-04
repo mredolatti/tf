@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/mredolatti/tf/codigo/common/log"
@@ -10,6 +9,7 @@ import (
 	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
 	basicAuthz "github.com/mredolatti/tf/codigo/fileserver/authz/basic"
+	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
 	"github.com/mredolatti/tf/codigo/fileserver/storage/basic"
 )
 
@@ -34,16 +34,12 @@ func main() {
 	metaStore := basic.NewInMemoryFileMetadataStore()
 	authorization := basicAuthz.NewInMemoryAuthz()
 	authorization.Grant("martin.redolatti", authz.Create, authz.AnyObject)
-
-	can, err := authorization.Can("martin.redolatti", authz.Create, authz.AnyObject)
-	fmt.Println("AAAA ", can)
+	fm := filemanager.New(fileStore, metaStore, authorization)
 
 	api, err := client.New(&client.Options{
 		Logger:                   logger,
 		OAuht2Wrapper:            oauth2W,
-		Authorization:            authorization,
-		FileStorage:              fileStore,
-		FileMetaStorage:          metaStore,
+		FileManager:              fm,
 		Host:                     "file-server",
 		Port:                     9877,
 		ServerCertificateChainFN: "./PKI/fileserver/certs/chain.pem",
