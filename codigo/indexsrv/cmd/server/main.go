@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/common/runtime"
@@ -18,7 +20,16 @@ import (
 )
 
 func main() {
-	logger, err := log.New(os.Stdout, log.Debug)
+
+	config := parseEnvVars()
+
+	fmt.Printf("%+v\n", config)
+
+	var logLevel = log.Info
+	if config.debug {
+		logLevel = log.Debug
+	}
+	logger, err := log.New(os.Stdout, logLevel)
 	if err != nil {
 		fmt.Println("Error inicializando logger: ", err)
 		os.Exit(1)
@@ -30,35 +41,41 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := setupDB()
+	db, err := setupDB(config.postgresUser, config.postgresPassword, config.postgresHost, config.postgresPort, config.postgresDB)
 	if err != nil {
 		logger.Error("error setting up databse: %s", err)
 		os.Exit(1)
 	}
 
 	userAPI, err := users.New(&users.Options{
-		Host:              "0.0.0.0",
-		Port:              9876,
-		OAuthClientID:     os.Getenv("GOOGLE_LOGIN_CLIENT_ID"),
-		OAuthClientSecret: os.Getenv("GOOGLE_LOGIN_CLIENT_SECRET"),
-		Logger:            logger,
-		UserManager:       setupUserManager(db),
-		Mapper:            setupMappingManager(db),
+		Host:                config.host,
+		Port:                config.port,
+		GoogleCredentialsFn: config.googleCredentialsFn,
+		Logger:              logger,
+		UserManager:         setupUserManager(db),
+		Mapper:              setupMappingManager(db),
 	})
 	if err != nil {
 		logger.Error("error constructing user-facing API: %s", err)
 		os.Exit(1)
 	}
 
-	go userAPI.Start()
+	go func() {
+		time.Sleep(1 * time.Second)
+		err := userAPI.Start()
+		if err != nil {
+			fmt.Println("HTTP server error: ", err)
+		}
+		rtm.Unblock()
+	}()
 
 	setupShutdown(rtm)
 	rtm.Block()
 }
 
-func setupDB() (*sqlx.DB, error) {
+func setupDB(user string, password string, host string, port int, db string) (*sqlx.DB, error) {
 	// TODO: parametrize this properly!
-	return sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
+	return sqlx.Connect("pgx", fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, db))
 }
 
 func setupUserManager(db *sqlx.DB) authentication.UserManager {
@@ -79,4 +96,39 @@ func setupShutdown(rtm runtime.Interface) {
 		<-sigs
 		rtm.Unblock()
 	}()
+}
+
+type config struct {
+	debug               bool
+	host                string
+	port                int
+	postgresHost        string
+	postgresPort        int
+	postgresUser        string
+	postgresPassword    string
+	postgresDB          string
+	googleCredentialsFn string
+}
+
+func parseEnvVars() *config {
+	return &config{
+		debug:               os.Getenv("IS_LOG_DEBUG") == "true",
+		host:                os.Getenv("IS_HOST"),
+		port:                intOr(os.Getenv("IS_PORT"), 9876),
+		postgresHost:        os.Getenv("IS_PG_HOST"),
+		postgresPort:        intOr(os.Getenv("IS_PG_PORT"), 5432),
+		postgresUser:        os.Getenv("IS_PG_USER"),
+		postgresPassword:    os.Getenv("IS_PG_PWD"),
+		postgresDB:          os.Getenv("IS_PG_DB"),
+		googleCredentialsFn: os.Getenv("IS_GOOGLE_CREDS_FN"),
+	}
+}
+
+// TODO(mredolatti): mover a commons
+func intOr(num string, fallback int) int {
+	parsed, err := strconv.Atoi(num)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

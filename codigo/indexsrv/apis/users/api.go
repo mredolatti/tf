@@ -17,13 +17,12 @@ import (
 
 // Options contins user-api configuration parameters
 type Options struct {
-	Host              string
-	Port              int
-	OAuthClientID     string
-	OAuthClientSecret string
-	UserManager       authentication.UserManager
-	Mapper            mapper.Interface
-	Logger            log.Interface
+	Host                string
+	Port                int
+	GoogleCredentialsFn string
+	UserManager         authentication.UserManager
+	Mapper              mapper.Interface
+	Logger              log.Interface
 }
 
 // API is the user-facing API serving the frontend assets and incoming client api calls
@@ -43,7 +42,7 @@ func New(options *Options) (*API, error) {
 	store := memstore.NewStore([]byte("secret"))
 	router.Use(sessions.Sessions("mysession", store))
 
-	loginController, err := login.New(options.UserManager, options.Logger, options.OAuthClientID, options.OAuthClientSecret)
+	loginController, err := login.New(options.UserManager, options.Logger, options.GoogleCredentialsFn)
 	if err != nil {
 		return nil, fmt.Errorf("error instantiating login controller: %w", err)
 	}

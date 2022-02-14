@@ -1,0 +1,20 @@
+# vi: ft=dockerfile
+FROM golang:1.17.6-alpine3.15 as builder
+
+RUN apk add \
+  bash \
+  build-base \
+  git
+
+WORKDIR /app
+COPY . .
+
+RUN make file-server
+
+# --- runner stage
+
+FROM alpine:3.15 AS runner
+
+COPY --from=builder /app/file-server /usr/bin
+
+CMD ["file-server"]

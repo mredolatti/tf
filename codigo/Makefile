@@ -1,21 +1,117 @@
-.PHONY: all clean build build_indexserver test testrace
+.PHONY: all clean build test test-norace docker-images pki \
+	runlocal-indexserver runlocal-fileserver help
 
-all: test testrace build
+GO ?= go
+DOCKER ?= docker
+MAKE ?= make
 
+sources := $(shell find . -name *.go)
+pki_phony_tgts := $(shell cat PKI/Makefile | grep "\.PHONY" | sed 's/.PHONY: //')
+pki_all_tgts := $(shell make -f Makefile -C ./PKI -s list)
+pki_tgts := $(addprefix PKI/,$(filter-out $(pki_phony_tgts),$(pki_all_tgts)))
+
+container_incoming_tgts := incoming/fileserver/certs/ca.crt \
+			   incoming/fileserver/certs/key.pem \
+			   incoming/fileserver/certs/chain.pem
+
+default: help
+
+## Armar infra de claves publicas, compilar y correr tests
+all: pki build test
+
+## Actualizar dependencias
+go.sum: go.mod
+	$(GO) mod tidy
+
+## Arnar infra de claves publicas
+pki: $(pki_tgts)
+
+## Eliminar archivos generados (certificados, binarios, etc)
 clean:
+	$(MAKE) -f Makefile -C ./PKI clean
+	rm -Rf ./incoming
 	rm -f ./index-server
 	rm -f ./file-server
 
-build: build_indexserver build_fileserver
+## Construir index-server y file-server
+build: index-server file-server
 
-build_indexserver:
-	@go build -o index-server ./indexsrv/cmd/server/main.go
+## Construir index-server
+index-server: $(sources) go.sum
+	$(GO) build -o index-server ./indexsrv/cmd/server/main.go
 
-build_fileserver:
-	@go build -o file-server ./fileserver/cmd/server/main.go
+## Construir file-server
+file-server: $(sources) go.sum
+	$(GO) build -o file-server ./fileserver/cmd/server/main.go
 
+## Ejecutar tests incluyando analisis de race conditions
 test:
-	@go test ./... -count=1
+	$(GO) test ./... -count=1 -race
 
-testrace:
-	@go test ./... -count=1 -race
+## Ejecutar tests sin analisis de race conditions
+test-norace:
+	$(GO) test ./... -count=1
+
+## Ejecucion local de index-server
+runlocal-indexserver: index-server $(pki_tgts)
+	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
+		     IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
+		     IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
+		     ./index-server
+
+## Ejecucion local de file-server
+runlocal-fileserver: file-server $(pki_tgts)
+	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
+		     FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
+		     ./file-server
+
+## Construir imagenes de docker para index-server y file-server
+docker-images: infra/Dockerfile.index_server infra/Dockerfile.file_server
+	$(DOCKER) build -t indexserver -f infra/Dockerfile.index_server .
+	$(DOCKER) build -t fileserver -f infra/Dockerfile.file_server .
+
+$(pki_tgts):
+	$(MAKE) -f Makefile -C ./PKI all
+
+docker-compose-build: infra/Dockerfile.index_server infra/Dockerfile.file_server $(sources) go.sum $(container_incoming_tgts)
+	docker-compose -f infra/docker_compose.yml build
+
+docker-compose-up: docker-compose-build
+	docker-compose -f infra/docker_compose.yml up
+
+docker-compose-down: 
+	docker-compose -f infra/docker_compose.yml down
+
+## Preparar volumenes locales que seran montados en los contenedores de docker
+incoming: $(container_incoming_tgts)
+
+$(container_incoming_tgts): $(pki_tgts)
+	mkdir -p incoming/{fileserver,indexserver}/certs
+	mkdir -p incoming/indexserver/credentials
+	mkdir -p incoming/idx_server_db/scripts
+	cp PKI/root/certs/ca.crt incoming/fileserver/certs
+	cp PKI/fileserver/certs/chain.pem incoming/fileserver/certs
+	cp PKI/fileserver/private/fs_server.key incoming/fileserver/certs
+	cp PKI/root/certs/ca.crt incoming/indexserver/certs
+	cp PKI/indexserver/certs/chain.pem incoming/indexserver/certs
+	cp PKI/indexserver/private/idx_server.key incoming/indexserver/certs
+	cp client_secret.json incoming/indexserver/credentials
+	cp scripts/initdb.sql incoming/idx_server_db/scripts
+
+
+# autodoc de targets tomado de: https://docs.cloudposse.com/reference/best-practices/make-best-practices/
+## Esta ayuda
+help:
+	@printf "Targets disponibles:\n\n"
+	@awk '/^[a-zA-Z\-\_0-9%:\\]+/ { \
+	    helpMessage = match(lastLine, /^## (.*)/); \
+		if (helpMessage) { \
+		    helpCommand = $$1; \
+		    helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
+		    gsub("\\\\", "", helpCommand); \
+		    gsub(":+$$", "", helpCommand); \
+		    printf "  \x1b[32;01m%-35s\x1b[0m %s\n", helpCommand, helpMessage; \
+		} \
+	    } \
+	    { lastLine = $$0 }' $(MAKEFILE_LIST) 2> /dev/null | sort -u
+	@printf "\n"

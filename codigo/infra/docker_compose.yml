@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+
+  index-server-db:
+    image: postgres:14.2
+    ports: 
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "mysecretpassword"
+    volumes:
+      - ../incoming/idx_server_db/scripts:/docker-entrypoint-initdb.d
+
+  index-server:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.index_server
+    depends_on:
+      - "index-server-db"
+    ports:
+      - "9876:9876"
+    volumes:
+      - ../incoming/indexserver:/incoming
+    environment:
+      IS_LOG_DEBUG: "true"
+      IS_HOST: "index-server"
+      IS_PORT: "9876"
+      IS_PG_USER: "postgres"
+      IS_PG_PWD: "mysecretpassword"
+      IS_PG_HOST: "index-server-db"
+      IS_PG_PORT: "5432"
+      IS_PG_DB: "indexsrv"
+      IS_GOOGLE_CREDS_FN: "/incoming/credentials/client_secret.json"
+    
+  file-server-1:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.file_server
+    ports:
+      - "9877:9877"
+    volumes:
+      - ../incoming/fileserver:/incoming
+    environment:
+      FS_LOG_DEBUG: "true"
+      FS_HOST: "file-server-1"
+      FS_PORT: "9877"
+      FS_SERVER_CERT_CHAIN: "/incoming/certs/chain.pem"
+      FS_SERVER_PRIVATE_KEY: "/incoming/certs/fs_server.key"
+      FS_ROOT_CA: "/incoming/certs/ca.crt"

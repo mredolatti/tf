@@ -1,6 +1,8 @@
 /* Enable l-tree extension for paths */
 CREATE EXTENSION ltree;
 
+CREATE DATABASE indexsrv ENCODING 'utf-8';
+
 CREATE TABLE IF NOT EXISTS organizations (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR NOT NULL

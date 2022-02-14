@@ -1,7 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/common/runtime"
@@ -15,7 +18,14 @@ import (
 
 func main() {
 
-	logger, err := log.New(os.Stdout, log.Debug)
+	cfg := parseEnvVars()
+
+	logLevel := log.Info
+	if cfg.debug {
+		logLevel = log.Debug
+	}
+
+	logger, err := log.New(os.Stdout, logLevel)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -40,17 +50,52 @@ func main() {
 		Logger:                   logger,
 		OAuht2Wrapper:            oauth2W,
 		FileManager:              fm,
-		Host:                     "file-server",
-		Port:                     9877,
-		ServerCertificateChainFN: "./PKI/fileserver/certs/chain.pem",
-		ServerPrivateKeyFN:       "./PKI/fileserver/private/fs_server.key",
-		RootCAFn:                 "./PKI/root/certs/ca.crt",
+		Host:                     cfg.host,
+		Port:                     cfg.port,
+		ServerCertificateChainFN: cfg.serverCertChain,
+		ServerPrivateKeyFN:       cfg.serverPrivateKey,
+		RootCAFn:                 cfg.rootCA,
 	})
 	if err != nil {
 		panic(err.Error())
 	}
 
-	go api.Start()
+	go func() {
+		time.Sleep(1 * time.Second)
+		err := api.Start()
+		if err != nil {
+			fmt.Println("HTTP server error: ", err)
+		}
+		rtm.Unblock()
+	}()
 
 	rtm.Block()
+}
+
+type config struct {
+	debug            bool
+	host             string
+	port             int
+	serverCertChain  string
+	serverPrivateKey string
+	rootCA           string
+}
+
+func parseEnvVars() *config {
+	return &config{
+		debug:            os.Getenv("FS_LOG_DEBUG") == "true",
+		host:             os.Getenv("FS_HOST"),
+		port:             intOr(os.Getenv("FS_PORT"), 9877),
+		serverCertChain:  os.Getenv("FS_SERVER_CERT_CHAIN"),
+		serverPrivateKey: os.Getenv("FS_SERVER_PRIVATE_KEY"),
+		rootCA:           os.Getenv("FS_ROOT_CA"),
+	}
+}
+
+func intOr(num string, fallback int) int {
+	parsed, err := strconv.Atoi(num)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

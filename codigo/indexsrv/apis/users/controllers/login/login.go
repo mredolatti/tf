@@ -3,6 +3,8 @@ package login
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/ioutil"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -14,8 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ErrInvalidClientSecret is returned when trying to construct a controller with invalid credentials
-var ErrInvalidClientSecret = errors.New("oauth2 config cannot be nil")
+// ErrNoCredentialsFile is returned when trying to construct a controller with invalid credentials
+var ErrNoCredentialsFile = errors.New("credentials file is mandatory")
 
 // Controller serves endpoints that render ui pages
 type Controller struct {
@@ -27,18 +29,32 @@ type Controller struct {
 }
 
 // New instantiates a new controller
-func New(userManager authentication.UserManager, logger log.Interface, clientID string, secret string) (*Controller, error) {
-	if clientID == "" || secret == "" {
-		return nil, ErrInvalidClientSecret
+func New(userManager authentication.UserManager, logger log.Interface, credentialsFile string) (*Controller, error) {
+	if credentialsFile == "" {
+		return nil, ErrNoCredentialsFile
 	}
 
 	googlePubKeyFetcher := newGoogleKeyFetcher(logger)
 	go googlePubKeyFetcher.Run() // start fetching & updating google pub keys in BG
 
+	fileContents, err := ioutil.ReadFile(credentialsFile)
+	if err != nil {
+		panic(err)
+	}
+
+	cfg, err := google.ConfigFromJSON(fileContents, "openid", "email", "profile")
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("AAA", cfg)
+
 	return &Controller{
 		userManager: userManager,
 		logger:      logger,
-		clientID:    clientID,
+		clientID:    cfg.ClientID,
+		/*     TODO(mredolatti): volar esto
 		oauth2Conf: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: secret,
@@ -47,6 +63,8 @@ func New(userManager authentication.UserManager, logger log.Interface, clientID 
 			RedirectURL: "http://localhost:9876/login/callback",
 			Scopes:      []string{"openid", "email", "profile"},
 		},
+		*/
+		oauth2Conf: cfg,
 		gpkFetcher: googlePubKeyFetcher,
 	}, nil
 }
