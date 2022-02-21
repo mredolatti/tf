@@ -38,13 +38,15 @@ services:
       context: ..
       dockerfile: infra/Dockerfile.file_server
     ports:
-      - "9877:9877"
+      - "9877:9877"   # User REST API
+      - "9000:9000" # Index server gRPC API
     volumes:
       - ../incoming/fileserver:/incoming
     environment:
       FS_LOG_DEBUG: "true"
       FS_HOST: "file-server-1"
-      FS_PORT: "9877"
+      FS_CLIENT_PORT: "9877"
+      FS_SERVER_PORT: "9000"
       FS_SERVER_CERT_CHAIN: "/incoming/certs/chain.pem"
       FS_SERVER_PRIVATE_KEY: "/incoming/certs/fs_server.key"
       FS_ROOT_CA: "/incoming/certs/ca.crt"

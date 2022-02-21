@@ -10,6 +10,7 @@ import (
 	"github.com/mredolatti/tf/codigo/common/runtime"
 	"github.com/mredolatti/tf/codigo/fileserver/api/client"
 	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
+	"github.com/mredolatti/tf/codigo/fileserver/api/server"
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
 	basicAuthz "github.com/mredolatti/tf/codigo/fileserver/authz/basic"
 	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
@@ -46,12 +47,13 @@ func main() {
 	authorization.Grant("martin.redolatti", authz.Create, authz.AnyObject)
 	fm := filemanager.New(fileStore, metaStore, authorization)
 
-	api, err := client.New(&client.Options{
+	// Client API -- consumed by end-users to interact with files
+	clientAPI, err := client.New(&client.Options{
 		Logger:                   logger,
 		OAuht2Wrapper:            oauth2W,
 		FileManager:              fm,
 		Host:                     cfg.host,
-		Port:                     cfg.port,
+		Port:                     cfg.clientAPIPort,
 		ServerCertificateChainFN: cfg.serverCertChain,
 		ServerPrivateKeyFN:       cfg.serverPrivateKey,
 		RootCAFn:                 cfg.rootCA,
@@ -62,20 +64,36 @@ func main() {
 
 	go func() {
 		time.Sleep(1 * time.Second)
-		err := api.Start()
+		err := clientAPI.Start()
 		if err != nil {
 			fmt.Println("HTTP server error: ", err)
 		}
 		rtm.Unblock()
 	}()
 
+	serverAPI, err := server.New(&server.Options{
+		Logger: logger,
+		Port:   cfg.serverAPIPort,
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		err := serverAPI.Start()
+		if err != nil {
+			fmt.Println("gRPC server error: ", err)
+		}
+	}()
 	rtm.Block()
 }
 
 type config struct {
 	debug            bool
 	host             string
-	port             int
+	clientAPIPort    int
+	serverAPIPort    int
 	serverCertChain  string
 	serverPrivateKey string
 	rootCA           string
@@ -85,7 +103,8 @@ func parseEnvVars() *config {
 	return &config{
 		debug:            os.Getenv("FS_LOG_DEBUG") == "true",
 		host:             os.Getenv("FS_HOST"),
-		port:             intOr(os.Getenv("FS_PORT"), 9877),
+		clientAPIPort:    intOr(os.Getenv("FS_CLIENT_PORT"), 9877),
+		serverAPIPort:    intOr(os.Getenv("FS_SERVER_PORT"), 9000),
 		serverCertChain:  os.Getenv("FS_SERVER_CERT_CHAIN"),
 		serverPrivateKey: os.Getenv("FS_SERVER_PRIVATE_KEY"),
 		rootCA:           os.Getenv("FS_ROOT_CA"),

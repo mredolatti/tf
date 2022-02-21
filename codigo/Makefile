@@ -2,10 +2,12 @@
 	runlocal-indexserver runlocal-fileserver help
 
 GO ?= go
+PROTOC ?= protoc
 DOCKER ?= docker
 MAKE ?= make
 
 sources := $(shell find . -name *.go)
+grpc_generated := common/is2fs/changes.pb.go common/is2fs/changes_grpc.pb.go
 pki_phony_tgts := $(shell cat PKI/Makefile | grep "\.PHONY" | sed 's/.PHONY: //')
 pki_all_tgts := $(shell make -f Makefile -C ./PKI -s list)
 pki_tgts := $(addprefix PKI/,$(filter-out $(pki_phony_tgts),$(pki_all_tgts)))
@@ -19,12 +21,18 @@ default: help
 ## Armar infra de claves publicas, compilar y correr tests
 all: pki build test
 
-## Actualizar dependencias
-go.sum: go.mod
-	$(GO) mod tidy
+$(grpc_generated): protobuf/changes.proto
+	$(PROTOC) \
+		--go_out=./common/is2fs \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=./common/is2fs \
+		--go-grpc_opt=paths=source_relative \
+		--proto_path=./protobuf \
+		changes.proto
 
-## Arnar infra de claves publicas
-pki: $(pki_tgts)
+## Actualizar dependencias
+go.sum: go.mod $(grpc_generated) # generated files are added for proper 3rd party deps tracking
+	$(GO) mod tidy
 
 ## Eliminar archivos generados (certificados, binarios, etc)
 clean:
@@ -52,6 +60,9 @@ test:
 test-norace:
 	$(GO) test ./... -count=1
 
+## Arnar infra de claves publicas
+pki: $(pki_tgts)
+
 ## Ejecucion local de index-server
 runlocal-indexserver: index-server $(pki_tgts)
 	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
@@ -64,6 +75,10 @@ runlocal-fileserver: file-server $(pki_tgts)
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		     FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
 		     ./file-server
+
+## Run a CLI gRPC client against a local instance of file-server
+runlocal-evans-fs:
+	evans --host localhost --port 9000 --proto protobuf/changes.proto
 
 ## Construir imagenes de docker para index-server y file-server
 docker-images: infra/Dockerfile.index_server infra/Dockerfile.file_server

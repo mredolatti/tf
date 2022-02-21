@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "github.com/mredolatti/tf/codigo/common/is2fs";
+
+enum ChangeType {
+  FileChangeAdd = 0;
+  FileChangeDelete = 1;
+  FileChangeUpdate = 2;
+}
+
+message Update {
+    string fileReference = 1;
+    ChangeType changeType = 2;
+}
+
+message Updates {
+    repeated Update updates = 1;
+    int64 previousCheckpoint = 2;
+    int64 newCheckpoint = 3;
+}
+
+message SyncUserRequest {
+    string userID = 1;
+    int64 checkpoint = 2;
+}
+
+service FileRefSync {
+    rpc SyncUser (SyncUserRequest) returns (Updates) {}
+}
