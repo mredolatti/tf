@@ -1,27 +1,64 @@
 package control
 
 import (
-	"context"
+	"fmt"
 
 	"github.com/mredolatti/tf/codigo/common/is2fs"
 	"github.com/mredolatti/tf/codigo/common/log"
+	"github.com/mredolatti/tf/codigo/common/refutil"
+	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
 )
 
-// UserManagementServer sarasa
-type ControlServer struct {
+const (
+	defaultQueueSize = 10000
+)
+
+// Server provides a set of RPCs to get updates on changes in files
+type Server struct {
 	is2fs.UnimplementedFileRefSyncServer
-	logger log.Interface
+	logger          log.Interface
+	manager         filemanager.Interface
+	incomingChanges chan filemanager.Change
 }
 
-func New(logger log.Interface) (*ControlServer, error) {
-	return &ControlServer{logger: logger}, nil
+// New constructs a new server
+func New(logger log.Interface, manager filemanager.Interface) (*Server, error) {
+	server := &Server{
+		logger:          logger,
+		manager:         manager,
+		incomingChanges: make(chan filemanager.Change, defaultQueueSize),
+	}
+
+	manager.AddListener(func(c filemanager.Change) {
+		server.incomingChanges <- c
+	})
+
+	return server, nil
 }
 
-func (c *ControlServer) SyncUser(ctx context.Context, request *is2fs.SyncUserRequest) (*is2fs.Updates, error) {
-	c.logger.Info("incoming request: %+v, ", request)
-	return &is2fs.Updates{
-		Updates:            []*is2fs.Update{},
-		PreviousCheckpoint: request.GetCheckpoint(),
-		NewCheckpoint:      request.GetCheckpoint() + 1,
-	}, nil
+// SyncUser implements the SycUser rpc
+func (c *Server) SyncUser(request *is2fs.SyncUserRequest, stream is2fs.FileRefSync_SyncUserServer) error {
+
+	forUser, err := c.manager.ListFileMetadata(
+		request.GetUserID(),
+		&filemanager.ListQuery{UpdatedAfter: refutil.Int64Ref(request.GetCheckpoint())},
+	)
+	if err != nil {
+		return fmt.Errorf("error getting files for user %s: %w", request.GetUserID(), err)
+	}
+
+	for idx := range forUser {
+		stream.Send(&is2fs.Update{
+			FileReference: forUser[idx].ID(),
+			ChangeType:    filemanager.EventFileAvailable,
+		})
+	}
+
+	// TODO(mredolatti): Implement subscription mechanism
+	// - We need a MUX that parses incoming changes, checks if theres a subscription for the affected user,
+	//   and queues the messages
+	// - Need to POC what happens on client breaking the connection, how to properly cleanup and de-register
+	//   from the mux
+
+	return nil
 }

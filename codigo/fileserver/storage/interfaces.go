@@ -12,13 +12,19 @@ var (
 	ErrFileExists = errors.New("file exists")
 )
 
+// Filter for retrieving files
+type Filter struct {
+	IDs          []string
+	UpdatedAfter *int64
+}
+
 // FilesMetadata defines the set of operations to be performed on file metadata records
 type FilesMetadata interface {
 	Get(id string) (models.FileMetadata, error)
-	GetMany(ids []string) (map[string]models.FileMetadata, error)
-	Create(name string, notes string, patient string, typ string) (models.FileMetadata, error)
-	Update(id string, updated models.FileMetadata) (models.FileMetadata, error)
-	Remove(id string) error
+	GetMany(filter *Filter) (map[string]models.FileMetadata, error)
+	Create(name string, notes string, patient string, typ string, whenNs int64) (models.FileMetadata, error)
+	Update(id string, updated models.FileMetadata, whenNs int64) (models.FileMetadata, error)
+	Remove(id string, whenNs int64) error
 }
 
 // Files defines the set of operations that can be performed on file contents

@@ -7,12 +7,14 @@ import (
 	"github.com/mredolatti/tf/codigo/common/is2fs"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/fileserver/api/server/control"
+	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
 	"google.golang.org/grpc"
 )
 
 type Options struct {
-	Logger log.Interface
-	Port   int
+	Logger      log.Interface
+	Port        int
+	FileManager filemanager.Interface
 }
 
 type ServerAPI struct {
@@ -23,7 +25,7 @@ type ServerAPI struct {
 
 func New(options *Options) (*ServerAPI, error) {
 
-	controlServer, err := control.New(options.Logger)
+	controlServer, err := control.New(options.Logger, options.FileManager)
 	if err != nil {
 		return nil, fmt.Errorf("error instantiating control server: %w", err)
 	}

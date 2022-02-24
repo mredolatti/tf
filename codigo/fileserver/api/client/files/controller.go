@@ -51,7 +51,7 @@ func (c *Controller) list(ctx *gin.Context) {
 		return
 	}
 
-	metas, err := c.fm.ListFileMetadata(user)
+	metas, err := c.fm.ListFileMetadata(user, nil)
 	if err != nil {
 		c.logger.Error("files.list: failed to fetch file list for user %s: %s", user, err)
 		ctx.AbortWithStatus(500)

@@ -3,6 +3,8 @@ package filemanager
 import (
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
 	"github.com/mredolatti/tf/codigo/fileserver/models"
@@ -14,10 +16,15 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 )
 
+// ListQuery specifies paramateres that can be used to firther FileMetadatas
+type ListQuery struct {
+	UpdatedAfter *int64
+}
+
 // Interface defines the set of methods that can be used to interact with the virtual FS
 type Interface interface {
 	// Metadata
-	ListFileMetadata(user string) ([]models.FileMetadata, error)
+	ListFileMetadata(user string, query *ListQuery) ([]models.FileMetadata, error)
 	GetFileMetadata(user string, id string) (models.FileMetadata, error)
 	CreateFileMetadata(user string, data models.FileMetadata) (models.FileMetadata, error)
 	UpdateFileMetadata(user string, id string, data models.FileMetadata) (models.FileMetadata, error)
@@ -27,13 +34,22 @@ type Interface interface {
 	GetFileContents(user string, id string) ([]byte, error)
 	UpdateFileContents(user string, id string, data []byte) error
 	DeleteFileContents(user string, id string) error
+
+	// Permission
+	Grant(user string, id string, permission int) error
+	Revoke(user string, id string, permission int) error
+
+	// Listeners
+	AddListener(l ChangeListener)
 }
 
 // Impl implements the FileManager interface
 type Impl struct {
-	metadatas     storage.FilesMetadata
-	files         storage.Files
-	authorization authz.Authorization
+	metadatas      storage.FilesMetadata
+	files          storage.Files
+	authorization  authz.Authorization
+	listeners      []ChangeListener
+	listenersMutex sync.RWMutex
 }
 
 // New constructs a new file manager
@@ -46,14 +62,14 @@ func New(files storage.Files, metadatas storage.FilesMetadata, authorization aut
 }
 
 // ListFileMetadata lists all known file (metas) that a user has access to
-func (i *Impl) ListFileMetadata(user string) ([]models.FileMetadata, error) {
+func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMetadata, error) {
 	objsWithAuth := i.authorization.AllForSubject(user)
 	fileIDList := make([]string, 0, len(objsWithAuth))
 	for id := range objsWithAuth {
 		fileIDList = append(fileIDList, id)
 	}
 
-	metas, err := i.metadatas.GetMany(fileIDList)
+	metas, err := i.metadatas.GetMany(&storage.Filter{IDs: fileIDList})
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +113,7 @@ func (i *Impl) CreateFileMetadata(user string, data models.FileMetadata) (models
 		return nil, ErrUnauthorized
 	}
 
-	meta, err := i.metadatas.Create(data.Name(), data.Notes(), data.PatientID(), data.Type())
+	meta, err := i.metadatas.Create(data.Name(), data.Notes(), data.PatientID(), data.Type(), time.Now().UnixNano())
 	if err != nil {
 		return nil, fmt.Errorf("error storing new file-meta: %w", err)
 	}
@@ -105,6 +121,9 @@ func (i *Impl) CreateFileMetadata(user string, data models.FileMetadata) (models
 	i.authorization.Grant(user, authz.Read, meta.ID())
 	i.authorization.Grant(user, authz.Write, meta.ID())
 	i.authorization.Grant(user, authz.Admin, meta.ID())
+
+	i.notify(Change{EventType: EventFileAvailable, FileRef: meta.ID(), User: user})
+
 	return meta, nil
 }
 
@@ -119,10 +138,12 @@ func (i *Impl) UpdateFileMetadata(user string, id string, data models.FileMetada
 		return nil, ErrUnauthorized
 	}
 
-	meta, err := i.metadatas.Update(id, data)
+	meta, err := i.metadatas.Update(id, data, time.Now().UnixNano())
 	if err != nil {
 		return nil, fmt.Errorf("error updating file-meta: %w", err)
 	}
+
+	i.notify(Change{EventType: EventFileAvailable, FileRef: meta.ID(), User: user})
 
 	return meta, nil
 }
@@ -138,7 +159,13 @@ func (i *Impl) DeleteFileMetadata(user string, id string) error {
 		return ErrUnauthorized
 	}
 
-	return i.metadatas.Remove(id)
+	err = i.metadatas.Remove(id, time.Now().UnixNano())
+	if err != nil {
+		return err
+	}
+
+	i.notify(Change{EventType: EventFileNotAvailable, FileRef: id, User: authz.EveryOne})
+	return nil
 }
 
 // GetFileContents returns the contents of a file
@@ -166,7 +193,14 @@ func (i *Impl) UpdateFileContents(user string, id string, data []byte) error {
 		return ErrUnauthorized
 	}
 
-	return i.files.Write(id, data, true)
+	err = i.files.Write(id, data, true)
+	if err != nil {
+		return err
+	}
+
+	i.notify(Change{EventType: EventFileNotAvailable, FileRef: id, User: authz.EveryOne})
+	return nil
+
 }
 
 // DeleteFileContents deletest he contents of a file
@@ -179,7 +213,39 @@ func (i *Impl) DeleteFileContents(user string, id string) error {
 	if !allowed {
 		return ErrUnauthorized
 	}
-	return i.files.Del(id)
+
+	err = i.files.Del(id)
+	if err != nil {
+		return err
+	}
+
+	i.notify(Change{EventType: EventFileNotAvailable, FileRef: id, User: authz.EveryOne})
+	return nil
+}
+
+// AddListener registers a new listener that will be notified on every change
+func (i *Impl) AddListener(l ChangeListener) {
+	i.listenersMutex.Lock()
+	i.listeners = append(i.listeners, l)
+	i.listenersMutex.Unlock()
+}
+
+// Grant enables user to execute `permission` on id
+func (i *Impl) Grant(user string, id string, permission int) error {
+	return i.authorization.Grant(user, permission, id)
+}
+
+// Revoke prevents user from executing `permission` on id
+func (i *Impl) Revoke(user string, id string, permission int) error {
+	return i.authorization.Revoke(user, permission, id)
+}
+
+func (i *Impl) notify(c Change) {
+	i.listenersMutex.RLock()
+	for _, listener := range i.listeners {
+		listener(c)
+	}
+	i.listenersMutex.RUnlock()
 }
 
 var _ Interface = (*Impl)(nil)

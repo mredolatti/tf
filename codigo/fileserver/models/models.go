@@ -14,4 +14,6 @@ type FileMetadata interface {
 	PatientID() string
 	Type() string
 	ContentID() string
+	LastUpdated() int64
+	Deleted() bool
 }

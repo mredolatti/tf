@@ -22,8 +22,9 @@ message Updates {
 message SyncUserRequest {
     string userID = 1;
     int64 checkpoint = 2;
+    bool keepAlive = 3;
 }
 
 service FileRefSync {
-    rpc SyncUser (SyncUserRequest) returns (Updates) {}
+    rpc SyncUser (SyncUserRequest) returns (stream Update) {}
 }

@@ -7,6 +7,9 @@ import (
 // AnyObject is used as an object for permissions that don't target a specific one (ie: Create)
 const AnyObject = "__GLOBAL__"
 
+// EveryOne is used as an object for permissions that don't target a specific user, but affects everyone
+const EveryOne = "__EVERYONE__"
+
 // Permission types bitmask constants
 const (
 	Read   = (1 << 0)

@@ -2,12 +2,14 @@ package dtos
 
 // FileMetadata contains information associated to a file
 type FileMetadata struct {
-	PID        string `json:"id"`
-	PName      string `json:"name"`
-	PNotes     string `json:"notes"`
-	PPatientID string `json:"patientId"`
-	PType      string `json:"type"`
-	PContentID string `json:"contentId"`
+	PID          string `json:"id"`
+	PName        string `json:"name"`
+	PNotes       string `json:"notes"`
+	PPatientID   string `json:"patientId"`
+	PType        string `json:"type"`
+	PContentID   string `json:"contentId"`
+	PLastUpdated int64  `json:"lastUpdated"`
+	PDeleted     bool   `json:"deleted"`
 }
 
 // ID returns the id of the file meta
@@ -38,4 +40,14 @@ func (f *FileMetadata) Type() string {
 // ContentID returns the id of the associated content entry
 func (f *FileMetadata) ContentID() string {
 	return f.PContentID
+}
+
+// LastUpdated returns the timestamp of the last update to this file
+func (f *FileMetadata) LastUpdated() int64 {
+	return f.PLastUpdated
+}
+
+// Deleted returns true if the item has beel deleted
+func (f *FileMetadata) Deleted() bool {
+	return f.PDeleted
 }

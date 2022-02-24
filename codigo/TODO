@@ -1,0 +1,22 @@
+File Server Registry (gRPC)
+
+
+File Server registartion:
+1. FS se registra en IS mediante una llamada REST, enviando los siguientes datos:
+	- Datos institucionales (hospital, sede, etc)
+	- ID de instancia
+	- Endpoint de su API REST para manipular archivos
+	- Endpoint de su API gRPC para control
+	- Parametros OAuth2 (redirect uri, etc)
+2. IS se conecta mediante gRPC a la API de control de FS usando su certificado y clave privada para autenticarse
+3. A partir de este momento IS permite a usuarios vincular su cuenta personal con una existente en FS (mediante oauth2)
+
+Vinculacion:
+1. Un usuario inicia el proceso de vinculacion utiliando la API REST de IS, enviando los siguientes datos:
+	- ID de la instancia
+	- ID de usuario / sesion (tbd)
+2. El servidor inicia un workflow OAuth2, y redirige al usuario a la URL de autorizacion del servidor seleccionado
+3. El usuario presenta su certificado + clave publica ante la solicitud del FS seleccionado, y una vez probada su identidad, es nuevamente redirigido al IS pero esta vez con un token de acceso y uno de refresco. Dicho token le permitira al IS hacer solicitarle al FS en cuestion (mediante la conexion de control gRPC) el listado de archivos a los que tiene acceso dicho usuario en ese server y un timestamp indicando la fecha de validez de estos datos
+4. El servidor guarda ambos, y permite al usuario comenzar a manipular estos archivos.
+5. El IS no almacenara el contenido de los archivos sino solo una referencia. La lectura y escritura del contenido del archivo se hara directamente sobre el FS utilizando la referencia provista por el IS.
+6. Cada vez que se realice una modificacion, el FS notificara al IS (mediante la conexion gRPC) que hubo cambios para el usuario X. el IS entonces le pedira al FS que envie el Delta para el usuario X desde el ultimo timestamp conocido Y

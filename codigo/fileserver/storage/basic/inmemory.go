@@ -109,21 +109,23 @@ func (i *InMemoryFileMetadataStore) Get(id string) (models.FileMetadata, error) 
 }
 
 // GetMany fetches file-metadata for multiple ids
-func (i *InMemoryFileMetadataStore) GetMany(ids []string) (map[string]models.FileMetadata, error) {
-	result := make(map[string]models.FileMetadata, len(ids))
+func (i *InMemoryFileMetadataStore) GetMany(filter *storage.Filter) (map[string]models.FileMetadata, error) {
 	i.mutex.Lock()
-	for _, id := range ids {
-		m, ok := i.metas[id]
-		if ok {
+	defer i.mutex.Unlock()
+
+	if filter == nil { // No filter: return everything in a new map
+		result := make(map[string]models.FileMetadata, len(i.metas))
+		for id, m := range i.metas {
 			result[id] = &m
 		}
+		return result, nil
 	}
-	i.mutex.Unlock()
-	return result, nil
+
+	return i.getByFilter(filter), nil
 }
 
 // Create adds a new file-metadata record
-func (i *InMemoryFileMetadataStore) Create(name string, notes string, patient string, typ string) (models.FileMetadata, error) {
+func (i *InMemoryFileMetadataStore) Create(name string, notes string, patient string, typ string, whenNs int64) (models.FileMetadata, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
@@ -135,13 +137,13 @@ func (i *InMemoryFileMetadataStore) Create(name string, notes string, patient st
 		return nil, fmt.Errorf("this is most likely a bug, another file exists with the last generated id: %s", id)
 	}
 
-	m := InMemoryMetadata{id: id, name: name, notes: notes, patientID: patient, typ: typ}
+	m := InMemoryMetadata{id: id, name: name, notes: notes, patientID: patient, typ: typ, lastUpdated: whenNs}
 	i.metas[id] = m
 	return &m, nil
 }
 
 // Update modifies an existing metadata record
-func (i *InMemoryFileMetadataStore) Update(id string, updated models.FileMetadata) (models.FileMetadata, error) {
+func (i *InMemoryFileMetadataStore) Update(id string, updated models.FileMetadata, whenNs int64) (models.FileMetadata, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
@@ -154,27 +156,68 @@ func (i *InMemoryFileMetadataStore) Update(id string, updated models.FileMetadat
 	m.notes = updated.Notes()
 	m.patientID = updated.PatientID()
 	m.typ = updated.Type()
+	m.lastUpdated = whenNs
 	i.metas[id] = m
 
 	return &m, nil
 }
 
 // Remove deletes a metadata record
-func (i *InMemoryFileMetadataStore) Remove(id string) error {
+func (i *InMemoryFileMetadataStore) Remove(id string, whenNs int64) error {
 	i.mutex.Lock()
-	delete(i.metas, id)
-	i.mutex.Unlock()
+	defer i.mutex.Unlock()
+	toDelete, ok := i.metas[id]
+	if !ok {
+		return nil
+	}
+
+	toDelete.lastUpdated = whenNs
+	toDelete.deleted = true
+	i.metas[id] = toDelete
+
 	return nil
+}
+
+func (i *InMemoryFileMetadataStore) getByFilter(filter *storage.Filter) map[string]models.FileMetadata {
+	if length := len(filter.IDs); length > 0 { // If ID list is specified
+		result := make(map[string]models.FileMetadata, length)
+		for _, id := range filter.IDs {
+			m, ok := i.metas[id]
+			if ok && filterMatches(filter, &m) {
+				result[id] = &m
+			}
+		}
+		return result
+	}
+
+	// no id filter, iterate all collection
+	result := make(map[string]models.FileMetadata, len(i.metas)/2) // approx
+	for id, m := range i.metas {
+		if filterMatches(filter, &m) {
+			result[id] = &m
+		}
+	}
+	return result
+}
+
+func filterMatches(filter *storage.Filter, item *InMemoryMetadata) bool {
+	if filter.UpdatedAfter == nil {
+		return true
+	}
+
+	return item.LastUpdated() > *filter.UpdatedAfter
 }
 
 // InMemoryMetadata is an in-memory representation of a file metadata
 type InMemoryMetadata struct {
-	id        string
-	name      string
-	notes     string
-	patientID string
-	typ       string
-	contentID string
+	id          string
+	name        string
+	notes       string
+	patientID   string
+	typ         string
+	contentID   string
+	lastUpdated int64
+	deleted     bool
 }
 
 // ID returns the file id
@@ -205,6 +248,16 @@ func (i *InMemoryMetadata) Type() string {
 // ContentID returns the id of the content of the file (if any)
 func (i *InMemoryMetadata) ContentID() string {
 	return i.contentID
+}
+
+// LastUpdated returns the timestamp of the last update
+func (i *InMemoryMetadata) LastUpdated() int64 {
+	return i.lastUpdated
+}
+
+// Deleted returns true if the file has been deleted
+func (i *InMemoryMetadata) Deleted() bool {
+	return i.deleted
 }
 
 var _ models.File = (*InMemoryFile)(nil)

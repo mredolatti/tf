@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FileRefSyncClient interface {
-	SyncUser(ctx context.Context, in *SyncUserRequest, opts ...grpc.CallOption) (*Updates, error)
+	SyncUser(ctx context.Context, in *SyncUserRequest, opts ...grpc.CallOption) (FileRefSync_SyncUserClient, error)
 }
 
 type fileRefSyncClient struct {
@@ -29,20 +29,43 @@ func NewFileRefSyncClient(cc grpc.ClientConnInterface) FileRefSyncClient {
 	return &fileRefSyncClient{cc}
 }
 
-func (c *fileRefSyncClient) SyncUser(ctx context.Context, in *SyncUserRequest, opts ...grpc.CallOption) (*Updates, error) {
-	out := new(Updates)
-	err := c.cc.Invoke(ctx, "/FileRefSync/SyncUser", in, out, opts...)
+func (c *fileRefSyncClient) SyncUser(ctx context.Context, in *SyncUserRequest, opts ...grpc.CallOption) (FileRefSync_SyncUserClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FileRefSync_ServiceDesc.Streams[0], "/FileRefSync/SyncUser", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &fileRefSyncSyncUserClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type FileRefSync_SyncUserClient interface {
+	Recv() (*Update, error)
+	grpc.ClientStream
+}
+
+type fileRefSyncSyncUserClient struct {
+	grpc.ClientStream
+}
+
+func (x *fileRefSyncSyncUserClient) Recv() (*Update, error) {
+	m := new(Update)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // FileRefSyncServer is the server API for FileRefSync service.
 // All implementations must embed UnimplementedFileRefSyncServer
 // for forward compatibility
 type FileRefSyncServer interface {
-	SyncUser(context.Context, *SyncUserRequest) (*Updates, error)
+	SyncUser(*SyncUserRequest, FileRefSync_SyncUserServer) error
 	mustEmbedUnimplementedFileRefSyncServer()
 }
 
@@ -50,8 +73,8 @@ type FileRefSyncServer interface {
 type UnimplementedFileRefSyncServer struct {
 }
 
-func (UnimplementedFileRefSyncServer) SyncUser(context.Context, *SyncUserRequest) (*Updates, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SyncUser not implemented")
+func (UnimplementedFileRefSyncServer) SyncUser(*SyncUserRequest, FileRefSync_SyncUserServer) error {
+	return status.Errorf(codes.Unimplemented, "method SyncUser not implemented")
 }
 func (UnimplementedFileRefSyncServer) mustEmbedUnimplementedFileRefSyncServer() {}
 
@@ -66,22 +89,25 @@ func RegisterFileRefSyncServer(s grpc.ServiceRegistrar, srv FileRefSyncServer) {
 	s.RegisterService(&FileRefSync_ServiceDesc, srv)
 }
 
-func _FileRefSync_SyncUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SyncUserRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _FileRefSync_SyncUser_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SyncUserRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(FileRefSyncServer).SyncUser(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/FileRefSync/SyncUser",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FileRefSyncServer).SyncUser(ctx, req.(*SyncUserRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(FileRefSyncServer).SyncUser(m, &fileRefSyncSyncUserServer{stream})
+}
+
+type FileRefSync_SyncUserServer interface {
+	Send(*Update) error
+	grpc.ServerStream
+}
+
+type fileRefSyncSyncUserServer struct {
+	grpc.ServerStream
+}
+
+func (x *fileRefSyncSyncUserServer) Send(m *Update) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 // FileRefSync_ServiceDesc is the grpc.ServiceDesc for FileRefSync service.
@@ -90,12 +116,13 @@ func _FileRefSync_SyncUser_Handler(srv interface{}, ctx context.Context, dec fun
 var FileRefSync_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "FileRefSync",
 	HandlerType: (*FileRefSyncServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "SyncUser",
-			Handler:    _FileRefSync_SyncUser_Handler,
+			StreamName:    "SyncUser",
+			Handler:       _FileRefSync_SyncUser_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "changes.proto",
 }
