@@ -168,7 +168,7 @@ client/csr/client.csr: client/private/client.key
 		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=martin.redolatti/emailAddress=martinredolatti@gmail.com' \
 		-out client/csr/client.csr
 
-client/certs/client.crt: root/private/ca.key
+client/certs/client.crt: client/csr/client.csr root/private/ca.key
 	# TODO: Usar una config especifica para clientes
 	openssl x509 -req \
 		-in client/csr/client.csr \
@@ -185,6 +185,7 @@ clean:
 	rm -f sub/{private,certs,newcerts,crl,csr}/*
 	rm -f fileserver/{private,certs,newcerts,crl,csr}/*
 	rm -f indexserver/{private,certs,newcerts,crl,csr}/*
+	rm -f client/{private,certs,newcerts,crl,csr}/*
 
 all: root sub fileserver indexserver client
 

@@ -64,12 +64,19 @@ func New(files storage.Files, metadatas storage.FilesMetadata, authorization aut
 // ListFileMetadata lists all known file (metas) that a user has access to
 func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMetadata, error) {
 	objsWithAuth := i.authorization.AllForSubject(user)
+	if len(objsWithAuth) == 0 { // supplied user doesn't have access to any file
+		return nil, nil
+	}
+
 	fileIDList := make([]string, 0, len(objsWithAuth))
 	for id := range objsWithAuth {
 		fileIDList = append(fileIDList, id)
 	}
 
-	metas, err := i.metadatas.GetMany(&storage.Filter{IDs: fileIDList})
+	metas, err := i.metadatas.GetMany(&storage.Filter{
+		IDs:          fileIDList,
+		UpdatedAfter: query.UpdatedAfter,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +205,7 @@ func (i *Impl) UpdateFileContents(user string, id string, data []byte) error {
 		return err
 	}
 
-	i.notify(Change{EventType: EventFileNotAvailable, FileRef: id, User: authz.EveryOne})
+	i.notify(Change{EventType: EventFileAvailable, FileRef: id, User: authz.EveryOne})
 	return nil
 
 }

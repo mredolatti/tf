@@ -11,12 +11,7 @@ enum ChangeType {
 message Update {
     string fileReference = 1;
     ChangeType changeType = 2;
-}
-
-message Updates {
-    repeated Update updates = 1;
-    int64 previousCheckpoint = 2;
-    int64 newCheckpoint = 3;
+    int64 checkpoint = 3;
 }
 
 message SyncUserRequest {

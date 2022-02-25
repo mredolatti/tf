@@ -1,7 +1,6 @@
 package basic
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
@@ -24,11 +23,8 @@ func (i *InMemoryAuthz) Can(subject string, operation int, object string) (bool,
 	defer i.mutex.Unlock()
 	p := i.permissions.forSubjectAndObject(subject, object)
 	if p == nil {
-		fmt.Println("no existe el user")
 		return false, nil // TODO: we shold return whether the user or the object wasn't found
 	}
-
-	fmt.Println("p: ", *p)
 
 	return p.Can(operation)
 }
@@ -68,7 +64,7 @@ func (i *InMemoryAuthz) Revoke(subject string, operation int, object string) err
 type permissionMap map[string]map[string]authz.Permission
 
 func (p *permissionMap) forSubjectAndObject(subject string, object string) *authz.Permission {
-	if p == nil {
+	if *p == nil {
 		return nil
 	}
 
@@ -86,7 +82,7 @@ func (p *permissionMap) forSubjectAndObject(subject string, object string) *auth
 }
 
 func (p *permissionMap) forSubject(subject string) map[string]authz.Permission {
-	if p == nil {
+	if *p == nil {
 		return nil
 	}
 
@@ -99,7 +95,7 @@ func (p *permissionMap) forSubject(subject string) map[string]authz.Permission {
 }
 
 func (p *permissionMap) forObject(object string) map[string]authz.Permission {
-	if p == nil {
+	if *p == nil {
 		return nil
 	}
 
@@ -116,7 +112,7 @@ func (p *permissionMap) forObject(object string) map[string]authz.Permission {
 }
 
 func (p *permissionMap) grant(subject string, operation int, object string) error {
-	if p == nil {
+	if *p == nil {
 		*p = make(permissionMap)
 	}
 
@@ -135,7 +131,7 @@ func (p *permissionMap) grant(subject string, operation int, object string) erro
 }
 
 func (p *permissionMap) revoke(subject string, operation int, object string) error {
-	if p == nil {
+	if *p == nil {
 		return nil // Nothing to be done
 	}
 

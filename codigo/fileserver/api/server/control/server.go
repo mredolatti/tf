@@ -50,7 +50,8 @@ func (c *Server) SyncUser(request *is2fs.SyncUserRequest, stream is2fs.FileRefSy
 	for idx := range forUser {
 		stream.Send(&is2fs.Update{
 			FileReference: forUser[idx].ID(),
-			ChangeType:    filemanager.EventFileAvailable,
+			ChangeType:    is2fs.ChangeType_FileChangeUpdate,
+			Checkpoint:    forUser[idx].LastUpdated(),
 		})
 	}
 
