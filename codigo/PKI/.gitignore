@@ -32,3 +32,10 @@ sub/index.attr.old
 sub/index.old
 sub/serial
 sub/serial.old
+
+client/certs/*
+client/crl/*
+client/csr/*
+client/newcerts/*
+client/private/*
+
