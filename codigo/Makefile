@@ -60,8 +60,16 @@ test:
 test-norace:
 	$(GO) test ./... -count=1
 
-## Arnar infra de claves publicas
+## Armar infra de claves publicas
 pki: $(pki_tgts)
+
+## Configurar postgres local desde un contenedor
+rebuild-dbs:
+	bash ./scripts/mkpostgres.sh -dcf
+
+## Abrir un shell en la db
+db-shell:
+	bash ./scripts/mkpostgres.sh -s
 
 ## Ejecucion local de index-server
 runlocal-indexserver: index-server $(pki_tgts)

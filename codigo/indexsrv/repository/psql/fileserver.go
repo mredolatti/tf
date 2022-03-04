@@ -15,21 +15,23 @@ import (
 const (
 	fsListByOrg = "SELECT * FROM file_servers WHERE org_id = $1"
 	fsGetQuery  = "SELECT * FROM file_servers WHERE id = $1"
-	fsAddQuery  = "INSERT INTO file_servers(name, org_id, auth_url, fetch_url) VALUES ($1, $2, $3, $4) RETURNING *"
-	fsDelQuery  = "DELETE FROM file_servers WHERE id = $1"
+	fsAddQuery  = "INSERT INTO file_servers(id, name, org_id, auth_url, fetch_url, control_endpoint) " +
+		"VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
+	fsDelQuery = "DELETE FROM file_servers WHERE id = $1"
 )
 
 // FileServer is a postgres-compatible struct implementing models.FileServer interface
 type FileServer struct {
-	IDField       int64  `db:"id"`
-	NameField     string `db:"name"`
-	OrgField      string `db:"org_id"`
-	AuthURLField  string `db:"auth_url"`
-	FetchURLField string `db:"fetch_url"`
+	IDField              string `db:"id"`
+	NameField            string `db:"name"`
+	OrgField             string `db:"org_id"`
+	AuthURLField         string `db:"auth_url"`
+	FetchURLField        string `db:"fetch_url"`
+	ControlEndpointField string `db:"control_endpoint"`
 }
 
 // ID returns the id of the file server
-func (f *FileServer) ID() int64 {
+func (f *FileServer) ID() string {
 	return f.IDField
 }
 
@@ -51,6 +53,11 @@ func (f *FileServer) AuthURL() string {
 // FetchURL returns the URL to be used when returning fetch recipes
 func (f *FileServer) FetchURL() string {
 	return f.FetchURLField
+}
+
+// ControlEndpoint returns the control endpoiunt used to make RPC calls
+func (f *FileServer) ControlEndpoint() string {
+	return f.ControlEndpointField
 }
 
 // FileServerRepository is a mapping to a table in postgres that allows enables operations
@@ -84,7 +91,7 @@ func (r *FileServerRepository) List(ctx context.Context, orgID string) ([]models
 }
 
 // Get returns an file server that matches the supplied id
-func (r *FileServerRepository) Get(ctx context.Context, id int64) (models.FileServer, error) {
+func (r *FileServerRepository) Get(ctx context.Context, id string) (models.FileServer, error) {
 	var server FileServer
 	err := r.db.QueryRowxContext(ctx, fsGetQuery, id).StructScan(&server)
 	if err != nil {
@@ -98,9 +105,17 @@ func (r *FileServerRepository) Get(ctx context.Context, id int64) (models.FileSe
 }
 
 // Add adds a file server with the supplied name
-func (r *FileServerRepository) Add(ctx context.Context, name string, orgID string, authURL string, fetchURL string) (models.FileServer, error) {
+func (r *FileServerRepository) Add(
+	ctx context.Context,
+	id string,
+	name string,
+	orgID string,
+	authURL string,
+	fetchURL string,
+	controlEndpoint string,
+) (models.FileServer, error) {
 	var server FileServer
-	err := r.db.QueryRowxContext(ctx, fsAddQuery, name, orgID, authURL, fetchURL).StructScan(&server)
+	err := r.db.QueryRowxContext(ctx, fsAddQuery, id, name, orgID, authURL, fetchURL, controlEndpoint).StructScan(&server)
 	if err != nil {
 		return nil, fmt.Errorf("error executing file_server::add in postgres: %w", err)
 	}
@@ -108,10 +123,12 @@ func (r *FileServerRepository) Add(ctx context.Context, name string, orgID strin
 }
 
 // Remove deletes a file server that matches the supplied id
-func (r *FileServerRepository) Remove(ctx context.Context, id int64) error {
+func (r *FileServerRepository) Remove(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, fsDelQuery, id)
 	if err != nil {
 		return fmt.Errorf("error executiong file_server::del in postgres: %w", err)
 	}
 	return nil
 }
+
+var _ repository.FileServerRepository = (*FileServerRepository)(nil)

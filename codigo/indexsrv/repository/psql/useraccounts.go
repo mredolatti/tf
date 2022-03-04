@@ -16,35 +16,42 @@ const (
 	accountListQuery = "SELECT * FROM user_accounts WHERE user_id = $1"
 	accountGetQuery  = "SELECT * FROM user_accounts WHERE id = $1"
 	accountAddQuery  = "INSERT INTO user_accounts(user_id, server_id, token, refresh_token) VALUES ($1, $2, $3, $4) RETURNING *"
+	accountNewUpdate = "UPDATE user_accounts set last_update = $3 WHERE user_id = $1 AND server_id = $2 returning *"
 	accountDelQuery  = "DELETE FROM user_accounts WHERE user_id = $1 AND server_id = $2"
 )
 
 // UserAccount is a postgres-compatible struct implementing models.UserAccount interface
 type UserAccount struct {
-	UserIDField       string
-	ServerIDField     string
-	TokenFIeld        string
-	RefreshTokenField string
+	UserIDField       string `db:"user_id"`
+	ServerIDField     string `db:"server_id"`
+	TokenFIeld        string `db:"token"`
+	RefreshTokenField string `db:"refresh_token"`
+	CheckpointField   int64  `db:"checkpoint"`
 }
 
 // UserID returns the if of the user who has an account in a file server
 func (u *UserAccount) UserID() string {
-	return ""
+	return u.UserIDField
 }
 
 // FileServerID returns the id of the server in which the user has the account
 func (u *UserAccount) FileServerID() string {
-	return ""
+	return u.ServerIDField
 }
 
 // Token returns the token used to make request on behalf of this user to the server
 func (u *UserAccount) Token() string {
-	return ""
+	return u.TokenFIeld
 }
 
 // RefreshToken returns the token used to get new tokens when the current one expires
 func (u *UserAccount) RefreshToken() string {
-	return ""
+	return u.RefreshTokenField
+}
+
+// Checkpoint returns a nanosecond-granularity timestamp of the last update (or zero y if has never happend)
+func (u *UserAccount) Checkpoint() int64 {
+	return u.CheckpointField
 }
 
 // UserAccountRepository is a mapping to a table in postgres that allows enables operations on user accounts

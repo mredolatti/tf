@@ -21,11 +21,12 @@ type Organization interface {
 
 // FileServer defines the file-server model
 type FileServer interface {
-	ID() int64
+	ID() string
+	OrganizationID() string
 	Name() string
 	AuthURL() string
 	FetchURL() string
-	OrganizationID() string
+	ControlEndpoint() string
 }
 
 // Patient defines the patient model
@@ -39,17 +40,18 @@ type UserAccount interface {
 	FileServerID() string
 	Token() string
 	RefreshToken() string
+	Checkpoint() int64
 }
 
 // File defines the File model
-type File interface {
-	ID() string
-	ServerID() string
-	Ref() string
-	Size() int64
-	PatientID() string
-	Updated() time.Time
-}
+//type File interface {
+//	ID() string
+//	ServerID() string
+//	Ref() string
+//	Size() int64
+//	PatientID() string
+//	Updated() time.Time
+//}
 
 // Mapping defines the mapping model
 type Mapping interface {
@@ -58,6 +60,7 @@ type Mapping interface {
 	Ref() string
 	Path() string
 	Updated() time.Time
+	Deleted() bool
 }
 
 // FileQuery has optional fields that can be set to narrow the search for a file/path

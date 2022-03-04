@@ -2,7 +2,10 @@ package psql
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 
@@ -100,24 +103,35 @@ func TestFileServerRepoIntegration(t *testing.T) {
 		t.Error("there shold be no error. got: ", err)
 	}
 
-	newServer, err := fsRepo.Add(context.Background(), "server1", newOrg.ID(), "https://auth.server1", "sftp://fetch.server1")
+	rand.Seed(time.Now().UnixNano())
+	newID := strconv.FormatInt(rand.Int63(), 10)
+	newServer, err := fsRepo.Add(context.Background(), newID, "server1", newOrg.ID(), "https://auth.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
+
+	if id := newServer.ID(); id != newID {
+		t.Error("wrong id. Got: ", id)
+	}
+
 	if name := newServer.Name(); name != "server1" {
-		t.Error("wrong url. Got: ", name)
+		t.Error("wrong name. Got: ", name)
 	}
 
 	if orgID := newServer.OrganizationID(); orgID != newOrg.ID() {
-		t.Error("wrong url. Got: ", orgID)
+		t.Error("wrong org. Got: ", orgID)
 	}
 
 	if url := newServer.AuthURL(); url != "https://auth.server1" {
-		t.Error("wrong url. Got: ", url)
+		t.Error("wrong auth url. Got: ", url)
 	}
 
 	if url := newServer.FetchURL(); url != "sftp://fetch.server1" {
-		t.Error("wrong url. Got: ", url)
+		t.Error("wrong fetch url. Got: ", url)
+	}
+
+	if url := newServer.ControlEndpoint(); url != "control.server1:1234" {
+		t.Error("wrong control endpoint. Got: ", url)
 	}
 
 	server, err := fsRepo.Get(context.Background(), newServer.ID())

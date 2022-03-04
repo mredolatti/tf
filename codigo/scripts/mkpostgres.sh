@@ -58,6 +58,12 @@ function setup_fixtures() {
     cat "${dir}/fixtures.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}"
 }
 
+function start_shell() {
+    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}/${POSTGRES_DB}"
+    dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    docker exec -it "${POSTGRES_CONTAINER}" psql "${uri}"
+}
+
 function usage() {
       echo "$0 [-f]"
       echo " -f drop the database prior to attempting creation"
@@ -67,29 +73,47 @@ function usage() {
 # ---- Main script execution ----
 
 # Parse CLI args
-while getopts ":hfd" opt; do
+while getopts ":hbdcfs" opt; do
     case $opt in
         h)
             usage
             ;;
+        b)
+            build=1
+            ;;
         d)
             drop_db=1
             ;;
+        c)
+            create=1
+            ;;
         f)
             fixtures=1
+            ;;
+        s)
+            shell=1
+
     esac
 done
 
-fetch_image
-create_container
+if [[ ! -z "${build}" ]]; then # Download image and create container
+    fetch_image
+    create_container
+fi
 
 if [[ ! -z "${drop_db}" ]]; then # Drop database if requested
     drop_db
 fi
 
-create_db
-init_db
+if [[ ! -z "${create}" ]]; then # Create database, extensions & tables
+    create_db
+    init_db
+fi
 
 if [[ ! -z "${fixtures}" ]]; then # Insert fixtures/test data if requested
     setup_fixtures
+fi
+
+if [[ ! -z "${shell}" ]]; then # Open a shell
+    start_shell
 fi

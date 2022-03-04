@@ -59,7 +59,7 @@ func (c *Controller) mappings(ctx *gin.Context) {
 
 	// id := session.Get("id").(string)
 	id := "107156877088323945674"
-	mappings, err := c.mapper.Get(ctx.Request.Context(), id, nil) // TODO: Buildear query aca
+	mappings, err := c.mapper.Get(ctx.Request.Context(), id, false, nil) // TODO: Buildear query aca
 	if err != nil {
 		c.logger.Error("error fetching mappings for user %s: %s", id, err)
 		ctx.AbortWithStatus(500)

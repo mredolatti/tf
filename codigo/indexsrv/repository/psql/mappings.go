@@ -15,24 +15,33 @@ import (
 )
 
 const (
-	mappingListQuery       = "SELECT * FROM mappings WHERE user_id = $1"
-	mappingListByPathQuery = "SELECT * FROM mappings WHERE user_id = $1 AND path <@ $2"
-	mappingAddQuery        = "INSERT INTO mappings(user_id, server_id, path, ref, updated) VALUES ($1, $2, $3, $4, $5) RETURNING *"
-	mappingDelQuery        = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
+	_all                    = " RETURNING *"
+	mappingListQuery        = "SELECT * FROM mappings WHERE user_id = $1"
+	mappingListByPathQuery  = "SELECT * FROM mappings WHERE user_id = $1 AND path <@ $2"
+	mappingAddQuery         = "INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) VALUES ($1, $2, $3, $4, $5, $6)" + _all
+	mappingAddOrUpdateQuery = mappingAddQuery + "ON CONFLICT DO UPDATE SET updated=EXCLUDED.updated, deleted=EXCLUDED.deleted" + _all
+	mappingDelQuery         = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
+	mappingArchiveQuery     = "UPDATE mappings SET deleted = true, updated = $4 WHERE user_id = $1 AND server_id = $2 AND ref = $3"
 )
 
-var normalizer *strings.Replacer = strings.NewReplacer(
+var formatterForDisplay *strings.Replacer = strings.NewReplacer(
 	".", "/",
 	"__DOT__", ".",
 )
 
+var formatterForStorage *strings.Replacer = strings.NewReplacer(
+	"/", ".",
+	".", "__DOT__",
+)
+
 // Mapping is a postgres-compatible struct implementing models.Mapping interface
 type Mapping struct {
-	UserIDField   string    `db:"user_id"`
-	ServerIDField string    `db:"server_id"`
-	PathField     string    `db:"path"`
-	RefField      string    `db:"ref"`
-	UpdatedField  time.Time `db:"updated"`
+	UserIDField   string `db:"user_id"`
+	ServerIDField string `db:"server_id"`
+	PathField     string `db:"path"`
+	RefField      string `db:"ref"`
+	DeletedField  bool   `db:"deleted"`
+	UpdatedField  int64  `db:"updated"`
 }
 
 // UserID returns the if of the user who has an mapping in a file server
@@ -52,12 +61,17 @@ func (m *Mapping) Ref() string {
 
 // Path returns the virtual path as seen by the user
 func (m *Mapping) Path() string {
-	return normalizer.Replace(m.PathField)
+	return formatterForDisplay.Replace(m.PathField)
 }
 
 // Updated returns the time when this mapping was last updated
 func (m *Mapping) Updated() time.Time {
-	return m.UpdatedField
+	return time.Unix(0, m.UpdatedField)
+}
+
+// Deleted returns whether the mapping references a no-longer available file or not
+func (m *Mapping) Deleted() bool {
+	return m.DeletedField
 }
 
 // MappingRepository is a mapping to a table in postgres that allows enables operations on mappings
@@ -107,11 +121,37 @@ func (r *MappingRepository) ListByPath(ctx context.Context, userID string, path 
 // Add adds a mapping
 func (r *MappingRepository) Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error) {
 	var fetched Mapping
-	err := r.db.QueryRowxContext(ctx, mappingAddQuery, userID, mapping.FileServerID(), mapping.Ref(), mapping.Path(), mapping.Updated()).StructScan(&fetched)
+	err := r.db.QueryRowxContext(
+		ctx,
+		mappingAddQuery,
+		userID,
+		mapping.FileServerID(),
+		mapping.Ref(),
+		formatterForDisplay.Replace(mapping.Path()),
+		mapping.Updated(),
+		mapping.Deleted(),
+	).StructScan(&fetched)
 	if err != nil {
 		return nil, fmt.Errorf("error executing users::add in postgres: %w", err)
 	}
 	return &fetched, nil
+}
+
+func (r *MappingRepository) AddOrUpdate(ctx context.Context, userID string, updates []models.Update) error {
+	if res := r.db.QueryRowxContext(ctx, mappingAddOrUpdateQuery, mappingsFromUpdates(userID, updates)); res.Err() != nil {
+		return fmt.Errorf("error inserting/updating mappings: %w", res.Err())
+	}
+	return nil
+}
+
+func (r *MappingRepository) ArchiveMany(ctx context.Context, userID string, updates []models.Update) error {
+	for _, update := range updates {
+		if res := r.db.QueryRowContext(ctx, mappingArchiveQuery, userID, update.ServerID, update.FileRef, update.Checkpoint); res.Err() != nil {
+			// TODO(mredolatti): log
+			return fmt.Errorf("archiving failed at checkpoint '%d': %w", update.Checkpoint, res.Err())
+		}
+	}
+	return nil
 }
 
 // Update TODO!
@@ -127,6 +167,22 @@ func (r *MappingRepository) Remove(ctx context.Context, userID string, path stri
 		return fmt.Errorf("error executiong users::del in postgres: %w", err)
 	}
 	return nil
+}
+
+func mappingsFromUpdates(userID string, updates []models.Update) []Mapping {
+	mappings := make([]Mapping, len(updates))
+	for _, update := range updates {
+		mappings = append(mappings, Mapping{
+			UserIDField:   userID,
+			ServerIDField: update.ServerID,
+			RefField:      update.FileRef,
+			DeletedField:  update.ChangeType == models.UpdateTypeFileDelete,
+			UpdatedField:  update.Checkpoint,
+			PathField:     "unnasigned." + update.FileRef,
+		})
+	}
+
+	return mappings
 }
 
 var _ repository.MappingRepository = (*MappingRepository)(nil)
