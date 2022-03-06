@@ -110,12 +110,7 @@ func (i *Impl) handleUpdates(ctx context.Context, account models.UserAccount, up
 		}
 	}
 
-	// TODO(mredolatti): This should be done in a TX @{
-	if err := i.mappings.ArchiveMany(ctx, account.UserID(), toArchive); err != nil {
-		return fmt.Errorf("error archiving no-longer valid mappings: %w", err)
-	}
-
-	if err := i.mappings.AddOrUpdate(ctx, account.UserID(), toPublish); err != nil {
+	if err := i.mappings.HandleServerUpdates(ctx, account.UserID(), toPublish); err != nil {
 		return fmt.Errorf("error adding/updating valid mappings: %w", err)
 	}
 

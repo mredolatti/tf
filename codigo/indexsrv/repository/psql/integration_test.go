@@ -2,11 +2,14 @@ package psql
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
@@ -232,5 +235,166 @@ func TestIntegrationUsers(t *testing.T) {
 	}
 	if err != repository.ErrNotFound {
 		t.Error("expected ErrNotFOund. Got: ", err)
+	}
+}
+
+func TestIntegrationMappings(t *testing.T) {
+	bg := context.Background()
+	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
+	if err != nil {
+		t.Error("a postgres db is required for these tests: ", err)
+	}
+
+	orgRepo, err := NewOrganizationRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+	org, err := orgRepo.Add(context.Background(), "test_org_1")
+	if err != nil {
+		t.Error("expected no error. Got: ", err)
+	}
+	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
+
+	fsRepo, err := NewFileServerRepository(db)
+	if err != nil {
+		t.Error("there shold be no error. got: ", err)
+	}
+	fs, err := fsRepo.Add(context.Background(), "server_123", "server1", org.ID(), "https://auth.server1", "sftp://fetch.server1", "control.server1:1234")
+	if err != nil {
+		t.Error("there shold be no error. got: ", err)
+	}
+	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
+
+	userRepo, err := NewUserRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "", "")
+	if err != nil {
+		t.Error("erro creating user: ", err)
+	}
+	defer db.Query("DELETE FROM users WHERE id = 'user_123'") // cleanup
+
+	// DB population done
+	// Test begins below:
+
+	repo, err := NewMappingRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+
+	updates := []models.Update{
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file1", Checkpoint: 1, ChangeType: models.UpdateTypeFileAdd},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file2", Checkpoint: 2, ChangeType: models.UpdateTypeFileAdd},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file3", Checkpoint: 3, ChangeType: models.UpdateTypeFileAdd},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file4", Checkpoint: 4, ChangeType: models.UpdateTypeFileAdd},
+	}
+
+	if err := repo.HandleServerUpdates(bg, user.ID(), updates); err != nil {
+		t.Error("error updating mappings: ", err)
+	}
+	defer db.Query("DELETE from mappings where server_id = 'server_123'")
+
+	mappings, err := repo.List(bg, user.ID(), models.MappingQuery{})
+	if err != nil {
+		t.Error("error fetching mappings inserted")
+	}
+	defer db.Query("DELETE FROM mappings WHERE server_id = $1 and user_id = $2", fs.ID(), user.ID())
+
+	if l := len(mappings); l != 4 {
+		t.Error("4 new mappings should have been added. Got: ", l)
+	}
+
+	sort.Slice(mappings, func(i, j int) bool {
+		return mappings[i].(models.Mapping).Ref() < mappings[j].(models.Mapping).Ref()
+	})
+
+	for idx, mapping := range mappings {
+		expectedPath := fmt.Sprintf("unnasigned/%s/file%d", fs.ID(), idx+1)
+		if p := mapping.Path(); p != expectedPath {
+			t.Errorf("expected path = %s. got: %s", expectedPath, p)
+		}
+		var expectedCP int64 = int64(idx) + 1
+		if cp := mapping.Updated().UnixNano(); cp != expectedCP {
+			t.Errorf("expected checkpoint %d. got: %d", expectedCP, cp)
+		}
+
+		if mapping.Deleted() {
+			t.Errorf("mapping for ref %s should not be marked as deleted", mapping.Ref())
+		}
+	}
+
+	// update them and validate chekpoint is updated, rest remains the same
+
+	updates = []models.Update{
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file1", Checkpoint: 5, ChangeType: models.UpdateTypeFileUpdate},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file2", Checkpoint: 6, ChangeType: models.UpdateTypeFileUpdate},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file3", Checkpoint: 7, ChangeType: models.UpdateTypeFileUpdate},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file4", Checkpoint: 8, ChangeType: models.UpdateTypeFileUpdate},
+	}
+
+	if err := repo.HandleServerUpdates(bg, user.ID(), updates); err != nil {
+		t.Error("error updating mappings: ", err)
+	}
+
+	mappings, err = repo.List(bg, user.ID(), models.MappingQuery{})
+	if err != nil {
+		t.Error("error fetching mappings inserted")
+	}
+
+	sort.Slice(mappings, func(i, j int) bool {
+		return mappings[i].(models.Mapping).Ref() < mappings[j].(models.Mapping).Ref()
+	})
+
+	for idx, mapping := range mappings {
+		expectedPath := fmt.Sprintf("unnasigned/%s/file%d", fs.ID(), idx+1)
+		if p := mapping.Path(); p != expectedPath {
+			t.Errorf("expected path = %s. got: %s", expectedPath, p)
+		}
+		var expectedCP int64 = int64(idx) + 5
+		if cp := mapping.Updated().UnixNano(); cp != expectedCP {
+			t.Errorf("expected checkpoint %d. got: %d", expectedCP, cp)
+		}
+
+		if mapping.Deleted() {
+			t.Errorf("mapping for ref %s should not be marked as deleted", mapping.Ref())
+		}
+	}
+
+	// delete them and validate checkpoint and status is updated
+
+	updates = []models.Update{
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file1", Checkpoint: 9, ChangeType: models.UpdateTypeFileDelete},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file2", Checkpoint: 10, ChangeType: models.UpdateTypeFileDelete},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file3", Checkpoint: 11, ChangeType: models.UpdateTypeFileDelete},
+		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file4", Checkpoint: 12, ChangeType: models.UpdateTypeFileDelete},
+	}
+
+	if err := repo.HandleServerUpdates(bg, user.ID(), updates); err != nil {
+		t.Error("error updating mappings: ", err)
+	}
+
+	mappings, err = repo.List(bg, user.ID(), models.MappingQuery{})
+	if err != nil {
+		t.Error("error fetching mappings inserted")
+	}
+
+	sort.Slice(mappings, func(i, j int) bool {
+		return mappings[i].(models.Mapping).Ref() < mappings[j].(models.Mapping).Ref()
+	})
+
+	for idx, mapping := range mappings {
+		expectedPath := fmt.Sprintf("unnasigned/%s/file%d", fs.ID(), idx+1)
+		if p := mapping.Path(); p != expectedPath {
+			t.Errorf("expected path = %s. got: %s", expectedPath, p)
+		}
+		var expectedCP int64 = int64(idx) + 9
+		if cp := mapping.Updated().UnixNano(); cp != expectedCP {
+			t.Errorf("expected checkpoint %d. got: %d", expectedCP, cp)
+		}
+
+		if !mapping.Deleted() {
+			t.Errorf("mapping for ref %s SHOULD be marked as deleted", mapping.Ref())
+		}
 	}
 }

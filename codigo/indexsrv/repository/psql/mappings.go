@@ -18,10 +18,12 @@ const (
 	_all                    = " RETURNING *"
 	mappingListQuery        = "SELECT * FROM mappings WHERE user_id = $1"
 	mappingListByPathQuery  = "SELECT * FROM mappings WHERE user_id = $1 AND path <@ $2"
-	mappingAddQuery         = "INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) VALUES ($1, $2, $3, $4, $5, $6)" + _all
-	mappingAddOrUpdateQuery = mappingAddQuery + "ON CONFLICT DO UPDATE SET updated=EXCLUDED.updated, deleted=EXCLUDED.deleted" + _all
-	mappingDelQuery         = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
-	mappingArchiveQuery     = "UPDATE mappings SET deleted = true, updated = $4 WHERE user_id = $1 AND server_id = $2 AND ref = $3"
+	_mappingAddTpl          = "INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) VALUES ($1, $2, $3, $4, $5, $6)"
+	mappingAddQuery         = _mappingAddTpl + _all
+	mappingAddOrUpdateQuery = ("INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) " +
+		"VALUES (:user_id, :server_id, :path, :ref, :updated, :deleted) " +
+		"ON CONFLICT (user_id, server_id, ref) DO UPDATE SET updated=EXCLUDED.updated, deleted=EXCLUDED.deleted")
+	mappingDelQuery = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
 )
 
 var formatterForDisplay *strings.Replacer = strings.NewReplacer(
@@ -137,19 +139,10 @@ func (r *MappingRepository) Add(ctx context.Context, userID string, mapping mode
 	return &fetched, nil
 }
 
-func (r *MappingRepository) AddOrUpdate(ctx context.Context, userID string, updates []models.Update) error {
-	if res := r.db.QueryRowxContext(ctx, mappingAddOrUpdateQuery, mappingsFromUpdates(userID, updates)); res.Err() != nil {
-		return fmt.Errorf("error inserting/updating mappings: %w", res.Err())
-	}
-	return nil
-}
-
-func (r *MappingRepository) ArchiveMany(ctx context.Context, userID string, updates []models.Update) error {
-	for _, update := range updates {
-		if res := r.db.QueryRowContext(ctx, mappingArchiveQuery, userID, update.ServerID, update.FileRef, update.Checkpoint); res.Err() != nil {
-			// TODO(mredolatti): log
-			return fmt.Errorf("archiving failed at checkpoint '%d': %w", update.Checkpoint, res.Err())
-		}
+// HandleServerUpdates adds/updates mappings from an incoming set of changes from a file server
+func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID string, updates []models.Update) error {
+	if _, err := r.db.NamedExecContext(ctx, mappingAddOrUpdateQuery, mappingsFromUpdates(userID, updates)); err != nil {
+		return fmt.Errorf("error inserting/updating mappings: %w", err)
 	}
 	return nil
 }
@@ -170,7 +163,7 @@ func (r *MappingRepository) Remove(ctx context.Context, userID string, path stri
 }
 
 func mappingsFromUpdates(userID string, updates []models.Update) []Mapping {
-	mappings := make([]Mapping, len(updates))
+	mappings := make([]Mapping, 0, len(updates))
 	for _, update := range updates {
 		mappings = append(mappings, Mapping{
 			UserIDField:   userID,
@@ -178,7 +171,7 @@ func mappingsFromUpdates(userID string, updates []models.Update) []Mapping {
 			RefField:      update.FileRef,
 			DeletedField:  update.ChangeType == models.UpdateTypeFileDelete,
 			UpdatedField:  update.Checkpoint,
-			PathField:     "unnasigned." + update.FileRef,
+			PathField:     formatterForStorage.Replace(fmt.Sprintf("unnasigned/%s/%s", update.ServerID, update.FileRef)),
 		})
 	}
 

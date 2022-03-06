@@ -39,8 +39,7 @@ type MappingRepository interface {
 	Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error)
 	Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error)
 	Remove(ctx context.Context, userID string, mappingID string) error
-	AddOrUpdate(ctx context.Context, userID string, updates []models.Update) error
-	ArchiveMany(ctx context.Context, userID string, updates []models.Update) error
+	HandleServerUpdates(ctx context.Context, userID string, updates []models.Update) error
 }
 
 // FileServerRepository defines the interface for a file server collection

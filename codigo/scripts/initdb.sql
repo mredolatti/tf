@@ -37,8 +37,9 @@ CREATE TABLE IF NOT EXISTS user_accounts (
 CREATE TABLE IF NOT EXISTS mappings (
     user_id VARCHAR NOT NULL REFERENCES users(id),
     server_id VARCHAR NOT NULL REFERENCES file_servers(id),
-    path ltree NOT NULL,
+    path ltree UNIQUE NOT NULL,
     ref VARCHAR NOT NULL,
     updated BIGINT NOT NULL,
-    deleted BOOLEAN NOT NULL DEFAULT FALSE
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY(user_id, server_id, ref)
 );
