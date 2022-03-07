@@ -30,7 +30,7 @@ func TestOrgRepoIntegration(t *testing.T) {
 	// Cleanup
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'")
 
-	added, err := repo.Add(context.Background(), "test_org_1")
+	added, err := repo.Add(context.Background(), &Organization{NameField: "test_org_1"})
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}
@@ -91,7 +91,7 @@ func TestFileServerRepoIntegration(t *testing.T) {
 		db.Query("DELETE FROM organizations WHERE name = 'test_org_1'")
 	}()
 
-	newOrg, err := orgRepo.Add(context.Background(), "test_org_1")
+	newOrg, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}
@@ -249,7 +249,7 @@ func TestIntegrationMappings(t *testing.T) {
 	if err != nil {
 		t.Error("no error shold be returned with a non-nil db. Got: ", err)
 	}
-	org, err := orgRepo.Add(context.Background(), "test_org_1")
+	org, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}

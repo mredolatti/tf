@@ -12,6 +12,7 @@ import (
 	"github.com/mredolatti/tf/codigo/common/runtime"
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users"
+	"github.com/mredolatti/tf/codigo/indexsrv/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository/psql"
 
@@ -47,13 +48,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	fsLinks := setupFSLinks(logger, db)
+
 	userAPI, err := users.New(&users.Options{
 		Host:                config.host,
 		Port:                config.port,
 		GoogleCredentialsFn: config.googleCredentialsFn,
 		Logger:              logger,
 		UserManager:         setupUserManager(db),
-		Mapper:              setupMappingManager(db),
+		Mapper:              setupMappingManager(db, fsLinks),
 	})
 	if err != nil {
 		logger.Error("error constructing user-facing API: %s", err)
@@ -83,9 +86,23 @@ func setupUserManager(db *sqlx.DB) authentication.UserManager {
 	return authentication.NewUserManager(repo)
 }
 
-func setupMappingManager(db *sqlx.DB) *mapper.Impl {
-	repo, _ := psql.NewMappingRepository(db)
-	return mapper.New(repo)
+func setupFSLinks(logger log.Interface, db *sqlx.DB) fslinks.Interface {
+	userRepo, _ := psql.NewUserRepository(db)
+	orgRepo, _ := psql.NewOrganizationRepository(db)
+	toRet, _ := fslinks.New(logger, userRepo, orgRepo)
+	return toRet
+}
+
+func setupMappingManager(db *sqlx.DB, fsLinks fslinks.Interface) *mapper.Impl {
+	mappingRepo, _ := psql.NewMappingRepository(db)
+	accountRepo, _ := psql.NewUserAccountRepository(db)
+
+	return mapper.New(mapper.Config{
+		LastUpdateTolerance: 1 * time.Hour,
+		Repo:                mappingRepo,
+		Accounts:            accountRepo,
+		ServerLinks:         fsLinks,
+	})
 }
 
 func setupShutdown(rtm runtime.Interface) {

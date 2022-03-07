@@ -26,7 +26,8 @@ func (c *Controller) updateStatus(ctx *gin.Context) {
 		return
 	}
 
-	err = c.servers.NotifyServerUp(ctx.Request.Context(), status.ServerID)
+	// TODO(mredolatti): figure out what to do with healthyness & uptime params
+	err = c.servers.NotifyServerUp(ctx.Request.Context(), status.ServerID, true, 123)
 	if err != nil {
 		ctx.JSON(500, "error updating server status")
 		c.logger.Error("error updating server status: ", err)

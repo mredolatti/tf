@@ -115,3 +115,14 @@ func (r *UserAccountRepository) Remove(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// UpdateCheckpoint updates the checkpoint on an account
+func (r *UserAccountRepository) UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error {
+	_, err := r.db.ExecContext(ctx, accountNewUpdate, userID, serverID, newCheckpoint)
+	if err != nil {
+		return fmt.Errorf("error executing accounts::update_checkpoint in postgres: %w", err)
+	}
+	return nil
+}
+
+var _ repository.UserAccountRepository = (*UserAccountRepository)(nil)

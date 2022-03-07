@@ -80,14 +80,14 @@ func (r *OrganizationRepository) Get(ctx context.Context, id string) (models.Org
 }
 
 // Add adds an organization with the supplied name
-func (r *OrganizationRepository) Add(ctx context.Context, name string) (models.Organization, error) {
-	var org Organization
-	err := r.db.QueryRowxContext(ctx, ogAddQuery, name).StructScan(&org)
+func (r *OrganizationRepository) Add(ctx context.Context, org models.Organization) (models.Organization, error) {
+	var read Organization
+	err := r.db.QueryRowxContext(ctx, ogAddQuery, org.Name()).StructScan(&read)
 	if err != nil {
 		return nil, fmt.Errorf("error executing organizations::add in postgres: %w", err)
 	}
 
-	return &org, nil
+	return &read, nil
 }
 
 // Remove deletes an organization that matches the supplied id
@@ -98,3 +98,5 @@ func (r *OrganizationRepository) Remove(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+var _ repository.OrganizationRepository = (*OrganizationRepository)(nil)

@@ -16,9 +16,12 @@ const (
 	defaultUpdateTolerance = 1 * time.Hour
 )
 
-// Options parameters to configure the mapper
-type Options struct {
+// Config parameters to configure the mapper
+type Config struct {
 	LastUpdateTolerance time.Duration
+	Repo                repository.MappingRepository
+	Accounts            repository.UserAccountRepository
+	ServerLinks         fslinks.Interface
 }
 
 // Interface defines the set of methods exposed by a Mapper
@@ -35,15 +38,23 @@ type Impl struct {
 }
 
 // New constructs a new Mapper
-func New(repo repository.MappingRepository) *Impl {
-	return &Impl{mappings: repo}
+func New(config Config) *Impl {
+	return &Impl{
+		mappings:    config.Repo,
+		accounts:    config.Accounts,
+		serverLinks: config.ServerLinks,
+	}
 }
 
 // Get fetches mappings for a specific user based on a query
 func (i *Impl) Get(ctx context.Context, userID string, forceUpdate bool, query *models.MappingQuery) ([]models.Mapping, error) {
-
 	if query == nil {
-		return i.mappings.List(ctx, userID, models.MappingQuery{})
+		query = &models.MappingQuery{}
+	}
+
+	err := i.ensureUpdated(ctx, userID, forceUpdate)
+	if err != nil {
+		return nil, fmt.Errorf("update reqiored but failed: %w", err)
 	}
 	return i.mappings.List(ctx, userID, *query)
 }
@@ -64,7 +75,7 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 	var wg sync.WaitGroup
 	var errCount int64
 	for _, account := range forUser {
-		if account.Checkpoint() < thresholdNS {
+		if account.Checkpoint() < thresholdNS || force {
 			go func(acc models.UserAccount) {
 				wg.Add(1)
 				defer wg.Done()

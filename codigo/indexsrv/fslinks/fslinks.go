@@ -13,7 +13,7 @@ import (
 
 // Interface defines the methods for a file-server links monitor
 type Interface interface {
-	NotifyServerUp(ctx context.Context, serverID string) error
+	NotifyServerUp(ctx context.Context, serverID string, healthy bool, uptime int64) error
 	FetchUpdates(ctx context.Context, serverID string, userID string, checkpoint int64) ([]models.Update, error)
 }
 
@@ -112,3 +112,5 @@ func toUpdateType(ct is2fs.ChangeType) models.UpdateType {
 
 	panic(fmt.Sprintf("update type not defined for value %d", ct))
 }
+
+var _ Interface = (*Impl)(nil)
