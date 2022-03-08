@@ -76,10 +76,11 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 	var errCount int64
 	for _, account := range forUser {
 		if account.Checkpoint() < thresholdNS || force {
+			wg.Add(1)
 			go func(acc models.UserAccount) {
-				wg.Add(1)
 				defer wg.Done()
-				updates, err := i.serverLinks.FetchUpdates(ctx, acc.UserID(), acc.FileServerID(), acc.Checkpoint())
+				updates, err := i.serverLinks.FetchUpdates(ctx, acc.FileServerID(), userID, acc.Checkpoint())
+				fmt.Println("updates: ", updates, err)
 				if err != nil {
 					// TODO(mredolatti): Log!
 					atomic.AddInt64(&errCount, 1)
@@ -104,31 +105,24 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 
 func (i *Impl) handleUpdates(ctx context.Context, account models.UserAccount, updates []models.Update) error {
 
-	toArchive := make([]models.Update, 0, len(updates))
-	toPublish := make([]models.Update, 0, len(updates))
+	if len(updates) == 0 {
+		return nil
+	}
 
 	var newCheckpoint int64
 	for _, update := range updates {
-		switch update.ChangeType {
-		case models.UpdateTypeFileAdd, models.UpdateTypeFileUpdate:
-			toPublish = append(toPublish, update)
-		case models.UpdateTypeFileDelete:
-			toArchive = append(toArchive, update)
-		}
-
 		if current := update.Checkpoint; current > newCheckpoint {
 			newCheckpoint = current
 		}
 	}
 
-	if err := i.mappings.HandleServerUpdates(ctx, account.UserID(), toPublish); err != nil {
+	if err := i.mappings.HandleServerUpdates(ctx, account.UserID(), updates); err != nil {
 		return fmt.Errorf("error adding/updating valid mappings: %w", err)
 	}
 
 	if err := i.accounts.UpdateCheckpoint(ctx, account.UserID(), account.FileServerID(), newCheckpoint); err != nil {
 		return fmt.Errorf("error updating checkpoint: %w", err)
 	}
-	// @}
 
 	return nil
 }

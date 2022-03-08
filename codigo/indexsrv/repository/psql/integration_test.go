@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"sort"
 	"strconv"
 	"testing"
@@ -235,6 +236,108 @@ func TestIntegrationUsers(t *testing.T) {
 	}
 	if err != repository.ErrNotFound {
 		t.Error("expected ErrNotFOund. Got: ", err)
+	}
+}
+
+func TestIntegrationUserAccounts(t *testing.T) {
+	bg := context.Background()
+	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
+	if err != nil {
+		t.Error("a postgres db is required for these tests: ", err)
+	}
+
+	orgRepo, err := NewOrganizationRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+	org, err := orgRepo.Add(bg, &Organization{NameField: "test_org_1"})
+	if err != nil {
+		t.Error("expected no error. Got: ", err)
+	}
+	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
+
+	fsRepo, err := NewFileServerRepository(db)
+	if err != nil {
+		t.Error("there shold be no error. got: ", err)
+	}
+	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "sftp://fetch.server1", "control.server1:1234")
+	if err != nil {
+		t.Error("there shold be no error. got: ", err)
+	}
+	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
+
+	userRepo, err := NewUserRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "", "")
+	if err != nil {
+		t.Error("erro creating user: ", err)
+	}
+	defer db.Query("DELETE FROM users WHERE id = 'user_123'") // cleanup
+
+	// initial population done: now test!
+
+	accountRepo, err := NewUserAccountRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+
+	account, err := accountRepo.Add(bg, user.ID(), fs.ID(), "access", "refresh")
+	if err != nil {
+		t.Error("there should be no error on creation: ", err)
+	}
+	defer db.Query("DELETE FROM user_accounts WHERE user_id = $1 and  server_id = $2", user.ID(), fs.ID())
+
+	if uid := account.UserID(); uid != user.ID() {
+		t.Error("wrong user: ", uid)
+	}
+
+	if sid := account.FileServerID(); sid != fs.ID() {
+		t.Error("wrong file server ID: ", sid)
+	}
+
+	if at := account.Token(); at != "access" {
+		t.Error("wrong access token: ", at)
+	}
+
+	if rt := account.RefreshToken(); rt != "refresh" {
+		t.Error("wrong refresh token: ", rt)
+	}
+
+	forUser, err := accountRepo.List(bg, user.ID())
+	if err != nil {
+		t.Error("list should not error. Got: ", err)
+	}
+
+	if l := len(forUser); l != 1 {
+		t.Error("there should be 1 element only. Got: ", l)
+	}
+
+	if !reflect.DeepEqual(forUser[0], account) {
+		t.Errorf("list[0] and account fetched by Get() should be the same. Got:\nfrom list={%+v}\nfrom get:{%+v}",
+			forUser[0], account)
+	}
+
+	if err := accountRepo.UpdateCheckpoint(bg, user.ID(), fs.ID(), 123); err != nil {
+		t.Error("no error should have been returned. got: ", err)
+	}
+
+	acc, err := accountRepo.Get(bg, user.ID(), fs.ID())
+	if err != nil {
+		t.Error("should not fail. Got: ", err)
+	}
+
+	if cp := acc.Checkpoint(); cp != 123 {
+		t.Error("checkpoint shold have been updated to 123. Got: ", cp)
+	}
+
+	if err := accountRepo.Remove(bg, user.ID(), fs.ID()); err != nil {
+		t.Error("there should be no error when deleteing an account. Got: ", err)
+	}
+
+	if list, err := accountRepo.List(bg, user.ID()); err != nil || len(list) != 0 {
+		t.Error("there should be no error, and the list should be empty. Got: ", err, list)
 	}
 }
 

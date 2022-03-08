@@ -27,11 +27,18 @@ type Impl struct {
 }
 
 // New constructs a new file-server link monitor
-func New(logger log.Interface, userRepo repository.UserRepository, orgRepo repository.OrganizationRepository) (*Impl, error) {
+func New(
+	logger log.Interface,
+	userRepo repository.UserRepository,
+	orgRepo repository.OrganizationRepository,
+	servers repository.FileServerRepository,
+) (*Impl, error) {
 	return &Impl{
-		logger: logger,
-		users:  userRepo,
-		orgs:   orgRepo,
+		logger:  logger,
+		users:   userRepo,
+		orgs:    orgRepo,
+		servers: servers,
+		conns:   *newConnTracker(),
 	}, nil
 }
 
@@ -97,7 +104,7 @@ func (i *Impl) FetchUpdates(ctx context.Context, serverID string, userID string,
 
 	}
 
-	return nil, nil
+	return updates, nil
 }
 
 func toUpdateType(ct is2fs.ChangeType) models.UpdateType {

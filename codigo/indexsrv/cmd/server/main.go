@@ -89,7 +89,8 @@ func setupUserManager(db *sqlx.DB) authentication.UserManager {
 func setupFSLinks(logger log.Interface, db *sqlx.DB) fslinks.Interface {
 	userRepo, _ := psql.NewUserRepository(db)
 	orgRepo, _ := psql.NewOrganizationRepository(db)
-	toRet, _ := fslinks.New(logger, userRepo, orgRepo)
+	serversRepo, _ := psql.NewFileServerRepository(db)
+	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo)
 	return toRet
 }
 

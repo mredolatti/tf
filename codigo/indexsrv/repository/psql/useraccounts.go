@@ -14,9 +14,9 @@ import (
 
 const (
 	accountListQuery = "SELECT * FROM user_accounts WHERE user_id = $1"
-	accountGetQuery  = "SELECT * FROM user_accounts WHERE id = $1"
+	accountGetQuery  = "SELECT * FROM user_accounts WHERE user_id = $1 and server_id = $2"
 	accountAddQuery  = "INSERT INTO user_accounts(user_id, server_id, token, refresh_token) VALUES ($1, $2, $3, $4) RETURNING *"
-	accountNewUpdate = "UPDATE user_accounts set last_update = $3 WHERE user_id = $1 AND server_id = $2 returning *"
+	accountNewUpdate = "UPDATE user_accounts set checkpoint = $3 WHERE user_id = $1 AND server_id = $2 returning *"
 	accountDelQuery  = "DELETE FROM user_accounts WHERE user_id = $1 AND server_id = $2"
 )
 
@@ -98,9 +98,9 @@ func (r *UserAccountRepository) Get(ctx context.Context, userID string, serverID
 }
 
 // Add adds a new user account
-func (r *UserAccountRepository) Add(ctx context.Context, id string, name string) (models.UserAccount, error) {
+func (r *UserAccountRepository) Add(ctx context.Context, userID, serverID, accessToken, refreshToken string) (models.UserAccount, error) {
 	var account UserAccount
-	err := r.db.QueryRowxContext(ctx, accountAddQuery, id, name).StructScan(&account)
+	err := r.db.QueryRowxContext(ctx, accountAddQuery, userID, serverID, accessToken, refreshToken).StructScan(&account)
 	if err != nil {
 		return nil, fmt.Errorf("error executing accounts::add in postgres: %w", err)
 	}
@@ -108,8 +108,8 @@ func (r *UserAccountRepository) Add(ctx context.Context, id string, name string)
 }
 
 // Remove deletes a user account
-func (r *UserAccountRepository) Remove(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, accountDelQuery, id)
+func (r *UserAccountRepository) Remove(ctx context.Context, userID string, serverID string) error {
+	_, err := r.db.ExecContext(ctx, accountDelQuery, userID, serverID)
 	if err != nil {
 		return fmt.Errorf("error executiong accounts::del in postgres: %w", err)
 	}

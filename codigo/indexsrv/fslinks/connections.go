@@ -22,6 +22,10 @@ type connTracker struct {
 	mutex   sync.Mutex
 }
 
+func newConnTracker() *connTracker {
+	return &connTracker{servers: make(fsClientMap)}
+}
+
 func (t *connTracker) get(server models.FileServer) (*fsClient, error) {
 
 	t.mutex.Lock()
@@ -34,7 +38,7 @@ func (t *connTracker) get(server models.FileServer) (*fsClient, error) {
 
 	if !exists {
 		var err error
-		conn, err := grpc.Dial(server.ControlEndpoint())
+		conn, err := grpc.Dial(server.ControlEndpoint(), grpc.WithInsecure()) // TODO!
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to server: %w", err)
 		}

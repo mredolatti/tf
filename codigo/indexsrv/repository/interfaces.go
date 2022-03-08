@@ -26,13 +26,6 @@ type OrganizationRepository interface {
 	Remove(ctx context.Context, id string) error
 }
 
-// FileRepository defines the interface for a File
-// type FileRepository interface {
-// 	List(userID string) ([]models.File, error)
-// 	ListByOrg(userID string, OrganizationID string) ([]models.File, error)
-// 	Get(userID string, OrganizationID string, fileID string) (models.File, error)
-// }
-
 // MappingRepository defines the interface for a Mapping storage access class
 type MappingRepository interface {
 	List(ctx context.Context, userID string, query models.MappingQuery) ([]models.Mapping, error)
@@ -54,7 +47,7 @@ type FileServerRepository interface {
 type UserAccountRepository interface {
 	List(ctx context.Context, userID string) ([]models.UserAccount, error)
 	Get(ctx context.Context, userID string, serverID string) (models.UserAccount, error)
-	Add(ctx context.Context, id string, name string) (models.UserAccount, error)
-	Remove(ctx context.Context, id string) error
+	Add(ctx context.Context, userID, serverID, accessToken, refreshToken string) (models.UserAccount, error)
+	Remove(ctx context.Context, userID string, serverID string) error
 	UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error
 }
