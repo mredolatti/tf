@@ -48,7 +48,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fsLinks := setupFSLinks(logger, db)
+	fsLinks := setupFSLinks(logger, db, config.rootCAFn)
 
 	userAPI, err := users.New(&users.Options{
 		Host:                config.host,
@@ -86,11 +86,11 @@ func setupUserManager(db *sqlx.DB) authentication.UserManager {
 	return authentication.NewUserManager(repo)
 }
 
-func setupFSLinks(logger log.Interface, db *sqlx.DB) fslinks.Interface {
+func setupFSLinks(logger log.Interface, db *sqlx.DB, rootCAFn string) fslinks.Interface {
 	userRepo, _ := psql.NewUserRepository(db)
 	orgRepo, _ := psql.NewOrganizationRepository(db)
 	serversRepo, _ := psql.NewFileServerRepository(db)
-	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo)
+	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo, rootCAFn)
 	return toRet
 }
 
@@ -126,6 +126,7 @@ type config struct {
 	postgresPassword    string
 	postgresDB          string
 	googleCredentialsFn string
+	rootCAFn            string
 }
 
 func parseEnvVars() *config {
@@ -139,6 +140,7 @@ func parseEnvVars() *config {
 		postgresPassword:    os.Getenv("IS_PG_PWD"),
 		postgresDB:          os.Getenv("IS_PG_DB"),
 		googleCredentialsFn: os.Getenv("IS_GOOGLE_CREDS_FN"),
+		rootCAFn:            os.Getenv("IS_ROOT_CA"),
 	}
 }
 

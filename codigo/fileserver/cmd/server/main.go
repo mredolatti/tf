@@ -72,9 +72,12 @@ func main() {
 	}()
 
 	serverAPI, err := server.New(&server.Options{
-		Logger:      logger,
-		Port:        cfg.serverAPIPort,
-		FileManager: fm,
+		Logger:                   logger,
+		Port:                     cfg.serverAPIPort,
+		FileManager:              fm,
+		ServerCertificateChainFN: cfg.serverCertChain,
+		ServerPrivateKeyFN:       cfg.serverPrivateKey,
+		RootCAFn:                 cfg.rootCA,
 	})
 	if err != nil {
 		panic(err.Error())

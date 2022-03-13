@@ -23,7 +23,7 @@ type Impl struct {
 	users   repository.UserRepository
 	orgs    repository.OrganizationRepository
 	servers repository.FileServerRepository
-	conns   connTracker
+	conns   *connTracker
 }
 
 // New constructs a new file-server link monitor
@@ -32,13 +32,20 @@ func New(
 	userRepo repository.UserRepository,
 	orgRepo repository.OrganizationRepository,
 	servers repository.FileServerRepository,
+	rootCA string,
 ) (*Impl, error) {
+
+	connTracker, err := newConnTracker(rootCA)
+	if err != nil {
+		return nil, fmt.Errorf("error setting up gRPC connection tracker: %w", err)
+	}
+
 	return &Impl{
 		logger:  logger,
 		users:   userRepo,
 		orgs:    orgRepo,
 		servers: servers,
-		conns:   *newConnTracker(),
+		conns:   connTracker,
 	}, nil
 }
 

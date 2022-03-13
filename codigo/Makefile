@@ -76,6 +76,7 @@ runlocal-indexserver: index-server $(pki_tgts)
 	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
 		     IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
 		     IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
+		     IS_ROOT_CA="PKI/root/certs/ca.crt" \
 		     ./index-server
 
 ## Ejecucion local de file-server

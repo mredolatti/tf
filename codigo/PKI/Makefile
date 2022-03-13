@@ -39,7 +39,7 @@ root/private/ca.key: $(folders)
 
 root/certs/ca.crt: root/private/ca.key
 	# generar certificado autofirmado
-	openssl req -config root/root-ca.conf \
+	PKI_CA_NAME="ca" PKI_CA_DIR="./root" openssl req -config openssl.conf \
 		-key root/private/ca.key \
 		-new \
 		-x509 \
@@ -65,7 +65,7 @@ sub/private/sub-ca.key: $(folders)
 
 sub/csr/sub-ca.csr: sub/private/sub-ca.key
 	# Crear certificado + solicitud de firma
-	openssl req -config sub/sub-ca.conf \
+	PKI_CA_NAME="sub-ca" PKI_CA_DIR="./sub" openssl req -config openssl.conf \
 		-new \
 		-key sub/private/sub-ca.key \
 		-sha256 \
@@ -75,7 +75,7 @@ sub/csr/sub-ca.csr: sub/private/sub-ca.key
 
 sub/certs/sub-ca.crt: sub/csr/sub-ca.csr root/private/ca.key root/certs/ca.crt
 	# Firmar el certificado con el Root CA
-	openssl ca -config root/root-ca.conf \
+	PKI_CA_NAME="ca" PKI_CA_DIR="./root" openssl ca -config openssl.conf \
 		-batch \
 		-extensions v3_intermediate_ca \
 		-days 1000 \
@@ -99,12 +99,13 @@ fileserver/csr/fs_server.csr: fileserver/private/fs_server.key
 		-key fileserver/private/fs_server.key \
 		-new \
 		-sha256 \
+		-addext 'subjectAltName = DNS:file-server,email:admin@file-server' \
 		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=file-server/emailAddress=some@localhost' \
 		-out fileserver/csr/fs_server.csr
 
 fileserver/certs/fs_server.crt: fileserver/csr/fs_server.csr sub/private/sub-ca.key sub/certs/sub-ca.crt
 	# Firmar certificado con el CA intermedio
-	openssl ca -config sub/sub-ca.conf \
+	PKI_CA_NAME="sub-ca" PKI_CA_DIR="./sub" openssl ca -config openssl.conf \
 		-batch \
 		-extensions server_cert \
 		-days 365 \
@@ -133,11 +134,12 @@ indexserver/csr/idx_server.csr: indexserver/private/idx_server.key
 		-new \
 		-sha256 \
 		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=index-server/emailAddress=some@localhost' \
+		-addext 'subjectAltName = DNS:index-server' \
 		-out indexserver/csr/idx_server.csr
 
 indexserver/certs/idx_server.crt: indexserver/csr/idx_server.csr sub/private/sub-ca.key sub/certs/sub-ca.crt
 	# Firmar certificado con el CA intermedio
-	openssl ca -config sub/sub-ca.conf \
+	PKI_CA_NAME="sub-ca" PKI_CA_DIR="./sub" openssl ca -config openssl.conf \
 		-batch \
 		-extensions server_cert \
 		-days 365 \
@@ -152,7 +154,7 @@ indexserver/certs/chain.pem: indexserver/certs/idx_server.crt sub/certs/sub-ca.c
 	cat indexserver/certs/idx_server.crt sub/certs/sub-ca.crt > indexserver/certs/chain.pem
 
 # -------------------------------------
-# Index server
+# Client
 # -------------------------------------
 
 client/private/client.key: $(folders)
@@ -165,6 +167,7 @@ client/csr/client.csr: client/private/client.key
 		-key client/private/client.key \
 		-new \
 		-sha256 \
+		-addext 'subjectAltName = email:martinredolatti@gmail.com' \
 		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=martin.redolatti/emailAddress=martinredolatti@gmail.com' \
 		-out client/csr/client.csr
 
