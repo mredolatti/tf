@@ -8,9 +8,11 @@ import (
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/login"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/ui"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
+	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,6 +24,7 @@ type Options struct {
 	GoogleCredentialsFn string
 	UserManager         authentication.UserManager
 	Mapper              mapper.Interface
+	ServerRegistrar     registrar.Interface
 	Logger              log.Interface
 }
 
@@ -50,6 +53,9 @@ func New(options *Options) (*API, error) {
 
 	uiController := ui.New(options.Logger, options.Mapper)
 	uiController.Register(router)
+
+	oauth2Controller := fslinks.New(options.Logger, options.ServerRegistrar)
+	oauth2Controller.Register(router)
 
 	return &API{
 		ui:    uiController,

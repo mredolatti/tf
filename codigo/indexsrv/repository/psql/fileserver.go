@@ -15,8 +15,8 @@ import (
 const (
 	fsListByOrg = "SELECT * FROM file_servers WHERE org_id = $1"
 	fsGetQuery  = "SELECT * FROM file_servers WHERE id = $1"
-	fsAddQuery  = "INSERT INTO file_servers(id, name, org_id, auth_url, fetch_url, control_endpoint) " +
-		"VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
+	fsAddQuery  = "INSERT INTO file_servers(id, name, org_id, auth_url, token_url, fetch_url, control_endpoint) " +
+		"VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *"
 	fsDelQuery = "DELETE FROM file_servers WHERE id = $1"
 )
 
@@ -26,6 +26,7 @@ type FileServer struct {
 	NameField            string `db:"name"`
 	OrgField             string `db:"org_id"`
 	AuthURLField         string `db:"auth_url"`
+	TokenURLField        string `db:"token_url"`
 	FetchURLField        string `db:"fetch_url"`
 	ControlEndpointField string `db:"control_endpoint"`
 }
@@ -48,6 +49,11 @@ func (f *FileServer) OrganizationID() string {
 // AuthURL returns the URL used to authorize users when linking a server to their account
 func (f *FileServer) AuthURL() string {
 	return f.AuthURLField
+}
+
+// TokenURL returns the URL used to get a token based on an auth code or a refresh token
+func (f *FileServer) TokenURL() string {
+	return f.TokenURLField
 }
 
 // FetchURL returns the URL to be used when returning fetch recipes
@@ -111,11 +117,12 @@ func (r *FileServerRepository) Add(
 	name string,
 	orgID string,
 	authURL string,
+	tokenURL string,
 	fetchURL string,
 	controlEndpoint string,
 ) (models.FileServer, error) {
 	var server FileServer
-	err := r.db.QueryRowxContext(ctx, fsAddQuery, id, name, orgID, authURL, fetchURL, controlEndpoint).StructScan(&server)
+	err := r.db.QueryRowxContext(ctx, fsAddQuery, id, name, orgID, authURL, tokenURL, fetchURL, controlEndpoint).StructScan(&server)
 	if err != nil {
 		return nil, fmt.Errorf("error executing file_server::add in postgres: %w", err)
 	}

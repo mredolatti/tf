@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"strconv"
@@ -14,6 +17,7 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users"
 	"github.com/mredolatti/tf/codigo/indexsrv/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
+	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository/psql"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
@@ -50,6 +54,9 @@ func main() {
 
 	fsLinks := setupFSLinks(logger, db, config.rootCAFn)
 
+	tlsConfig := parseTLSConfig(config)
+	serverRegistrar := setupRegistrar(logger, db, tlsConfig)
+
 	userAPI, err := users.New(&users.Options{
 		Host:                config.host,
 		Port:                config.port,
@@ -57,6 +64,7 @@ func main() {
 		Logger:              logger,
 		UserManager:         setupUserManager(db),
 		Mapper:              setupMappingManager(db, fsLinks),
+		ServerRegistrar:     serverRegistrar,
 	})
 	if err != nil {
 		logger.Error("error constructing user-facing API: %s", err)
@@ -89,8 +97,9 @@ func setupUserManager(db *sqlx.DB) authentication.UserManager {
 func setupFSLinks(logger log.Interface, db *sqlx.DB, rootCAFn string) fslinks.Interface {
 	userRepo, _ := psql.NewUserRepository(db)
 	orgRepo, _ := psql.NewOrganizationRepository(db)
+	accountRepo, _ := psql.NewUserAccountRepository(db)
 	serversRepo, _ := psql.NewFileServerRepository(db)
-	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo, rootCAFn)
+	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo, accountRepo, rootCAFn)
 	return toRet
 }
 
@@ -104,6 +113,13 @@ func setupMappingManager(db *sqlx.DB, fsLinks fslinks.Interface) *mapper.Impl {
 		Accounts:            accountRepo,
 		ServerLinks:         fsLinks,
 	})
+}
+
+func setupRegistrar(logger log.Interface, db *sqlx.DB, tlsConfig *tls.Config) *registrar.Impl {
+	serversRepo, _ := psql.NewFileServerRepository(db)
+	accountRepo, _ := psql.NewUserAccountRepository(db)
+	oauth2Flows, _ := psql.NewPendingOAuth2Repository(db)
+	return registrar.New(serversRepo, accountRepo, oauth2Flows, tlsConfig)
 }
 
 func setupShutdown(rtm runtime.Interface) {
@@ -127,6 +143,27 @@ type config struct {
 	postgresDB          string
 	googleCredentialsFn string
 	rootCAFn            string
+	certChainFn         string
+	privateKeyFn        string
+}
+
+func parseTLSConfig(c *config) *tls.Config {
+	certBytes, err := ioutil.ReadFile(c.rootCAFn)
+	if err != nil {
+		panic("cannot read root certificate file: " + err.Error())
+	}
+	caPool := x509.NewCertPool()
+	caPool.AppendCertsFromPEM(certBytes)
+
+	certs, err := tls.LoadX509KeyPair(c.certChainFn, c.privateKeyFn)
+	if err != nil {
+		panic("cannot read server certficate chain / private key files: " + err.Error())
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{certs},
+		RootCAs:      caPool,
+	}
 }
 
 func parseEnvVars() *config {
@@ -141,6 +178,8 @@ func parseEnvVars() *config {
 		postgresDB:          os.Getenv("IS_PG_DB"),
 		googleCredentialsFn: os.Getenv("IS_GOOGLE_CREDS_FN"),
 		rootCAFn:            os.Getenv("IS_ROOT_CA"),
+		certChainFn:         os.Getenv("IS_SERVER_CERT_CHAIN"),
+		privateKeyFn:        os.Getenv("IS_SERVER_PRIVATE_KEY"),
 	}
 }
 

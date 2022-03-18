@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/mredolatti/tf/codigo/common/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/errors"
+	"github.com/go-oauth2/oauth2/v4/generates"
 	"github.com/go-oauth2/oauth2/v4/manage"
 	"github.com/go-oauth2/oauth2/v4/models"
 	"github.com/go-oauth2/oauth2/v4/server"
@@ -46,21 +48,23 @@ type Impl struct {
 }
 
 // New constructs a new OAuth2 wrapper
-func New(logger log.Interface, userContextKey string) (*Impl, error) {
+func New(logger log.Interface, userContextKey string, clientID string, clientSecret string) (*Impl, error) {
 	manager := manage.NewDefaultManager()
 	tokenStore, err := store.NewMemoryTokenStore()
 	if err != nil {
-		// TODO
 		return nil, fmt.Errorf("error instantiating token storage: %w", err)
 	}
 	manager.MapTokenStorage(tokenStore)
 
+	// TODO(mredolatti): Crear un JWTAccessGenerate custom con claims propias
+	manager.MapAccessGenerate(generates.NewJWTAccessGenerate("", []byte("00000000"), jwt.SigningMethodHS512))
+
 	// client memory store
 	clientStore := store.NewClientStore()
-	clientStore.Set("000000", &models.Client{
-		ID:     "000000",
-		Secret: "999999",
-		Domain: "http://localhost",
+	clientStore.Set(clientID, &models.Client{
+		ID:     clientID,
+		Secret: clientSecret,
+		Domain: "http://index-server:9876/accounts/auth_callback",
 	})
 	manager.MapClientStorage(clientStore)
 
@@ -98,6 +102,8 @@ func (o *Impl) HandleAuthCodeRequest(ctx *gin.Context) error {
 	if !ok {
 		return ErrNoUserInContext
 	}
+
+	fmt.Println("params: ", ctx.Request.URL.RawQuery)
 
 	ctxWithUser := context.WithValue(ctx.Request.Context(), ctxUser, user)
 	if err := o.server.HandleAuthorizeRequest(ctx.Writer, ctx.Request.WithContext(ctxWithUser)); err != nil {

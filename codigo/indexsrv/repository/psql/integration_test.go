@@ -109,7 +109,7 @@ func TestFileServerRepoIntegration(t *testing.T) {
 
 	rand.Seed(time.Now().UnixNano())
 	newID := strconv.FormatInt(rand.Int63(), 10)
-	newServer, err := fsRepo.Add(context.Background(), newID, "server1", newOrg.ID(), "https://auth.server1", "sftp://fetch.server1", "control.server1:1234")
+	newServer, err := fsRepo.Add(context.Background(), newID, "server1", newOrg.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
@@ -260,7 +260,7 @@ func TestIntegrationUserAccounts(t *testing.T) {
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
-	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "sftp://fetch.server1", "control.server1:1234")
+	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
@@ -362,7 +362,7 @@ func TestIntegrationMappings(t *testing.T) {
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
-	fs, err := fsRepo.Add(context.Background(), "server_123", "server1", org.ID(), "https://auth.server1", "sftp://fetch.server1", "control.server1:1234")
+	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
@@ -500,4 +500,69 @@ func TestIntegrationMappings(t *testing.T) {
 			t.Errorf("mapping for ref %s SHOULD be marked as deleted", mapping.Ref())
 		}
 	}
+}
+
+func TestIntegrationPendingOAuth2(t *testing.T) {
+	bg := context.Background()
+	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
+	if err != nil {
+		t.Error("a postgres db is required for these tests: ", err)
+	}
+
+	orgRepo, err := NewOrganizationRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+	org, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
+	if err != nil {
+		t.Error("expected no error. Got: ", err)
+	}
+	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
+
+	fsRepo, err := NewFileServerRepository(db)
+	if err != nil {
+		t.Error("there shold be no error. got: ", err)
+	}
+	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
+	if err != nil {
+		t.Error("there shold be no error. got: ", err)
+	}
+	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
+
+	userRepo, err := NewUserRepository(db)
+	if err != nil {
+		t.Error("no error shold be returned with a non-nil db. Got: ", err)
+	}
+	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "", "")
+	if err != nil {
+		t.Error("erro creating user: ", err)
+	}
+	defer db.Query("DELETE FROM users WHERE id = 'user_123'") // cleanup
+
+	// DB population done
+	// Test begins below:
+
+	repo, err := NewPendingOAuth2Repository(db)
+	if err != nil {
+		t.Error("shold not return error. Got: ", err)
+	}
+
+	inProgress, err := repo.Put(bg, user.ID(), fs.ID(), "qwertyuiop")
+	if err != nil {
+		t.Error("shold not return error. Got: ", err)
+	}
+
+	popped, err := repo.Pop(bg, "qwertyuiop")
+	if err != nil {
+		t.Error("shold not return error. Got: ", err)
+	}
+
+	if !reflect.DeepEqual(inProgress, popped) {
+		t.Errorf("initial and popped shold be equal. Got:\nOroginal '%+v'\nPopped '%+v'", inProgress, popped)
+	}
+
+	if _, err := repo.Pop(bg, "qwertyuiop"); err == nil {
+		t.Error("there shold be an error.")
+	}
+
 }

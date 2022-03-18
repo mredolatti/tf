@@ -26,17 +26,19 @@ type connTracker struct {
 	servers fsClientMap
 	creds   credentials.TransportCredentials
 	mutex   sync.Mutex
+	auth    *authInterceptor
 }
 
-func newConnTracker(rootCA string) (*connTracker, error) {
+func newConnTracker(rootCA string, auth *authInterceptor) (*connTracker, error) {
 
 	creds, err := parseCredentials(rootCA)
 	if err != nil {
-		return nil, fmt.Errorf("error setting up gRPC client TLS credentials: ", creds)
+		return nil, fmt.Errorf("error setting up gRPC client TLS credentials: %w", err)
 	}
 
 	return &connTracker{
 		servers: make(fsClientMap),
+		auth:    auth,
 		creds:   creds,
 	}, nil
 }
@@ -53,7 +55,12 @@ func (t *connTracker) get(server models.FileServer) (*fsClient, error) {
 
 	if !exists {
 		var err error
-		conn, err := grpc.Dial(server.ControlEndpoint(), grpc.WithTransportCredentials(t.creds))
+		conn, err := grpc.Dial(
+			server.ControlEndpoint(),
+			grpc.WithTransportCredentials(t.creds),
+			grpc.WithUnaryInterceptor(t.auth.Unary()),
+			grpc.WithStreamInterceptor(t.auth.Stream()),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to server: %w", err)
 		}

@@ -10,16 +10,12 @@ VALUES
     ('id2', 'user2', 'a@x.com', 'asdfghjkl', 'lkjhgfdsa'),
     ('id3', 'user3', 'b@x.com', 'zxcvbnm', 'mnbvcxz');
 
-INSERT INTO file_servers(id, org_id, name, auth_url, fetch_url, control_endpoint)
+INSERT INTO file_servers(id, org_id, name, auth_url, token_url, fetch_url, control_endpoint)
 VALUES
-    ('s1', 1, 'o1fs1', 'https://o1fs1/auth', 'sftp://o1fs1', 'o1fs1:1234'),
-    ('s2', 1, 'o1fs2', 'https://o2fs2/auth', 'sftp://o2fs2', 'o1fs2:1234'),
-    ('s3', 1, 'o1fs3', 'https://o3fs3/auth', 'sftp://o3fs3', 'o1fs3:1234'),
-    ('fs1', 1, 'servercito', 'https://file-server/auth', 'https://file-server/file', 'file-server:9000');
-
-INSERT INTO user_accounts(user_id, server_id, token, refresh_token, checkpoint)
-VALUES
-    ('107156877088323945674', 'fs1', 'none', 'none', 0);
+    ('s1', 1, 'o1fs1', 'https://o1fs1/auth', 'https://o1fs1/token', 'https://o1fs1', 'o1fs1:1234'),
+    ('s2', 1, 'o1fs2', 'https://o2fs2/auth', 'https://o2fs2/token', 'https://o2fs2', 'o1fs2:1234'),
+    ('s3', 1, 'o1fs3', 'https://o3fs3/auth', 'https://o3fs3/token', 'https://o3fs3', 'o1fs3:1234'),
+    ('fs1', 1, 'servercito', 'https://file-server:9877/authorize', 'https://file-server:9877/token', 'https://file-server:9877/file', 'file-server:9000');
 
 INSERT INTO mappings(user_id, server_id, ref, path, updated)
 VALUES

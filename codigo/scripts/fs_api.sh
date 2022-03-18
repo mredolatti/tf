@@ -174,3 +174,55 @@ function fs_delete_contents() {
         --key ${FS_KEY} \
         "https://file-server:9877/files/${fid}/contents"
 }
+
+function fs_auth_code() {
+
+    usage="usage: fs_auth_code -i <client_id>"
+    local OPTIND
+    while getopts "i:" options; do
+        case ${options} in
+            i) local cid=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+
+    [ -z "${cid+x}" ] && echo ${usage} && return 1
+
+    curl \
+        -XGET -v \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        "https://file-server:9877/authorize?client_id=${cid}&response_type=code"
+}
+
+function fs_exchange_code() {
+
+    usage="usage: fs_exchange_code -c <code> -i <client_id> -s <client_secret> -r <redirect_uri>"
+    local OPTIND
+    while getopts "c:i:s:r:" options; do
+        case ${options} in
+            c) local code=${OPTARG} ;;
+            i) local cid=${OPTARG} ;;
+            s) local secret=${OPTARG} ;;
+            r) local redirect=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+
+    echo "${code} ${cid} ${secret} ${redirect}"
+
+    [ -z "${code+x}" ] && echo ${usage} && return 1
+    [ -z "${cid+x}" ] && echo ${usage} && return 1
+    [ -z "${secret+x}" ] && echo ${usage} && return 1
+    [ -z "${redirect+x}" ] && echo ${usage} && return 1
+
+    curl \
+        -XGET \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+    "https://file-server:9877/token?grant_type=authorization_code&client_id=${cid}&client_secret=${secret}&scope=read&code=${code//[$'\t\r\n ']}&redirect_uri=${redirect}"
+}

@@ -25,6 +25,7 @@ type FileServer interface {
 	OrganizationID() string
 	Name() string
 	AuthURL() string
+	TokenURL() string
 	FetchURL() string
 	ControlEndpoint() string
 }
@@ -43,16 +44,6 @@ type UserAccount interface {
 	Checkpoint() int64
 }
 
-// File defines the File model
-//type File interface {
-//	ID() string
-//	ServerID() string
-//	Ref() string
-//	Size() int64
-//	PatientID() string
-//	Updated() time.Time
-//}
-
 // Mapping defines the mapping model
 type Mapping interface {
 	UserID() string
@@ -61,6 +52,13 @@ type Mapping interface {
 	Path() string
 	Updated() time.Time
 	Deleted() bool
+}
+
+// PendingOAuth2 is user to model in-progress oauth2 flows between initial redirect & auth code arrival
+type PendingOAuth2 interface {
+	State() string
+	UserID() string
+	FileServerID() string
 }
 
 // FileQuery has optional fields that can be set to narrow the search for a file/path

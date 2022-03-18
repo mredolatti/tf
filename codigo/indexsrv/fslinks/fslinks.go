@@ -11,6 +11,9 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 )
 
+type ctxKeyUserID struct{}
+type ctxKeyServerID struct{}
+
 // Interface defines the methods for a file-server links monitor
 type Interface interface {
 	NotifyServerUp(ctx context.Context, serverID string, healthy bool, uptime int64) error
@@ -19,11 +22,12 @@ type Interface interface {
 
 // Impl is an implementation of fslink.Interface
 type Impl struct {
-	logger  log.Interface
-	users   repository.UserRepository
-	orgs    repository.OrganizationRepository
-	servers repository.FileServerRepository
-	conns   *connTracker
+	logger        log.Interface
+	users         repository.UserRepository
+	orgs          repository.OrganizationRepository
+	servers       repository.FileServerRepository
+	userAccoounts repository.UserAccountRepository
+	conns         *connTracker
 }
 
 // New constructs a new file-server link monitor
@@ -32,20 +36,22 @@ func New(
 	userRepo repository.UserRepository,
 	orgRepo repository.OrganizationRepository,
 	servers repository.FileServerRepository,
+	userAccoounts repository.UserAccountRepository,
 	rootCA string,
 ) (*Impl, error) {
 
-	connTracker, err := newConnTracker(rootCA)
+	connTracker, err := newConnTracker(rootCA, newAuthInterceptor(userAccoounts))
 	if err != nil {
 		return nil, fmt.Errorf("error setting up gRPC connection tracker: %w", err)
 	}
 
 	return &Impl{
-		logger:  logger,
-		users:   userRepo,
-		orgs:    orgRepo,
-		servers: servers,
-		conns:   connTracker,
+		logger:        logger,
+		users:         userRepo,
+		orgs:          orgRepo,
+		servers:       servers,
+		conns:         connTracker,
+		userAccoounts: userAccoounts,
 	}, nil
 }
 
@@ -77,11 +83,10 @@ func (i *Impl) FetchUpdates(ctx context.Context, serverID string, userID string,
 		return nil, fmt.Errorf("error connecting to server '%s': %w", serverID, err)
 	}
 
-	stream, err := pack.client.SyncUser(ctx, &is2fs.SyncUserRequest{
-		Checkpoint: checkpoint,
-		UserID:     userID,
-		KeepAlive:  false, //TODO(mredolatti): Either implement this or remove it
-	})
+	stream, err := pack.client.SyncUser(
+		context.WithValue(context.WithValue(ctx, ctxKeyUserID{}, userID), ctxKeyServerID{}, serverID),
+		&is2fs.SyncUserRequest{Checkpoint: checkpoint, UserID: userID, KeepAlive: false}) //TODO(mredolatti): Either implement this or remove it
+
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error syncing available files for user '%s' in server '%s': %w",

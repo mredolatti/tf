@@ -1,10 +1,22 @@
-File Server Registry (gRPC)
+
+Pendiente:
+
+1. definir si usar userID o email para la interaccion is <-> fs y actualizar todo acorde
+2. validar JWTs en fs
+3. identificacion en is
+    - google?
+    - mail/pass?
+    - mtls?
+4. agente local o driver para fs usando fuse
+
+
 
 
 File Server registartion:
 1. FS se registra en IS mediante una llamada REST, enviando los siguientes datos:
 	- Datos institucionales (hospital, sede, etc)
 	- ID de instancia
+        - Endpoint REST de autorization
 	- Endpoint de su API REST para manipular archivos
 	- Endpoint de su API gRPC para control
 	- Parametros OAuth2 (redirect uri, etc)

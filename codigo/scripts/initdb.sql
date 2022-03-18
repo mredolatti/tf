@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS file_servers (
     org_id INT REFERENCES organizations(id),
     name VARCHAR UNIQUE NOT NULL,
     auth_url VARCHAR NOT NULL,
+    token_url VARCHAR NOT NULL,
     fetch_url VARCHAR NOT NULL,
     control_endpoint VARCHAR NOT NULL
 );
@@ -42,4 +43,11 @@ CREATE TABLE IF NOT EXISTS mappings (
     updated BIGINT NOT NULL,
     deleted BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY(user_id, server_id, ref)
+);
+
+CREATE TABLE IF NOT EXISTS oauth2_pending (
+    user_id VARCHAR NOT NULL REFERENCES users(id),
+    server_id VARCHAR NOT NULL REFERENCES file_servers(id),
+    state VARCHAR NOT NULL,
+    PRIMARY KEY(state)
 );

@@ -36,7 +36,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	oauth2W, err := oauth2.New(logger, "user")
+	oauth2W, err := oauth2.New(logger, "user", cfg.isClientID, cfg.isClientSecret)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -101,6 +101,8 @@ type config struct {
 	serverCertChain  string
 	serverPrivateKey string
 	rootCA           string
+	isClientID       string
+	isClientSecret   string
 }
 
 func parseEnvVars() *config {
@@ -112,6 +114,8 @@ func parseEnvVars() *config {
 		serverCertChain:  os.Getenv("FS_SERVER_CERT_CHAIN"),
 		serverPrivateKey: os.Getenv("FS_SERVER_PRIVATE_KEY"),
 		rootCA:           os.Getenv("FS_ROOT_CA"),
+		isClientID:       os.Getenv("FS_OAUTH_IS_CLIENT_ID"),
+		isClientSecret:   os.Getenv("FS_OAUTH_IS_CLIENT_SECRET"),
 	}
 }
 

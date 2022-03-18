@@ -1,26 +1,33 @@
 #!/usr/bin/env bash
 
+FS_CACERT=${FS_CACERT:-'PKI/root/certs/ca.crt'}
+FS_CERT=${FS_CERT:-'PKI/client/certs/client.crt'}
+FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}
+
+
 function idx_list() {
     curl -XGET 'http://index-server:9876/main/mappings'
 }
 
-#function idx_get() {
-#    usage="usage: fs_get -i <file_id>"
-#    local OPTIND
-#    while getopts "i:" options; do
-#        case ${options} in
-#            i) local fid=${OPTARG} ;;
-#            h) echo ${usage} && return 0 ;;
-#            *) echo ${usage} && return 1 ;;
-#        esac
-#    done
-#
-#    [ -z ${fid+x} ] && echo ${usage} && return 1
-#
-#    curl \
-#        -XGET \
-#        --cacert ${FS_CACERT} \
-#        --cert ${FS_CERT} \
-#        --key ${FS_KEY} \
-#        "https://file-server:9877/files/${fid}"
-#}
+function idx_link_fs() {
+    usage="usage: idx_link_fs -s <server_id>"
+   local OPTIND
+   while getopts "s:" options; do
+       case ${options} in
+           s) local sid=${OPTARG} ;;
+           h) echo ${usage} && return 0 ;;
+           *) echo ${usage} && return 1 ;;
+       esac
+   done
+
+   [ -z ${sid+x} ] && echo ${usage} && return 1
+
+   curl \
+       -v \
+       -L \
+       -XGET \
+       --cacert ${FS_CACERT} \
+       --cert ${FS_CERT} \
+       --key ${FS_KEY} \
+       "http://index-server:9876/accounts/server/${sid}/authorize"
+}

@@ -39,7 +39,7 @@ type MappingRepository interface {
 type FileServerRepository interface {
 	List(ctx context.Context, orgID string) ([]models.FileServer, error)
 	Get(ctx context.Context, id string) (models.FileServer, error)
-	Add(ctx context.Context, id string, name string, orgID string, authURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
+	Add(ctx context.Context, id string, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
 	Remove(ctx context.Context, id string) error
 }
 
@@ -50,4 +50,10 @@ type UserAccountRepository interface {
 	Add(ctx context.Context, userID, serverID, accessToken, refreshToken string) (models.UserAccount, error)
 	Remove(ctx context.Context, userID string, serverID string) error
 	UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error
+}
+
+// PendingOAuth2Repository is used to store & retreive in-progress oauth2 flows metadata
+type PendingOAuth2Repository interface {
+	Put(ctx context.Context, userID string, serverID string, state string) (models.PendingOAuth2, error)
+	Pop(ctx context.Context, state string) (models.PendingOAuth2, error)
 }

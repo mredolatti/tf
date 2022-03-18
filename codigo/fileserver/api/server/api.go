@@ -43,7 +43,13 @@ func New(options *Options) (*ServerAPI, error) {
 		return nil, fmt.Errorf("error instantiating control server: %w", err)
 	}
 
-	server := grpc.NewServer(grpc.Creds(credentials))
+	var auth authInterceptor
+
+	server := grpc.NewServer(
+		grpc.Creds(credentials),
+		grpc.UnaryInterceptor(auth.Unary()),
+		grpc.StreamInterceptor(auth.Stream()),
+	)
 	is2fs.RegisterFileRefSyncServer(server, controlServer)
 
 	return &ServerAPI{
