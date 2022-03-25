@@ -57,36 +57,22 @@ func New(
 	tokenStore oauth2.TokenStore,
 	jwtSecret []byte,
 ) (*Impl, error) {
-	/*
-		tokenStore, err := store.NewMemoryTokenStore()
-		if err != nil {
-			return nil, fmt.Errorf("error instantiating token storage: %w", err)
-		}
-		// client memory store
-		clientStore := store.NewClientStore()
-		clientStore.Set(clientID, &models.Client{
-			ID:     clientID,
-			Secret: clientSecret,
-			Domain: "http://index-server:9876/accounts/auth_callback",
-		})
-	*/
+
 	manager := manage.NewDefaultManager()
 	manager.MapClientStorage(clientStore)
 	manager.MapTokenStorage(tokenStore)
-
-	// TODO(mredolatti): Crear un JWTAccessGenerate custom con claims propias
 	manager.MapAccessGenerate(generates.NewJWTAccessGenerate("", jwtSecret, jwt.SigningMethodHS512))
 
 	srv := server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)
 	srv.SetClientInfoHandler(server.ClientFormHandler)
 	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
-		fmt.Println("Internal Error:", err.Error())
+		logger.Error("oauth2 internal error: %s", err.Error())
 		return
 	})
 
 	srv.SetResponseErrorHandler(func(re *errors.Response) {
-		fmt.Println("Response Error:", re.Error.Error())
+		logger.Error("oauth2 response error: url='%s' errorCode='%d':", re.URI, re.ErrorCode, re.Error)
 	})
 
 	srv.SetUserAuthorizationHandler(func(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -112,8 +98,6 @@ func (o *Impl) HandleAuthCodeRequest(ctx *gin.Context) error {
 	if !ok {
 		return ErrNoUserInContext
 	}
-
-	fmt.Println("params: ", ctx.Request.URL.RawQuery)
 
 	ctxWithUser := context.WithValue(ctx.Request.Context(), ctxUser, user)
 	if err := o.server.HandleAuthorizeRequest(ctx.Writer, ctx.Request.WithContext(ctxWithUser)); err != nil {
