@@ -1,13 +1,22 @@
 
 Pendiente:
 
-1. definir si usar userID o email para la interaccion is <-> fs y actualizar todo acorde
-2. validar JWTs en fs
-3. identificacion en is
+1. migrar para usar e-mail como id de usuario compartido entre IS y FS
+3. agente local o driver para fs usando fuse
+
+========
+
+4. identificacion en is
     - google?
     - mail/pass?
     - mtls?
-4. agente local o driver para fs usando fuse
+5. Almacenamiento no volatil para archivos
+6. Unit tests
+
+----------------------------------------
+
+
+
 
 
 

@@ -50,6 +50,7 @@ type UserAccountRepository interface {
 	Add(ctx context.Context, userID, serverID, accessToken, refreshToken string) (models.UserAccount, error)
 	Remove(ctx context.Context, userID string, serverID string) error
 	UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error
+	UpdateTokens(ctx context.Context, userID, serverID, accessToken, refreshToken string) error
 }
 
 // PendingOAuth2Repository is used to store & retreive in-progress oauth2 flows metadata

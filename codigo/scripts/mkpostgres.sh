@@ -4,7 +4,8 @@
 [[ -z "${POSTGRES_CONTAINER}" ]] && POSTGRES_CONTAINER='some-postgres'
 [[ -z "${POSTGRES_USER}" ]] && POSTGRES_USER='postgres'
 [[ -z "${POSTGRES_PASS}" ]] && POSTGRES_PASS='mysecretpassword'
-[[ -z "${POSTGRES_DB}" ]] && POSTGRES_DB='indexsrv'
+[[ -z "${POSTGRES_DB_INDEX}" ]] && POSTGRES_DB_INDEX='indexsrv'
+[[ -z "${POSTGRES_DB_FILE}" ]] && POSTGRES_DB_FILE='filesrv'
 [[ -z "${POSTGRES_HOST}" ]] && POSTGRES_HOST='localhost'
 
 # Fetch the latest image if necessary, otherwhise do nothing.
@@ -35,31 +36,37 @@ function create_container() {
 }
 
 function drop_db() {
-    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}"    
-    echo "DROP DATABASE ${POSTGRES_DB}" \
+    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}"
+    echo "DROP DATABASE ${POSTGRES_DB_INDEX}" \
+        | docker exec -i "${POSTGRES_CONTAINER}" psql ${uri}
+    echo "DROP DATABASE ${POSTGRES_DB_FILE}" \
         | docker exec -i "${POSTGRES_CONTAINER}" psql ${uri}
 }
 
 function create_db() {
     uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}"    
-    echo "CREATE DATABASE ${POSTGRES_DB} ENCODING 'utf-8'" \
+    echo "CREATE DATABASE ${POSTGRES_DB_INDEX} ENCODING 'utf-8'" \
+        | docker exec -i "${POSTGRES_CONTAINER}" psql ${uri}
+    echo "CREATE DATABASE ${POSTGRES_DB_FILE} ENCODING 'utf-8'" \
         | docker exec -i "${POSTGRES_CONTAINER}" psql ${uri}
 }
 
 function init_db() {
-    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}/${POSTGRES_DB}"
+    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}"
     dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-    cat "${dir}/initdb.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}"
+    cat "${dir}/indexserver.init.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}/${POSTGRES_DB_INDEX}"
+    cat "${dir}/fileserver.init.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}/${POSTGRES_DB_FILE}"
 }
 
 function setup_fixtures() {
-    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}/${POSTGRES_DB}"
+    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}"
     dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-    cat "${dir}/fixtures.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}"
+    cat "${dir}/indexserver.fixtures.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}/${POSTGRES_DB_INDEX}"
+    cat "${dir}/fileserver.fixtures.sql" | docker exec -i "${POSTGRES_CONTAINER}" psql "${uri}/${POSTGRES_DB_FILE}"
 }
 
 function start_shell() {
-    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}/${POSTGRES_DB}"
+    uri="postgresql://${POSTGRES_USER}:${POSTGRES_PASS}@${POSTGRES_HOST}"
     dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     docker exec -it "${POSTGRES_CONTAINER}" psql "${uri}"
 }

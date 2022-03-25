@@ -13,11 +13,13 @@ import (
 )
 
 const (
-	accountListQuery = "SELECT * FROM user_accounts WHERE user_id = $1"
-	accountGetQuery  = "SELECT * FROM user_accounts WHERE user_id = $1 and server_id = $2"
-	accountAddQuery  = "INSERT INTO user_accounts(user_id, server_id, token, refresh_token) VALUES ($1, $2, $3, $4) RETURNING *"
-	accountNewUpdate = "UPDATE user_accounts set checkpoint = $3 WHERE user_id = $1 AND server_id = $2 returning *"
-	accountDelQuery  = "DELETE FROM user_accounts WHERE user_id = $1 AND server_id = $2"
+	accountListQuery         = "SELECT * FROM user_accounts WHERE user_id = $1"
+	accountGetQuery          = "SELECT * FROM user_accounts WHERE user_id = $1 and server_id = $2"
+	accountAddQuery          = "INSERT INTO user_accounts(user_id, server_id, token, refresh_token) VALUES ($1, $2, $3, $4) RETURNING *"
+	accountCheckpointUpdate  = "UPDATE user_accounts set checkpoint = $3 WHERE user_id = $1 AND server_id = $2 returning *"
+	accountAccessTokenUpdate = "UPDATE user_accounts set token = $3 WHERE user_id = $1 AND server_id = $2 returning *"
+	accountTokensUpdate      = "UPDATE user_accounts set token = $3, refresh_token = $4 WHERE user_id = $1 AND server_id = $2 returning *"
+	accountDelQuery          = "DELETE FROM user_accounts WHERE user_id = $1 AND server_id = $2"
 )
 
 // UserAccount is a postgres-compatible struct implementing models.UserAccount interface
@@ -118,9 +120,29 @@ func (r *UserAccountRepository) Remove(ctx context.Context, userID string, serve
 
 // UpdateCheckpoint updates the checkpoint on an account
 func (r *UserAccountRepository) UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error {
-	_, err := r.db.ExecContext(ctx, accountNewUpdate, userID, serverID, newCheckpoint)
+	_, err := r.db.ExecContext(ctx, accountCheckpointUpdate, userID, serverID, newCheckpoint)
 	if err != nil {
 		return fmt.Errorf("error executing accounts::update_checkpoint in postgres: %w", err)
+	}
+	return nil
+
+}
+
+// UpdateTokens updates access (& maybe refresh) tokens for a user account
+func (r *UserAccountRepository) UpdateTokens(ctx context.Context, userID, serverID, accessToken, refreshToken string) error {
+
+	if refreshToken == "" { // update access token only
+		_, err := r.db.ExecContext(ctx, accountAccessTokenUpdate, userID, serverID, accessToken)
+		if err != nil {
+			return fmt.Errorf("error executing accounts::update_access_token in postgres: %w", err)
+		}
+		return nil
+	}
+
+	// update both access & refresh tokens
+	_, err := r.db.ExecContext(ctx, accountTokensUpdate, userID, serverID, accessToken, refreshToken)
+	if err != nil {
+		return fmt.Errorf("error executing accounts::update_all_tokens in postgres: %w", err)
 	}
 	return nil
 }

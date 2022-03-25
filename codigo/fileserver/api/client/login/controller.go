@@ -26,6 +26,7 @@ func New(logger log.Interface, oauth2Wrapper oauth2.Interface) *Controller {
 func (c *Controller) Register(router gin.IRouter) {
 	router.GET("/authorize", c.authorize)
 	router.GET("/token", c.token)
+	router.POST("/token", c.token)
 }
 
 func (c *Controller) authorize(ctx *gin.Context) {

@@ -13,9 +13,7 @@ import (
 	"github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/generates"
 	"github.com/go-oauth2/oauth2/v4/manage"
-	"github.com/go-oauth2/oauth2/v4/models"
 	"github.com/go-oauth2/oauth2/v4/server"
-	"github.com/go-oauth2/oauth2/v4/store"
 )
 
 type ctxKey int
@@ -34,39 +32,50 @@ type Interface interface {
 	HandleAuthCodeRequest(ctx *gin.Context) error
 	HandleAuthCodeExchangeRequest(ctx *gin.Context) error
 	HandleTokenRefreshRequest(ctx *gin.Context)
+
+	// TODO(mredolatti): mover esto a un compoenente que encapsule todo lo de jwt
 	ValidateAccess(ctx *gin.Context) (string, error)
+	ValidateToken(token string) (*generates.JWTAccessClaims, error)
 }
 
 // Impl is a wrapper around a set of helpers that handle oauth2 auth code & token requests
 type Impl struct {
 	logger      log.Interface
+	server      *server.Server
 	userCtxKey  string
 	manager     *manage.Manager
 	tokenStore  oauth2.TokenStore
 	clientStore oauth2.ClientStore
-	server      *server.Server
+	jwtSecret   []byte
 }
 
 // New constructs a new OAuth2 wrapper
-func New(logger log.Interface, userContextKey string, clientID string, clientSecret string) (*Impl, error) {
+func New(
+	logger log.Interface,
+	userContextKey string,
+	clientStore oauth2.ClientStore,
+	tokenStore oauth2.TokenStore,
+	jwtSecret []byte,
+) (*Impl, error) {
+	/*
+		tokenStore, err := store.NewMemoryTokenStore()
+		if err != nil {
+			return nil, fmt.Errorf("error instantiating token storage: %w", err)
+		}
+		// client memory store
+		clientStore := store.NewClientStore()
+		clientStore.Set(clientID, &models.Client{
+			ID:     clientID,
+			Secret: clientSecret,
+			Domain: "http://index-server:9876/accounts/auth_callback",
+		})
+	*/
 	manager := manage.NewDefaultManager()
-	tokenStore, err := store.NewMemoryTokenStore()
-	if err != nil {
-		return nil, fmt.Errorf("error instantiating token storage: %w", err)
-	}
+	manager.MapClientStorage(clientStore)
 	manager.MapTokenStorage(tokenStore)
 
 	// TODO(mredolatti): Crear un JWTAccessGenerate custom con claims propias
-	manager.MapAccessGenerate(generates.NewJWTAccessGenerate("", []byte("00000000"), jwt.SigningMethodHS512))
-
-	// client memory store
-	clientStore := store.NewClientStore()
-	clientStore.Set(clientID, &models.Client{
-		ID:     clientID,
-		Secret: clientSecret,
-		Domain: "http://index-server:9876/accounts/auth_callback",
-	})
-	manager.MapClientStorage(clientStore)
+	manager.MapAccessGenerate(generates.NewJWTAccessGenerate("", jwtSecret, jwt.SigningMethodHS512))
 
 	srv := server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)
@@ -93,6 +102,7 @@ func New(logger log.Interface, userContextKey string, clientID string, clientSec
 		manager:     manager,
 		clientStore: clientStore,
 		server:      srv,
+		jwtSecret:   jwtSecret,
 	}, nil
 }
 
@@ -134,6 +144,30 @@ func (o *Impl) ValidateAccess(ctx *gin.Context) (string, error) {
 	}
 
 	return info.GetUserID(), nil
+}
+
+// ValidateToken parses and verifies a token in string form
+func (o *Impl) ValidateToken(token string) (*generates.JWTAccessClaims, error) {
+	fmt.Println("parseando: ", token)
+	parsed, err := jwt.ParseWithClaims(token, &generates.JWTAccessClaims{}, func(token *jwt.Token) (interface{}, error) {
+		_, ok := token.Method.(*jwt.SigningMethodHMAC)
+		if !ok {
+			return nil, fmt.Errorf("invalid signature method")
+		}
+
+		return o.jwtSecret, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: %w", err)
+	}
+
+	claims, ok := parsed.Claims.(*generates.JWTAccessClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid claims")
+	}
+
+	return claims, nil
 }
 
 var _ Interface = (*Impl)(nil)

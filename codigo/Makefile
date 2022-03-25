@@ -80,12 +80,29 @@ runlocal-indexserver: index-server $(pki_tgts)
 		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
 		./index-server
 
+## Iniciar index-server en delve
+debuglocal-indexserver:
+	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
+		IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
+		IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
+		IS_ROOT_CA="PKI/root/certs/ca.crt" IS_SERVER_CERT_CHAIN="PKI/indexserver/certs/chain.pem" \
+		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
+		dlv debug indexsrv/cmd/server/main.go
+
 ## Ejecucion local de file-server
 runlocal-fileserver: file-server $(pki_tgts)
-	FS_OAUTH_IS_CLIENT_ID="0000000" FS_OAUTH_IS_CLIENT_SECRET="1234567890" FS_LOG_DEBUG="true" FS_HOST="file-server" \
-		FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
+	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
+		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
 		./file-server
+
+## iniciar file-server en delve
+debuglocal-fileserver:
+	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
+		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
+		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
+		dlv debug fileserver/cmd/server/main.go
+
 
 ## Run a CLI gRPC client against a local instance of file-server
 runlocal-evans-fs:
@@ -122,7 +139,8 @@ $(container_incoming_tgts): $(pki_tgts)
 	cp PKI/indexserver/certs/chain.pem incoming/indexserver/certs
 	cp PKI/indexserver/private/idx_server.key incoming/indexserver/certs
 	cp client_secret.json incoming/indexserver/credentials
-	cp scripts/initdb.sql incoming/idx_server_db/scripts
+	cp scripts/fileserver.init.sql incoming/idx_server_db/scripts
+	cp scripts/indexserver.init.sql incoming/idx_server_db/scripts
 
 
 # autodoc de targets tomado de: https://docs.cloudposse.com/reference/best-practices/make-best-practices/

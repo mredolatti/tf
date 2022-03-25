@@ -9,7 +9,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 )
@@ -17,17 +20,51 @@ import (
 const (
 	clientID     = "0000000"
 	clientSecret = "1234567890"
+
+	tokenValidityMaxTolerance = 5 * time.Minute
 )
 
 // Public errors
 var (
 	ErrAccountExists = errors.New("account already exists")
+
+	ErrInvalidToken  = errors.New("error parsing raw token")
+	ErrInvalidClaims = errors.New("unknown claims in jwt")
 )
+
+// Token is a type mapping to jwt.Token
+type Token struct {
+	raw string
+}
+
+// TokenClaims is a type alias to jwt.StandardClaims
+type TokenClaims = jwt.StandardClaims
+
+// ParseClaims type-asserts the token's claims and returns them
+func (t *Token) ParseClaims() (*TokenClaims, error) {
+	var parser jwt.Parser
+	parsed, _, err := parser.ParseUnverified(t.raw, &TokenClaims{})
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	claims, ok := parsed.Claims.(*TokenClaims)
+	if !ok {
+		return nil, ErrInvalidClaims
+	}
+	return claims, nil
+}
+
+// Raw returns the full token string
+func (t *Token) Raw() string {
+	return t.raw
+}
 
 // Interface defines the set of methods for managing user <-> server links
 type Interface interface {
 	InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error)
 	CompleteLinkProcess(ctx context.Context, state string, code string) error
+	GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error)
 }
 
 // Impl is an implementation of the registar interface
@@ -143,6 +180,91 @@ func (i *Impl) exchangeCode(ctx context.Context, serverID string, code string) (
 
 	return &tokenResponse, nil
 
+}
+
+// GetValidToken returns the current token if still valid or a refreshed one otherwise
+func (i *Impl) GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error) {
+	acc, err := i.userAccoounts.Get(ctx, userID, serverID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting account from repository: %w", err)
+	}
+
+	if token := acc.Token(); isTokenStillValid(token) {
+		return &Token{raw: token}, nil
+	}
+
+	newAccessToken, err := i.doRefreshToken(ctx, userID, serverID, acc.RefreshToken())
+	if err != nil {
+		return nil, fmt.Errorf("error refreshing token: %w", err)
+	}
+
+	return &Token{raw: newAccessToken}, nil
+}
+
+func (i *Impl) doRefreshToken(ctx context.Context, userID string, serverID string, refreshToken string) (string, error) {
+	server, err := i.fileServers.Get(ctx, serverID)
+	if err != nil {
+		return "", fmt.Errorf("error fetching server from repository: %w", err)
+	}
+
+	tokenResponse, err := i.makeTokenRefreshRequest(server.TokenURL(), refreshToken)
+	if err != nil {
+		return "", fmt.Errorf("error making token refresh request: %w", err)
+	}
+
+	if err := i.userAccoounts.UpdateTokens(ctx, userID, serverID, tokenResponse.AccessToken, tokenResponse.RefreshToken); err != nil {
+		return "", fmt.Errorf("error storing new tokens in db: %w", err)
+	}
+
+	return tokenResponse.AccessToken, nil
+}
+
+func (i *Impl) makeTokenRefreshRequest(tokenURL string, refreshToken string) (*tokenResponse, error) {
+	bodyForm := url.Values{}
+	bodyForm.Add("grant_type", "refresh_token")
+	bodyForm.Add("client_id", clientID)
+	bodyForm.Add("client_secret", clientSecret)
+	bodyForm.Add("refresh_token", refreshToken)
+	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(bodyForm.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("error creating request for token refresh: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := i.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making token refresh request: %w", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+	fmt.Println("body: ", string(body))
+
+	var tokenResponse tokenResponse
+	err = json.Unmarshal(body, &tokenResponse)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing response json: %w", err)
+
+	}
+
+	return &tokenResponse, nil
+}
+
+func isTokenStillValid(token string) bool {
+	var parser jwt.Parser
+	parsed, _, err := parser.ParseUnverified(token, &jwt.StandardClaims{})
+	if err != nil {
+		return false
+	}
+
+	claims, ok := parsed.Claims.(*jwt.StandardClaims)
+	if !ok {
+		return false
+	}
+
+	return time.Now().Before(time.Unix(claims.ExpiresAt, 0).Add(tokenValidityMaxTolerance))
 }
 
 func buildRedirectURL(server models.FileServer, clientID string, state string) (*url.URL, error) {

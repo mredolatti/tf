@@ -7,6 +7,7 @@ import (
 
 	"github.com/mredolatti/tf/codigo/common/is2fs"
 	"github.com/mredolatti/tf/codigo/common/log"
+	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
 	"github.com/mredolatti/tf/codigo/fileserver/api/server/control"
 	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
 	"google.golang.org/grpc"
@@ -21,6 +22,7 @@ type Options struct {
 	ServerCertificateChainFN string
 	ServerPrivateKeyFN       string
 	RootCAFn                 string
+	OAuth2Wrapper            oauth2.Interface
 }
 
 // ServerAPI is the gRPC server
@@ -43,7 +45,7 @@ func New(options *Options) (*ServerAPI, error) {
 		return nil, fmt.Errorf("error instantiating control server: %w", err)
 	}
 
-	var auth authInterceptor
+	auth := newAuthInterceptor(options.Logger, options.OAuth2Wrapper)
 
 	server := grpc.NewServer(
 		grpc.Creds(credentials),

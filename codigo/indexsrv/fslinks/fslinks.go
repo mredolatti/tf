@@ -8,6 +8,7 @@ import (
 	"github.com/mredolatti/tf/codigo/common/is2fs"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
+	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 )
 
@@ -22,12 +23,11 @@ type Interface interface {
 
 // Impl is an implementation of fslink.Interface
 type Impl struct {
-	logger        log.Interface
-	users         repository.UserRepository
-	orgs          repository.OrganizationRepository
-	servers       repository.FileServerRepository
-	userAccoounts repository.UserAccountRepository
-	conns         *connTracker
+	logger  log.Interface
+	users   repository.UserRepository
+	orgs    repository.OrganizationRepository
+	servers repository.FileServerRepository
+	conns   *connTracker
 }
 
 // New constructs a new file-server link monitor
@@ -36,22 +36,21 @@ func New(
 	userRepo repository.UserRepository,
 	orgRepo repository.OrganizationRepository,
 	servers repository.FileServerRepository,
-	userAccoounts repository.UserAccountRepository,
+	reg registrar.Interface,
 	rootCA string,
 ) (*Impl, error) {
 
-	connTracker, err := newConnTracker(rootCA, newAuthInterceptor(userAccoounts))
+	connTracker, err := newConnTracker(rootCA, newAuthInterceptor(reg))
 	if err != nil {
 		return nil, fmt.Errorf("error setting up gRPC connection tracker: %w", err)
 	}
 
 	return &Impl{
-		logger:        logger,
-		users:         userRepo,
-		orgs:          orgRepo,
-		servers:       servers,
-		conns:         connTracker,
-		userAccoounts: userAccoounts,
+		logger:  logger,
+		conns:   connTracker,
+		users:   userRepo,
+		orgs:    orgRepo,
+		servers: servers,
 	}, nil
 }
 

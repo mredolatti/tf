@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/mredolatti/tf/codigo/indexsrv/repository"
+	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -16,11 +16,11 @@ var (
 )
 
 type authInterceptor struct {
-	userAccoounts repository.UserAccountRepository
+	reg registrar.Interface
 }
 
-func newAuthInterceptor(userAccoounts repository.UserAccountRepository) *authInterceptor {
-	return &authInterceptor{userAccoounts: userAccoounts}
+func newAuthInterceptor(reg registrar.Interface) *authInterceptor {
+	return &authInterceptor{reg: reg}
 }
 
 func (a *authInterceptor) Unary() grpc.UnaryClientInterceptor {
@@ -67,21 +67,10 @@ func (a *authInterceptor) attachToken(ctx context.Context) (context.Context, err
 		return nil, errMissingServerID
 	}
 
-	token, err := a.getToken(ctx, userID, serverID)
+	token, err := a.reg.GetValidToken(ctx, userID, serverID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting token: %w", err)
 	}
 
-	return metadata.AppendToOutgoingContext(ctx, "authorization", token), nil
-}
-
-func (a *authInterceptor) getToken(ctx context.Context, userID string, serverID string) (string, error) {
-	acc, err := a.userAccoounts.Get(ctx, userID, serverID)
-	if err != nil {
-		return "", fmt.Errorf("error getting account from repository: %w", err)
-	}
-
-	// TODO(mredolatti): Validate token exp and re-fetch if necessary
-
-	return acc.Token(), nil
+	return metadata.AppendToOutgoingContext(ctx, "authorization", token.Raw()), nil
 }

@@ -52,10 +52,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	fsLinks := setupFSLinks(logger, db, config.rootCAFn)
-
 	tlsConfig := parseTLSConfig(config)
 	serverRegistrar := setupRegistrar(logger, db, tlsConfig)
+
+	fsLinks := setupFSLinks(logger, db, config.rootCAFn, serverRegistrar)
 
 	userAPI, err := users.New(&users.Options{
 		Host:                config.host,
@@ -94,12 +94,11 @@ func setupUserManager(db *sqlx.DB) authentication.UserManager {
 	return authentication.NewUserManager(repo)
 }
 
-func setupFSLinks(logger log.Interface, db *sqlx.DB, rootCAFn string) fslinks.Interface {
+func setupFSLinks(logger log.Interface, db *sqlx.DB, rootCAFn string, reg registrar.Interface) fslinks.Interface {
 	userRepo, _ := psql.NewUserRepository(db)
 	orgRepo, _ := psql.NewOrganizationRepository(db)
-	accountRepo, _ := psql.NewUserAccountRepository(db)
 	serversRepo, _ := psql.NewFileServerRepository(db)
-	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo, accountRepo, rootCAFn)
+	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo, reg, rootCAFn)
 	return toRet
 }
 
