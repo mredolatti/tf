@@ -25,7 +25,7 @@ type API struct {
 func New(options *Options) (*API, error) {
 
 	router := gin.New()
-	router.Use(gin.Recovery())
+	router.Use(gin.Logger(), gin.Recovery())
 
 	return &API{
 		server: http.Server{

@@ -132,7 +132,7 @@ function fs_get_contents() {
 }
 
 function fs_update_contents() {
-    usage="usage: fs_update_contents -i <file_id>"
+    usage="usage: fs_update_contents -i <file_id> -f <path-to-file>"
     local OPTIND
     while getopts "i:f:" options; do
         case ${options} in

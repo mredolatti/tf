@@ -39,7 +39,7 @@ type API struct {
 func New(options *Options) (*API, error) {
 
 	router := gin.New()
-	router.Use(gin.Recovery())
+	router.Use(gin.Logger(), gin.Recovery())
 
 	// TODO: Cambiar esto a postgres o redis
 	store := memstore.NewStore([]byte("secret"))

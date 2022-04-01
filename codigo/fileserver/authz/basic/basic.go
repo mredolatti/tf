@@ -91,7 +91,11 @@ func (p *permissionMap) forSubject(subject string) map[string]authz.Permission {
 		return nil
 	}
 
-	return forSubject
+	res := make(map[string]authz.Permission, len(forSubject))
+	for k, v := range forSubject {
+		res[k] = v
+	}
+	return res
 }
 
 func (p *permissionMap) forObject(object string) map[string]authz.Permission {
