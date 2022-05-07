@@ -10,6 +10,7 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/login"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/mappings"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/ui"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
@@ -51,14 +52,17 @@ func New(options *Options) (*API, error) {
 	}
 	loginController.Register(router)
 
-	uiController := ui.New(options.Logger, options.Mapper)
-	uiController.Register(router)
+	// uiController := ui.New(options.Logger, options.Mapper)
+	// uiController.Register(router)
+
+	mappingController := mappings.New(options.Logger, options.Mapper)
+	mappingController.Register(router)
 
 	oauth2Controller := fslinks.New(options.Logger, options.ServerRegistrar)
 	oauth2Controller.Register(router)
 
 	return &API{
-		ui:    uiController,
+		//		ui:    uiController,
 		login: loginController,
 		server: http.Server{
 			Addr:    fmt.Sprintf("%s:%d", options.Host, options.Port),

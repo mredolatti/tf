@@ -6,7 +6,7 @@ FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}
 
 
 function idx_list() {
-    curl -XGET 'http://index-server:9876/main/mappings'
+    curl -XGET 'http://index-server:9876/mappings'
 }
 
 function idx_link_fs() {
