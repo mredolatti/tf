@@ -19,6 +19,7 @@ target_sources(mifs
     PRIVATE jsend.cpp
     PRIVATE filemanager.cpp
     PRIVATE log.cpp
+    PRIVATE fsmirror.cpp
 )
 
 target_link_libraries(mifs

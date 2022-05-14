@@ -7,6 +7,7 @@
 #include "httpc.hpp"
 #include "isclient.hpp"
 #include "log.hpp"
+#include "mappings.hpp"
 
 using namespace mifs;
 
@@ -24,9 +25,11 @@ FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}
 
     auto logger{log::initialize()};
     assert(logger);
+
     SPDLOG_LOGGER_INFO(logger, "starting...");
     auto client{std::make_shared<http::Client>()};
     mifs::FileManager fm{client};
+    fm.sync();
 
     ContextData ctx{logger, fm};
     init_fuse(argc, argv, ctx);

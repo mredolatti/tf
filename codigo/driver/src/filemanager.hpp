@@ -4,6 +4,7 @@
 #include <vector>
 #include <string_view>
 
+#include "fsmirror.hpp"
 #include "expected.hpp"
 #include "isclient.hpp"
 #include "log.hpp"
@@ -29,8 +30,10 @@ class FileManager
 
     list_result_t list(std::string_view path);
     stat_result_t stat(std::string_view path);
+    void sync();
 
     private:
+    util::FSMirror fs_mirror_;
     apiclients::IndexServerClient is_client_;
     log::logger_t logger_;
 };
@@ -45,6 +48,8 @@ class DirentryStub
     DirentryStub& operator=(const DirentryStub&) = default;
     DirentryStub& operator=(DirentryStub&) = default;
     ~DirentryStub() = default;
+
+    static DirentryStub from_fsmeta(const util::detail::FSElem& fselem);
 
     const std::string& name() const;
     size_t size() const;

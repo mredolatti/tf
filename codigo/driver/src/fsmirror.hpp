@@ -1,6 +1,7 @@
 #ifndef MIFS_UTIL_GTREE_HPP
 #define MIFS_UTIL_GTREE_HPP
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -17,22 +18,55 @@ namespace detail {
 class FSElem
 {
     public:
-    const std::string& ref();
-    std::size_t size_bytes();
-    bool is_folder();
+    FSElem() = delete;
+    FSElem(const FSElem&) = default;
+    FSElem(FSElem&&) = default;
+    FSElem& operator=(const FSElem&) = default;
+    FSElem& operator=(FSElem&&) = default;
+    ~FSElem() = default;
+
+    FSElem(std::string name, std::size_t bytes, bool is_folder);
+    const std::string& name() const;
+    std::size_t size_bytes() const;
+    bool is_folder() const;
 
     private:
-    const std::string ref_;
+    std::string name_;
     std::size_t size_bytes_;
+    bool is_folder_;
 };
 
 class FileTreeNode
 {
     public:
+    using directory_t = std::unordered_map<std::string, std::unique_ptr<FileTreeNode>>;
+    using file_meta_t = models::Mapping;
+    using data_t = std::variant<directory_t, file_meta_t>;
+    
+    FileTreeNode() = delete;
+    FileTreeNode(const FileTreeNode&) = delete;
+    FileTreeNode(FileTreeNode&&) = default;
+    FileTreeNode& operator=(const FileTreeNode&) = delete;
+    FileTreeNode& operator=(FileTreeNode&&) = default;
+    ~FileTreeNode() = default;
 
-    FileTreeNode* get_children(std::string_view name);
-    FileTreeNode* add_or_get_children(std::string_view name);
+    FileTreeNode(std::string_view name, data_t data);
+    FileTreeNode* get(std::string_view path);
+    FileTreeNode* add(std::string_view path, const models::Mapping* mapping = nullptr);
 
+    void print() const;
+    bool is_folder() const;
+    const data_t& elem() const;
+    const std::string& name() const;
+    directory_t& as_directory();
+    file_meta_t& as_filemeta();
+    const directory_t& as_cdirectory() const;
+    const file_meta_t& as_cfilemeta() const;
+
+    private:
+    void print_rec(const FileTreeNode* start, int level) const;
+    std::string name_;
+    data_t data_;
 };
 
 }
@@ -46,13 +80,25 @@ class FSMirror
         AlreadyExists = 1,
         CannotLinkInServerFolder = 2,
         CannotAddInLinkedFolder = 3,
+        NotFound = 4
     };
 
-    
+    using info_result_t = util::Expected<detail::FSElem, Error>;
+    using list_result_t = util::Expected<std::vector<detail::FSElem>, Error>;
+
+    FSMirror();
+    FSMirror(const FSMirror&) = delete;
+    FSMirror(FSMirror&&) noexcept = default;
+    FSMirror& operator=(const FSMirror&) = delete;
+    FSMirror& operator=(FSMirror&&) noexcept = default;
+    ~FSMirror() = default;
+
     Error mkdir(std::string_view path);
     Error add_file(std::string_view server, std::string_view ref, std::size_t size_bytes);
     Error link_file(std::string_view server, std::string_view ref, std::string path);
     Error reset(const std::vector<models::Mapping>& mappings);
+    list_result_t ls(std::string_view path);
+    info_result_t info(std::string_view path);
 
     private:
     detail::FileTreeNode root_;
