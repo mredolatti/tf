@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func main() {
@@ -87,6 +89,10 @@ func main() {
 func setupDB(user string, password string, host string, port int, db string) (*sqlx.DB, error) {
 	// TODO: parametrize this properly!
 	return sqlx.Connect("pgx", fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, db))
+}
+
+func setupMongoDB() (*mongo.Client, error) {
+	return mongo.Connect(context.Background())
 }
 
 func setupUserManager(db *sqlx.DB) authentication.UserManager {
