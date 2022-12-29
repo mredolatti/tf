@@ -14,16 +14,16 @@ import (
 
 // User is a MongoDB-compatible struct implementing models.User interface
 type User struct {
-	IDField           string `bson:"_id"`
-	NameField         string `bson:"name"`
-	EmailField        string `bson:"email"`
-	AccessTokenField  string `bson:"access_token"`
-	RefreshTokenField string `bson:"refresh_token"`
+	IDField           primitive.ObjectID `bson:"_id"`
+	NameField         string             `bson:"name"`
+	EmailField        string             `bson:"email"`
+	AccessTokenField  string             `bson:"accessToken"`
+	RefreshTokenField string             `bson:"refreshToken"`
 }
 
 // ID returns the id of the user
 func (f *User) ID() string {
-	return f.IDField
+	return f.IDField.Hex()
 }
 
 // Name returns the name of the user
@@ -60,6 +60,7 @@ func (r *UserRepository) Add(
 	refreshToken string,
 ) (models.User, error) {
 	u := User{
+		IDField:           primitive.NewObjectID(),
 		NameField:         name,
 		EmailField:        email,
 		AccessTokenField:  accessToken,
@@ -71,14 +72,21 @@ func (r *UserRepository) Add(
 		return nil, fmt.Errorf("error inserting user in mongodb: %w", err)
 	}
 
-	u.IDField = res.InsertedID.(primitive.ObjectID).String()
+	u.IDField = res.InsertedID.(primitive.ObjectID)
 	return &u, nil
 }
 
 // Get implements repository.UserRepository
 func (r *UserRepository) Get(ctx context.Context, id string) (models.User, error) {
-	res := r.collection.FindOne(ctx, bson.D{{Key: "_id", Value: id}})
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", id, err)
+	}
+	res := r.collection.FindOne(ctx, bson.D{{Key: "_id", Value: oid}})
 	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, repository.ErrNotFound
+		}
 		return nil, fmt.Errorf("error fetching user from mongodb: %w", err)
 	}
 
@@ -92,39 +100,47 @@ func (r *UserRepository) Get(ctx context.Context, id string) (models.User, error
 
 // Remove implements repository.UserRepository
 func (r *UserRepository) Remove(ctx context.Context, userID string) error {
-	res, err := r.collection.DeleteOne(ctx, bson.D{{Key: "_id", Value: userID}})
+	oid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
+	}
+	res, err := r.collection.DeleteOne(ctx, bson.D{{Key: "_id", Value: oid}})
 	if err != nil {
 		return fmt.Errorf("error fetching user from mongodb: %w", err)
 	}
 
-        if res.DeletedCount != 1 {
-            return errors.New("no items deleted") // TODO(mredolatti): mover a un error generico
-        }
-        
-        return nil
+	if res.DeletedCount != 1 {
+		return errors.New("no items deleted") // TODO(mredolatti): mover a un error generico
+	}
+
+	return nil
 }
 
 // UpdateTokens implements repository.UserRepository
 func (r *UserRepository) UpdateTokens(ctx context.Context, id string, accessToken string, refreshToken string) (models.User, error) {
-    res := r.collection.FindOneAndUpdate(
-        ctx,
-        bson.D{{Key: "_id", Value: id}}, 
-        bson.D{{Key: "accessToken", Value: accessToken}, {Key: "refreshToken", Value: refreshToken}},
-    )
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", id, err)
+	}
+	res := r.collection.FindOneAndUpdate(
+		ctx,
+		bson.D{{Key: "_id", Value: oid}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "accessToken", Value: accessToken}, {Key: "refreshToken", Value: refreshToken}}}},
+	)
 
-    if err := res.Err(); err != nil {
-        return nil, fmt.Errorf("error updating tokens in mongodb: %w", err)
-    }
+	if err := res.Err(); err != nil {
+		return nil, fmt.Errorf("error updating tokens in mongodb: %w", err)
+	}
 
-    var u User
-    if err := res.Decode(&u); err != nil {
-        return nil, fmt.Errorf("error de-serializing updated user: %w", err)
-    }
+	var u User
+	if err := res.Decode(&u); err != nil {
+		return nil, fmt.Errorf("error de-serializing updated user: %w", err)
+	}
 
-    // findOneAndUpdate returns the document without the updated fields.
-    u.AccessTokenField = accessToken
-    u.RefreshTokenField = refreshToken
-    return &u, nil
+	// findOneAndUpdate returns the document without the updated fields.
+	u.AccessTokenField = accessToken
+	u.RefreshTokenField = refreshToken
+	return &u, nil
 }
 
 func NewUserRepository(db *mongo.Database) *UserRepository {

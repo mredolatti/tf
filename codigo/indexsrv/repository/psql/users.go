@@ -60,11 +60,8 @@ type UserRepository struct {
 }
 
 // NewUserRepository constructs a new postgresql-based user repository
-func NewUserRepository(db *sqlx.DB) (*UserRepository, error) {
-	if db == nil {
-		return nil, ErrNilDB
-	}
-	return &UserRepository{db: db}, nil
+func NewUserRepository(db *sqlx.DB) *UserRepository {
+	return &UserRepository{db: db}
 }
 
 // List returns a list of all the users in the system

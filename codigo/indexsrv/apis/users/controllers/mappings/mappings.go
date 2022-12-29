@@ -43,15 +43,15 @@ func (c *Controller) list(ctx *gin.Context) {
 	}
 
 	// TODO(mredolatti):
-	id := "107156877088323945674"
-	forceUpdate := true
+	id := "63ad6d1c01c2a1a5c1259b9f"
+	forceUpdate := false
 	mappings, err := c.maps.Get(ctx.Request.Context(), id, forceUpdate, &query)
 	if err != nil {
 		c.logger.Error("[mappings::list] error fetching: %s", err.Error())
 		ctx.JSON(500, "error fetching mappings")
 	}
 
-	resp, err := jsend.NewSuccessResponse[DTO]("mapping", formatMappings(mappings), "")
+	resp, err := jsend.NewSuccessResponse("mapping", formatMappings(mappings), "")
 	if err != nil {
 		c.logger.Error("[mappings::list] error building response: %s", err.Error())
 		ctx.JSON(500, "error building response")

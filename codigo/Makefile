@@ -1,6 +1,7 @@
 .PHONY: all clean build test test-norace docker-images pki \
 	runlocal-indexserver runlocal-fileserver help
 
+BASH ?= bash
 GO ?= go
 PROTOC ?= protoc
 DOCKER ?= docker
@@ -64,15 +65,32 @@ test-norace:
 pki: $(pki_tgts)
 
 ## Configurar postgres local desde un contenedor
-rebuild-dbs:
-	bash ./scripts/mkpostgres.sh -dcf
+psql-rebuild:
+	$(BASH) ./scripts/mkpostgres.sh -dcf
 
-## Abrir un shell en la db
-db-shell:
-	bash ./scripts/mkpostgres.sh -s
+## Abrir un shell en postgres
+psql-shell:
+	$(BASH) ./scripts/mkpostgres.sh -s
+
+## Configurar mongodb local desde un contenedor
+mongo-rebuild:
+	$(BASH) ./scripts/mkmongo.sh -dcf
+
+## Abrir un shell en mongodb
+mongo-shell:
+	$(BASH) ./scripts/mkmongo.sh -s
 
 ## Ejecucion local de index-server
 runlocal-indexserver: index-server $(pki_tgts)
+	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" \
+		IS_DB_ENGINE="mongo" IS_MONGO_HOSTS="localhost:27017" \
+		IS_MONGO_DATABASE="mifs_indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
+		IS_ROOT_CA="PKI/root/certs/ca.crt" IS_SERVER_CERT_CHAIN="PKI/indexserver/certs/chain.pem" \
+		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
+		./index-server
+
+## Ejecucion local de index-server
+runlocal-indexserver-postgres: index-server $(pki_tgts)
 	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
 		IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
 		IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
@@ -81,7 +99,7 @@ runlocal-indexserver: index-server $(pki_tgts)
 		./index-server
 
 ## Iniciar index-server en delve
-debuglocal-indexserver:
+debuglocal-indexserver-postgres:
 	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
 		IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
 		IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
@@ -90,14 +108,14 @@ debuglocal-indexserver:
 		dlv debug indexsrv/cmd/server/main.go
 
 ## Ejecucion local de file-server
-runlocal-fileserver: file-server $(pki_tgts)
+runlocal-fileserver-postgres: file-server $(pki_tgts)
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
 		./file-server
 
 ## iniciar file-server en delve
-debuglocal-fileserver:
+debuglocal-fileserver-postgres:
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \

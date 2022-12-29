@@ -31,7 +31,7 @@ func (c *Controller) Register(router gin.IRouter) {
 func (c *Controller) initialRedirect(ctx *gin.Context) {
 
 	// TODO(mredolatti): get proper userID here
-	userID := "107156877088323945674"
+	userID := "63ad6d1c01c2a1a5c1259b9f"
 
 	serverID := ctx.Param("serverId")
 	force := ctx.Query("force") == "true"

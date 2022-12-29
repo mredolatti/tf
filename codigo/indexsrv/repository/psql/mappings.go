@@ -82,11 +82,8 @@ type MappingRepository struct {
 }
 
 // NewMappingRepository constructs a new postgresql-based mappings repository
-func NewMappingRepository(db *sqlx.DB) (*MappingRepository, error) {
-	if db == nil {
-		return nil, ErrNilDB
-	}
-	return &MappingRepository{db: db}, nil
+func NewMappingRepository(db *sqlx.DB) *MappingRepository {
+	return &MappingRepository{db: db}
 }
 
 // List returns a list of all mappings for a specific user
