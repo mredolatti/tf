@@ -7,31 +7,33 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
+	conf "github.com/mredolatti/tf/codigo/common/config"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/common/runtime"
+
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users"
+	"github.com/mredolatti/tf/codigo/indexsrv/config"
 	"github.com/mredolatti/tf/codigo/indexsrv/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
+	"github.com/mredolatti/tf/codigo/indexsrv/repository"
+	"github.com/mredolatti/tf/codigo/indexsrv/repository/mongodb"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository/psql"
-
-	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/jmoiron/sqlx"
 )
 
 func main() {
 
-	config := parseEnvVars()
+	cfg := parseEnvVars()
 
-	fmt.Printf("%+v\n", config)
+	fmt.Printf("%+v\n", cfg)
 
 	var logLevel = log.Info
-	if config.debug {
+	if cfg.Debug {
 		logLevel = log.Debug
 	}
 	logger, err := log.New(os.Stdout, logLevel)
@@ -46,25 +48,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := setupDB(config.postgresUser, config.postgresPassword, config.postgresHost, config.postgresPort, config.postgresDB)
+	repo, err := setupRepositories(cfg)
 	if err != nil {
-		logger.Error("error setting up databse: %s", err)
+		logger.Error("Error setting up repositories: %s", err)
 		os.Exit(1)
 	}
 
-	tlsConfig := parseTLSConfig(config)
-	serverRegistrar := setupRegistrar(logger, db, tlsConfig)
+	tlsConfig := parseTLSConfig(&cfg.Server)
 
-	fsLinks := setupFSLinks(logger, db, config.rootCAFn, serverRegistrar)
+	serverRegistrar := registrar.New(repo.FileServers(), repo.Accounts(), repo.PendingOAuth(), tlsConfig)
+
+	fsLinks, err := fslinks.New(logger, repo.Users(), repo.Organizations(), repo.FileServers(), serverRegistrar, cfg.Server.RootCAFn)
+	if err != nil {
+		logger.Error("error setting up file-server links: %s", err)
+		os.Exit(1)
+	}
 
 	userAPI, err := users.New(&users.Options{
-		Host:                config.host,
-		Port:                config.port,
-		GoogleCredentialsFn: config.googleCredentialsFn,
+		Host:                cfg.Server.Host,
+		Port:                cfg.Server.Port,
+		GoogleCredentialsFn: cfg.GoogleCredentialsFn,
 		Logger:              logger,
-		UserManager:         setupUserManager(db),
-		Mapper:              setupMappingManager(db, fsLinks),
-		ServerRegistrar:     serverRegistrar,
+		UserManager:         authentication.NewUserManager(repo.Users()),
+		Mapper: mapper.New(mapper.Config{
+			LastUpdateTolerance: 1 * time.Hour,
+			Repo:                repo.Mappings(),
+			Accounts:            repo.Accounts(),
+			ServerLinks:         fsLinks,
+		}),
+		ServerRegistrar: serverRegistrar,
 	})
 	if err != nil {
 		logger.Error("error constructing user-facing API: %s", err)
@@ -84,41 +96,16 @@ func main() {
 	rtm.Block()
 }
 
-func setupDB(user string, password string, host string, port int, db string) (*sqlx.DB, error) {
-	// TODO: parametrize this properly!
-	return sqlx.Connect("pgx", fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, password, host, port, db))
-}
+func setupRepositories(cfg *config.Main) (repository.Factory, error) {
+	switch strings.ToLower(cfg.DBEngine) {
+	case "mongo":
+		return mongodb.NewFactory(&cfg.Mongo)
+	case "postgres":
+		return psql.NewFactory(&cfg.Postgres)
+	default:
+		return nil, fmt.Errorf("unknown db-engine: %s", cfg.DBEngine)
+	}
 
-func setupUserManager(db *sqlx.DB) authentication.UserManager {
-	repo, _ := psql.NewUserRepository(db)
-	return authentication.NewUserManager(repo)
-}
-
-func setupFSLinks(logger log.Interface, db *sqlx.DB, rootCAFn string, reg registrar.Interface) fslinks.Interface {
-	userRepo, _ := psql.NewUserRepository(db)
-	orgRepo, _ := psql.NewOrganizationRepository(db)
-	serversRepo, _ := psql.NewFileServerRepository(db)
-	toRet, _ := fslinks.New(logger, userRepo, orgRepo, serversRepo, reg, rootCAFn)
-	return toRet
-}
-
-func setupMappingManager(db *sqlx.DB, fsLinks fslinks.Interface) *mapper.Impl {
-	mappingRepo, _ := psql.NewMappingRepository(db)
-	accountRepo, _ := psql.NewUserAccountRepository(db)
-
-	return mapper.New(mapper.Config{
-		LastUpdateTolerance: 1 * time.Hour,
-		Repo:                mappingRepo,
-		Accounts:            accountRepo,
-		ServerLinks:         fsLinks,
-	})
-}
-
-func setupRegistrar(logger log.Interface, db *sqlx.DB, tlsConfig *tls.Config) *registrar.Impl {
-	serversRepo, _ := psql.NewFileServerRepository(db)
-	accountRepo, _ := psql.NewUserAccountRepository(db)
-	oauth2Flows, _ := psql.NewPendingOAuth2Repository(db)
-	return registrar.New(serversRepo, accountRepo, oauth2Flows, tlsConfig)
 }
 
 func setupShutdown(rtm runtime.Interface) {
@@ -131,30 +118,15 @@ func setupShutdown(rtm runtime.Interface) {
 	}()
 }
 
-type config struct {
-	debug               bool
-	host                string
-	port                int
-	postgresHost        string
-	postgresPort        int
-	postgresUser        string
-	postgresPassword    string
-	postgresDB          string
-	googleCredentialsFn string
-	rootCAFn            string
-	certChainFn         string
-	privateKeyFn        string
-}
-
-func parseTLSConfig(c *config) *tls.Config {
-	certBytes, err := ioutil.ReadFile(c.rootCAFn)
+func parseTLSConfig(cfg *conf.Server) *tls.Config {
+	certBytes, err := ioutil.ReadFile(cfg.RootCAFn)
 	if err != nil {
 		panic("cannot read root certificate file: " + err.Error())
 	}
 	caPool := x509.NewCertPool()
 	caPool.AppendCertsFromPEM(certBytes)
 
-	certs, err := tls.LoadX509KeyPair(c.certChainFn, c.privateKeyFn)
+	certs, err := tls.LoadX509KeyPair(cfg.CertChainFn, cfg.PrivateKeyFn)
 	if err != nil {
 		panic("cannot read server certficate chain / private key files: " + err.Error())
 	}
@@ -165,11 +137,45 @@ func parseTLSConfig(c *config) *tls.Config {
 	}
 }
 
-func parseEnvVars() *config {
+func parseEnvVars() *config.Main {
+	return &config.Main{
+		Debug:               os.Getenv("IS_LOG_DEBUG") == "true",
+		DBEngine:            os.Getenv("IS_DB_ENGINE"),
+		GoogleCredentialsFn: os.Getenv("IS_GOOGLE_CREDS_FN"),
+		Server: conf.Server{
+			Host:         os.Getenv("IS_HOST"),
+			Port:         conf.IntOr(os.Getenv("IS_PORT"), 9876),
+			RootCAFn:     os.Getenv("IS_ROOT_CA"),
+			CertChainFn:  os.Getenv("IS_SERVER_CERT_CHAIN"),
+			PrivateKeyFn: os.Getenv("IS_SERVER_PRIVATE_KEY"),
+		},
+		Mongo: conf.Mongo{
+			Hosts:    conf.StringListOr(os.Getenv("IS_MONGO_HOSTS"), nil),
+			User:     os.Getenv("IS_MONGO_USERNAME"),
+			Password: os.Getenv("IS_MONGO_PASSWORD"),
+			DB:       os.Getenv("IS_MONGO_DATABASE"),
+		},
+		Postgres: conf.Postgres{
+			Host:     os.Getenv("IS_PG_HOST"),
+			Port:     conf.IntOr(os.Getenv("IS_PG_PORT"), 5432),
+			User:     os.Getenv("IS_PG_USER"),
+			Password: os.Getenv("IS_PG_PWD"),
+			DB:       os.Getenv("IS_PG_DB"),
+		},
+	}
+}
+
+/*
 	return &config{
 		debug:               os.Getenv("IS_LOG_DEBUG") == "true",
 		host:                os.Getenv("IS_HOST"),
 		port:                intOr(os.Getenv("IS_PORT"), 9876),
+		dbEngine:            os.Getenv("IS_DB_ENGINE"),
+		mongoHost:           os.Getenv("IS_HOST"),
+		mongoPort:           intOr(os.Getenv("IS_PORT"), 27017),
+		mongoUser:           os.Getenv("IS_USERNAME"),
+		mongoPassword:       os.Getenv("IS_PASSWORD"),
+		mongoDB:             os.Getenv("IS_MONGO_DATABASE"),
 		postgresHost:        os.Getenv("IS_PG_HOST"),
 		postgresPort:        intOr(os.Getenv("IS_PG_PORT"), 5432),
 		postgresUser:        os.Getenv("IS_PG_USER"),
@@ -181,12 +187,4 @@ func parseEnvVars() *config {
 		privateKeyFn:        os.Getenv("IS_SERVER_PRIVATE_KEY"),
 	}
 }
-
-// TODO(mredolatti): mover a commons
-func intOr(num string, fallback int) int {
-	parsed, err := strconv.Atoi(num)
-	if err != nil {
-		return fallback
-	}
-	return parsed
-}
+*/

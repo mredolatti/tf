@@ -54,7 +54,7 @@ func (i *Impl) Get(ctx context.Context, userID string, forceUpdate bool, query *
 
 	err := i.ensureUpdated(ctx, userID, forceUpdate)
 	if err != nil {
-		return nil, fmt.Errorf("update reqiored but failed: %w", err)
+		return nil, fmt.Errorf("update required but failed: %w", err)
 	}
 	return i.mappings.List(ctx, userID, *query)
 }

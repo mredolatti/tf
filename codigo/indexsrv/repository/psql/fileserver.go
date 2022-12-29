@@ -73,11 +73,8 @@ type FileServerRepository struct {
 }
 
 // NewFileServerRepository constructs a new postgresql-based file server repository
-func NewFileServerRepository(db *sqlx.DB) (*FileServerRepository, error) {
-	if db == nil {
-		return nil, ErrNilDB
-	}
-	return &FileServerRepository{db: db}, nil
+func NewFileServerRepository(db *sqlx.DB) *FileServerRepository {
+	return &FileServerRepository{db: db}
 }
 
 // List returns a list of all the file server

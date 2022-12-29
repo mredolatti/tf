@@ -10,6 +10,15 @@ import (
 // ErrNotFound is an error to be returned when a requested item is not found
 var ErrNotFound = errors.New("not found")
 
+type Factory interface {
+	Users() UserRepository
+	Organizations() OrganizationRepository
+	Mappings() MappingRepository
+	FileServers() FileServerRepository
+	Accounts() UserAccountRepository
+	PendingOAuth() PendingOAuth2Repository
+}
+
 // UserRepository defines the interface for a user storage access class
 type UserRepository interface {
 	Get(ctx context.Context, id string) (models.User, error)

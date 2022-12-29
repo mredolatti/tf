@@ -19,11 +19,11 @@ VALUES
 
 INSERT INTO mappings(user_id, server_id, ref, path, updated)
 VALUES
-    ('107156877088323945674', 's1', 'file1.jpg', 'path.to.file1__DOT__jpg', 1646394925714181390),
-    ('107156877088323945674', 's1', 'file2.jpg', 'path.to.file2__DOT__jpg', 1646394925714181390),
-    ('107156877088323945674', 's1', 'file3.jpg', 'path.another.file3__DOT__jpg', 1646394925714181390),
-    ('107156877088323945674', 's1', 'file4.jpg', 'path.another.file4__DOT__jpg', 1646394925714181390),
-    ('107156877088323945674', 's1', 'file5.jpg', 'path.yet.another.file5__DOT__jpg', 1646394925714181390),
+    ('107156877088323945674', 'fs1', 'file1.jpg', 'path.to.file1__DOT__jpg', 1646394925714181390),
+    ('107156877088323945674', 'fs1', 'file2.jpg', 'path.to.file2__DOT__jpg', 1646394925714181390),
+    ('107156877088323945674', 'fs1', 'file3.jpg', 'path.another.file3__DOT__jpg', 1646394925714181390),
+    ('107156877088323945674', 'fs1', 'file4.jpg', 'path.another.file4__DOT__jpg', 1646394925714181390),
+    ('107156877088323945674', 'fs1', 'file5.jpg', 'path.yet.another.file5__DOT__jpg', 1646394925714181390),
     ('id2', 's1', 'file1.jpg', 'my.path.file1__DOT__jpg', 1646394925714181390),
     ('id2', 's1', 'file2.jpg', 'my.path.file2__DOT__jpg', 1646394925714181390),
     ('id3', 's1', 'file1.jpg', 'somewhere.file1__DOT__jpg', 1646394925714181390),

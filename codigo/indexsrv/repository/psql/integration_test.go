@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
@@ -19,14 +20,9 @@ import (
 
 func TestOrgRepoIntegration(t *testing.T) {
 	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
-	if err != nil {
-		t.Error("a postgres db is required for these tests: ", err)
-	}
+	assert.Nil(t, err)
 
-	repo, err := NewOrganizationRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	repo := NewOrganizationRepository(db)
 
 	// Cleanup
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'")
@@ -78,14 +74,9 @@ func TestOrgRepoIntegration(t *testing.T) {
 
 func TestFileServerRepoIntegration(t *testing.T) {
 	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
-	if err != nil {
-		t.Error("a postgres db is required for these tests: ", err)
-	}
+	assert.Nil(t, err)
 
-	orgRepo, err := NewOrganizationRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	orgRepo := NewOrganizationRepository(db)
 
 	// Cleanup
 	defer func() {
@@ -102,11 +93,7 @@ func TestFileServerRepoIntegration(t *testing.T) {
 
 	// Begin testing the file server repo
 
-	fsRepo, err := NewFileServerRepository(db)
-	if err != nil {
-		t.Error("there shold be no error. got: ", err)
-	}
-
+	fsRepo := NewFileServerRepository(db)
 	rand.Seed(time.Now().UnixNano())
 	newID := strconv.FormatInt(rand.Int63(), 10)
 	newServer, err := fsRepo.Add(context.Background(), newID, "server1", newOrg.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
@@ -169,14 +156,10 @@ func TestFileServerRepoIntegration(t *testing.T) {
 
 func TestIntegrationUsers(t *testing.T) {
 	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
-	if err != nil {
-		t.Error("a postgres db is required for these tests: ", err)
-	}
+	assert.Nil(t, err)
 
-	repo, err := NewUserRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	repo := NewUserRepository(db)
+
 
 	// Cleanup
 	defer db.Query("DELETE FROM users WHERE name = 'user_1'")
@@ -246,30 +229,21 @@ func TestIntegrationUserAccounts(t *testing.T) {
 		t.Error("a postgres db is required for these tests: ", err)
 	}
 
-	orgRepo, err := NewOrganizationRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	orgRepo := NewOrganizationRepository(db)
 	org, err := orgRepo.Add(bg, &Organization{NameField: "test_org_1"})
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
 
-	fsRepo, err := NewFileServerRepository(db)
-	if err != nil {
-		t.Error("there shold be no error. got: ", err)
-	}
+	fsRepo := NewFileServerRepository(db)
 	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
 	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
 
-	userRepo, err := NewUserRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	userRepo := NewUserRepository(db)
 	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "", "")
 	if err != nil {
 		t.Error("erro creating user: ", err)
@@ -278,11 +252,7 @@ func TestIntegrationUserAccounts(t *testing.T) {
 
 	// initial population done: now test!
 
-	accountRepo, err := NewUserAccountRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
-
+	accountRepo := NewUserAccountRepository(db)
 	account, err := accountRepo.Add(bg, user.ID(), fs.ID(), "access", "refresh")
 	if err != nil {
 		t.Error("there should be no error on creation: ", err)
@@ -348,30 +318,21 @@ func TestIntegrationMappings(t *testing.T) {
 		t.Error("a postgres db is required for these tests: ", err)
 	}
 
-	orgRepo, err := NewOrganizationRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	orgRepo := NewOrganizationRepository(db)
 	org, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
 
-	fsRepo, err := NewFileServerRepository(db)
-	if err != nil {
-		t.Error("there shold be no error. got: ", err)
-	}
+	fsRepo := NewFileServerRepository(db)
 	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
 	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
 
-	userRepo, err := NewUserRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	userRepo := NewUserRepository(db)
 	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "", "")
 	if err != nil {
 		t.Error("erro creating user: ", err)
@@ -381,11 +342,7 @@ func TestIntegrationMappings(t *testing.T) {
 	// DB population done
 	// Test begins below:
 
-	repo, err := NewMappingRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
-
+	repo := NewMappingRepository(db)
 	updates := []models.Update{
 		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file1", Checkpoint: 1, ChangeType: models.UpdateTypeFileAdd},
 		{OrganizationID: org.ID(), ServerID: fs.ID(), FileRef: "file2", Checkpoint: 2, ChangeType: models.UpdateTypeFileAdd},
@@ -509,30 +466,21 @@ func TestIntegrationPendingOAuth2(t *testing.T) {
 		t.Error("a postgres db is required for these tests: ", err)
 	}
 
-	orgRepo, err := NewOrganizationRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	orgRepo := NewOrganizationRepository(db)
 	org, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
 	if err != nil {
 		t.Error("expected no error. Got: ", err)
 	}
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
 
-	fsRepo, err := NewFileServerRepository(db)
-	if err != nil {
-		t.Error("there shold be no error. got: ", err)
-	}
+	fsRepo := NewFileServerRepository(db)
 	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	if err != nil {
 		t.Error("there shold be no error. got: ", err)
 	}
 	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
 
-	userRepo, err := NewUserRepository(db)
-	if err != nil {
-		t.Error("no error shold be returned with a non-nil db. Got: ", err)
-	}
+	userRepo := NewUserRepository(db)
 	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "", "")
 	if err != nil {
 		t.Error("erro creating user: ", err)
@@ -542,11 +490,7 @@ func TestIntegrationPendingOAuth2(t *testing.T) {
 	// DB population done
 	// Test begins below:
 
-	repo, err := NewPendingOAuth2Repository(db)
-	if err != nil {
-		t.Error("shold not return error. Got: ", err)
-	}
-
+	repo := NewPendingOAuth2Repository(db)
 	inProgress, err := repo.Put(bg, user.ID(), fs.ID(), "qwertyuiop")
 	if err != nil {
 		t.Error("shold not return error. Got: ", err)
@@ -564,5 +508,4 @@ func TestIntegrationPendingOAuth2(t *testing.T) {
 	if _, err := repo.Pop(bg, "qwertyuiop"); err == nil {
 		t.Error("there shold be an error.")
 	}
-
 }

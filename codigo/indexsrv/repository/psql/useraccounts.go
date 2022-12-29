@@ -62,11 +62,8 @@ type UserAccountRepository struct {
 }
 
 // NewUserAccountRepository constructs a new postgresql-based file server repository
-func NewUserAccountRepository(db *sqlx.DB) (*UserAccountRepository, error) {
-	if db == nil {
-		return nil, ErrNilDB
-	}
-	return &UserAccountRepository{db: db}, nil
+func NewUserAccountRepository(db *sqlx.DB) *UserAccountRepository {
+	return &UserAccountRepository{db: db}
 }
 
 // List returns a list of all the user accounts

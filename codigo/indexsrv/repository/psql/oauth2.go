@@ -45,11 +45,8 @@ type PendingOAuth2Repository struct {
 }
 
 // NewPendingOAuth2Repository constructs a new PendingOAuth2Repository
-func NewPendingOAuth2Repository(db *sqlx.DB) (*PendingOAuth2Repository, error) {
-	if db == nil {
-		return nil, ErrNilDB
-	}
-	return &PendingOAuth2Repository{db: db}, nil
+func NewPendingOAuth2Repository(db *sqlx.DB) *PendingOAuth2Repository {
+	return &PendingOAuth2Repository{db: db}
 }
 
 // Put starts tracking a new flow

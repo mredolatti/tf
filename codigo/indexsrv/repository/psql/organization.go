@@ -42,11 +42,8 @@ type OrganizationRepository struct {
 }
 
 // NewOrganizationRepository constructs a new postgresql-based organization repository
-func NewOrganizationRepository(db *sqlx.DB) (*OrganizationRepository, error) {
-	if db == nil {
-		return nil, ErrNilDB
-	}
-	return &OrganizationRepository{db: db}, nil
+func NewOrganizationRepository(db *sqlx.DB) *OrganizationRepository {
+	return &OrganizationRepository{db: db}
 }
 
 // List returns a list of all the organizations
