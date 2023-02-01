@@ -48,10 +48,28 @@ func main() {
 
 	oauth2W := setupOAuth2Wrapper(db, logger, cfg.jwtSecret)
 
-	fileStore := basic.NewInMemoryFileStore()
 	metaStore := basic.NewInMemoryFileMetadataStore()
+	m1, _ := metaStore.Create("file1.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
+	m2, _ := metaStore.Create("file2.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
+	m3, _ := metaStore.Create("file3.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
+	m4, _ := metaStore.Create("file4.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
+	m5, _ := metaStore.Create("file5.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
+
+	fileStore := basic.NewInMemoryFileStore()
+	fileStore.Write(m1.ID(), []byte("some data 1"), true)
+	fileStore.Write(m2.ID(), []byte("some data 2"), true)
+	fileStore.Write(m3.ID(), []byte("some data 3"), true)
+	fileStore.Write(m4.ID(), []byte("some data 4"), true)
+	fileStore.Write(m5.ID(), []byte("some data 5"), true)
+
 	authorization := basicAuthz.NewInMemoryAuthz()
 	authorization.Grant("martin.redolatti", authz.Create, authz.AnyObject)
+	authorization.Grant("martin.redolatti", authz.Admin|authz.Write|authz.Read, m1.ID())
+	authorization.Grant("martin.redolatti", authz.Admin|authz.Write|authz.Read, m2.ID())
+	authorization.Grant("martin.redolatti", authz.Admin|authz.Write|authz.Read, m3.ID())
+	authorization.Grant("martin.redolatti", authz.Admin|authz.Write|authz.Read, m4.ID())
+	authorization.Grant("martin.redolatti", authz.Admin|authz.Write|authz.Read, m5.ID())
+
 	fm := filemanager.New(fileStore, metaStore, authorization)
 
 	// Client API -- consumed by end-users to interact with files

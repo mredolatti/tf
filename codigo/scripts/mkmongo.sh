@@ -44,34 +44,11 @@ function init_db() {
     mongo_query ${MONGO_DB_INDEX} "printjson(db.UserAccounts.createIndex({userId: 1}, {unique: false}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.UserAccounts.createIndex({userId: 1, serverId: 1}, {unique: true}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.FileServers.createIndex({orgId: 1}, {unique: false}))"
-    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({userId: 1}, {unique: false}))"
-    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({state: 1}, {unique: false}))"
+    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({userId: 1}, {path: 1}}, {unique: false}))"
+    mongo_query ${MONGO_DB_INDEX} "printjson(db.PendingOAuth2.createIndex({state: 1}, {unique: false}))"
 
     # TODO(mredolatti): setup indexes for file-server app
 }
-
-
-function f_org() {
-    echo "{name: '${1}'}"
-}
-
-function f_fs() {
-    echo "{orgId: ObjectId('${1}'), name: '${2}', authUrl: '${3}', tokenUrl: '${4}', fetchUrl: '${5}', controlEndpoint: '${6}'}"
-}
-
-function f_user() {
-    echo "{name: '${1}', email: '${2}', accessToken: '${3}', refreshToken: '${4}'}"
-}
-
-function f_user_id() {
-	# 
-    echo "{_id: ObjectId('${1}'), name: '${2}', email: '${3}', accessToken: '${4}', refreshToken: '${5}'}"
-}
-
-function f_map() {
-    echo "{userId: ObjectId('${1}'), serverId: ObjectId('${2}'), ref: '${3}', path: '${4}', updated: ${5}}"
-}
-
 
 function setup_fixtures() {
     org1=$(mongo_insert_one "${MONGO_DB_INDEX}" "Organizations" "$(f_org 'organization1')")
@@ -103,7 +80,33 @@ function usage() {
 }
 
 # ----------
+# Formatter helper functions
+# @{
+function f_org() {
+    echo "{name: '${1}'}"
+}
 
+function f_fs() {
+    echo "{orgId: ObjectId('${1}'), name: '${2}', authUrl: '${3}', tokenUrl: '${4}', fetchUrl: '${5}', controlEndpoint: '${6}'}"
+}
+
+function f_user() {
+    echo "{name: '${1}', email: '${2}', accessToken: '${3}', refreshToken: '${4}'}"
+}
+
+function f_user_id() {
+	# 
+    echo "{_id: ObjectId('${1}'), name: '${2}', email: '${3}', accessToken: '${4}', refreshToken: '${5}'}"
+}
+
+function f_map() {
+    echo "{userId: ObjectId('${1}'), serverId: ObjectId('${2}'), ref: '${3}', path: '${4}', updated: ${5}}"
+}
+# @}
+
+
+# ----------
+# Main program execution
 
 # Parse CLI args
 while getopts ":hbdcfs" opt; do

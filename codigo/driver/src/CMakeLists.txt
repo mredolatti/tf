@@ -15,11 +15,17 @@ target_sources(mifs
     PRIVATE httpc.cpp
     PRIVATE tls.cpp
     PRIVATE isclient.cpp
+    PRIVATE fsclient.cpp
     PRIVATE mappings.cpp
+    PRIVATE filemeta.cpp
     PRIVATE jsend.cpp
     PRIVATE filemanager.cpp
     PRIVATE log.cpp
     PRIVATE fsmirror.cpp
+    PRIVATE fselems.cpp
+    PRIVATE fstree.cpp
+    PRIVATE filecache.cpp
+    PRIVATE openfiles.cpp
 )
 
 target_link_libraries(mifs

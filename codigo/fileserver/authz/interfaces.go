@@ -24,7 +24,6 @@ func IsValidOperation(operation int) bool {
 	case Read, Write, Create, Admin:
 		return true
 	}
-
 	return false
 }
 
@@ -44,32 +43,40 @@ type Authorization interface {
 	AllForObject(object string) map[string]Permission
 }
 
-// Permission contains the set of operations that a subject can perform on a certain object
-type Permission int
+type Permission interface {
+	Can(operation int) (bool, error)
+	Grant(operation int) error
+	Revoke(operation int) error
+}
+
+// IntPermission contains the set of operations that a subject can perform on a certain object
+type IntPermission int
 
 // Can returns true if operation is allowed
-func (p Permission) Can(operation int) (bool, error) {
+func (p *IntPermission) Can(operation int) (bool, error) {
 	if !IsValidOperation(operation) {
 		return false, ErrNoSuchPermission
 	}
-	return (p & Permission(operation)) != 0, nil
+	return (*p & IntPermission(operation)) != 0, nil
 }
 
 // Grant enables operation
-func (p *Permission) Grant(operation int) error {
+func (p *IntPermission) Grant(operation int) error {
 	if !IsValidOperation(operation) {
 		return ErrNoSuchPermission
 	}
 
-	(*p) |= Permission(operation)
+	(*p) |= IntPermission(operation)
 	return nil
 }
 
 // Revoke disables operation
-func (p *Permission) Revoke(operation int) error {
+func (p *IntPermission) Revoke(operation int) error {
 	if !IsValidOperation(operation) {
 		return ErrNoSuchPermission
 	}
-	(*p) &= (Permission(operation ^ 0xFFFFFFFF))
+	(*p) &= (IntPermission(operation ^ 0xFFFFFFFF))
 	return nil
 }
+
+var _ Permission = (*IntPermission)(nil)

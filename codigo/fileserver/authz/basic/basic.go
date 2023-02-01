@@ -61,9 +61,9 @@ func (i *InMemoryAuthz) Revoke(subject string, operation int, object string) err
 	return nil
 }
 
-type permissionMap map[string]map[string]authz.Permission
+type permissionMap map[string]map[string]authz.IntPermission
 
-func (p *permissionMap) forSubjectAndObject(subject string, object string) *authz.Permission {
+func (p *permissionMap) forSubjectAndObject(subject string, object string) authz.Permission {
 	if *p == nil {
 		return nil
 	}
@@ -91,7 +91,11 @@ func (p *permissionMap) forSubject(subject string) map[string]authz.Permission {
 		return nil
 	}
 
-	return forSubject
+	pm := make(map[string]authz.Permission, len(forSubject))
+	for k, v := range forSubject {
+		pm[k] = &v
+	}
+	return pm
 }
 
 func (p *permissionMap) forObject(object string) map[string]authz.Permission {
@@ -103,11 +107,10 @@ func (p *permissionMap) forObject(object string) map[string]authz.Permission {
 	for subject, forObject := range *p {
 		for obj, permission := range forObject {
 			if obj == object {
-				tmp[subject] = permission
+				tmp[subject] = &permission
 			}
 		}
 	}
-
 	return tmp
 }
 
@@ -118,7 +121,7 @@ func (p *permissionMap) grant(subject string, operation int, object string) erro
 
 	forUser, ok := (*p)[subject]
 	if !ok {
-		forUser = make(map[string]authz.Permission)
+		forUser = make(map[string]authz.IntPermission)
 	}
 
 	forObject := forUser[object] // create if it doesn't exist

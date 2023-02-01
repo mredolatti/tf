@@ -12,11 +12,13 @@ class ContextData
     ContextData& operator=(ContextData&&) noexcept = delete;
     ~ContextData() = default;
 
-    ContextData(mifs::log::logger_t logger, mifs::FileManager& fm);
+    ContextData(std::string mount_point, mifs::log::logger_t logger, mifs::FileManager& fm);
     mifs::log::logger_t& logger();
     mifs::FileManager& file_manager();
+    const std::string& mount_point() const;
 
     private:
+    std::string mount_point_;
     mifs::log::logger_t logger_;
     mifs::FileManager& fm_;
 };

@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
@@ -159,7 +162,6 @@ func TestIntegrationUsers(t *testing.T) {
 	assert.Nil(t, err)
 
 	repo := NewUserRepository(db)
-
 
 	// Cleanup
 	defer db.Query("DELETE FROM users WHERE name = 'user_1'")
@@ -508,4 +510,146 @@ func TestIntegrationPendingOAuth2(t *testing.T) {
 	if _, err := repo.Pop(bg, "qwertyuiop"); err == nil {
 		t.Error("there shold be an error.")
 	}
+}
+
+func BenchmarkPSQLMappingInsertion(b *testing.B) {
+
+	rs := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(rs)
+
+	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	userRepo := NewUserRepository(db)
+	user, err := userRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), "name", fmt.Sprintf("mail_%d", r.Int()), "access", "refresh")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer userRepo.Remove(ctx, user.ID())
+
+	orgRepo := NewOrganizationRepository(db)
+	org, err := orgRepo.Add(ctx, &Organization{
+		IDField:   fmt.Sprintf("id_%d", r.Int()),
+		NameField: fmt.Sprintf("name_%d", r.Int()),
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+	defer orgRepo.Remove(ctx, org.ID())
+
+	fsRepo := NewFileServerRepository(db)
+	fs, err := fsRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), fmt.Sprintf("name_%d", r.Int()), org.ID(), "authURL", "tokenURL", "fetchURL", "controlEndpoint")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer fsRepo.Remove(ctx, fs.ID())
+
+	repo := NewMappingRepository(db)
+
+	b.ResetTimer()
+	random := r.Int()
+
+	defer db.Query(fmt.Sprintf("DELETE FROM mappings WHERE user_id = '%s'", user.ID()))
+
+	for idx := 0; idx < b.N; idx++ {
+		_, err = repo.Add(ctx, user.ID(), &Mapping{
+			ServerIDField: fs.ID(),
+			PathField:     fmt.Sprintf("%d/path/to/%d", random, idx),
+			RefField:      fmt.Sprintf("ref%d_%d", idx, random),
+			DeletedField:  false,
+			UpdatedField:  time.Now().UnixNano(),
+		})
+		if err != nil {
+			panic(err.Error())
+		}
+
+	}
+}
+
+func BenchmarkPSQLMappingInsertionConcurrent100(b *testing.B) {
+	benchmarkPSQLMappingInsertionConcurrent(b, 100)
+}
+
+func BenchmarkPSQLMappingInsertionConcurrent250(b *testing.B) {
+	benchmarkPSQLMappingInsertionConcurrent(b, 250)
+}
+
+func BenchmarkPSQLMappingInsertionConcurrent500(b *testing.B) {
+	benchmarkPSQLMappingInsertionConcurrent(b, 500)
+}
+
+func benchmarkPSQLMappingInsertionConcurrent(b *testing.B, concurrency int) {
+	b.Helper()
+
+	rs := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(rs)
+
+	db, err := sqlx.Connect("pgx", "postgres://postgres:mysecretpassword@localhost:5432/indexsrv")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer db.Close()
+
+	db.SetMaxOpenConns(75)
+
+	ctx := context.Background()
+	userRepo := NewUserRepository(db)
+	user, err := userRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), "name", fmt.Sprintf("mail_%d", r.Int()), "access", "refresh")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer userRepo.Remove(ctx, user.ID())
+
+	orgRepo := NewOrganizationRepository(db)
+	org, err := orgRepo.Add(ctx, &Organization{
+		IDField:   fmt.Sprintf("id_%d", r.Int()),
+		NameField: fmt.Sprintf("name_%d", r.Int()),
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+	defer orgRepo.Remove(ctx, org.ID())
+
+	fsRepo := NewFileServerRepository(db)
+	fs, err := fsRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), fmt.Sprintf("name_%d", r.Int()), org.ID(), "authURL", "tokenURL", "fetchURL", "controlEndpoint")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer fsRepo.Remove(ctx, fs.ID())
+
+	repo := NewMappingRepository(db)
+	defer db.Query(fmt.Sprintf("DELETE FROM mappings WHERE user_id = '%s'", user.ID()))
+	// Setup done
+	b.ResetTimer()
+
+	// SetParallelism always multiplies `p` by number of CPUs. divide it again to get accurate thread count
+	b.SetParallelism(concurrency / runtime.GOMAXPROCS(0))
+
+	mutex := &sync.Mutex{}
+	b.RunParallel(func(p *testing.PB) {
+
+		mutex.Lock()
+		random := r.Int()
+		mutex.Unlock()
+
+		for idx := 0; p.Next(); idx++ {
+			mapping := &Mapping{
+				ServerIDField: fs.ID(),
+				PathField:     fmt.Sprintf("%d/path/to/%d", random, idx),
+				RefField:      fmt.Sprintf("ref%d_%d", idx, random),
+				DeletedField:  false,
+				UpdatedField:  time.Now().UnixNano(),
+			}
+			_, err = repo.Add(ctx, user.ID(), mapping)
+			if err != nil {
+				fmt.Printf("%+v\n", mapping)
+				panic(err.Error())
+			}
+		}
+	})
+
 }

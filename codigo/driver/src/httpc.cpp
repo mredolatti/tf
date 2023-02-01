@@ -131,6 +131,7 @@ MaybeResponse Client::execute(const Request& request)
     curl_easy_setopt(*handle, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(*handle, CURLOPT_HEADERFUNCTION, header_callback);
     curl_easy_setopt(*handle, CURLOPT_DEBUGFUNCTION, trace_cb);
+    curl_easy_setopt(*handle, CURLOPT_VERBOSE, 1L);
 
     // url
     curl_easy_setopt(*handle, CURLOPT_URL, request.url().c_str());

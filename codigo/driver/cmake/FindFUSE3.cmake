@@ -60,6 +60,7 @@ else(FUSE3_INCLUDE_DIRS)
     endif()
 endif()
 
+
 mark_as_advanced(
     FUSE3_INCLUDE_DIRS
     FUSE3_LIBRARIES
@@ -71,7 +72,8 @@ if(FUSE3_FOUND)
         add_library(FUSE3::libfuse UNKNOWN IMPORTED)
         set_target_properties(FUSE3::libfuse PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${FUSE3_INCLUDE_DIRS}"
-            IMPORTED_LOCATION "${FUSE3_LIBRARIES}"
+            #IMPORTED_LOCATION "${FUSE3_LIBRARIES}"
+            IMPORTED_LOCATION "/home/martin/Projects/tf/codigo/driver/temp/libfuse/build/lib/libfuse3.so"
             IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         )
         target_compile_definitions(FUSE3::libfuse

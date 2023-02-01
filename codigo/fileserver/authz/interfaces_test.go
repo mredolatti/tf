@@ -5,7 +5,7 @@ import (
 )
 
 func TestPermission(t *testing.T) {
-	var p Permission
+	var p IntPermission
 	if res, err := p.Can(Read); err != nil || res {
 		t.Error("shouldn't be able to read.")
 	}
