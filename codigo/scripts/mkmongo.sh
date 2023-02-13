@@ -44,7 +44,7 @@ function init_db() {
     mongo_query ${MONGO_DB_INDEX} "printjson(db.UserAccounts.createIndex({userId: 1}, {unique: false}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.UserAccounts.createIndex({userId: 1, serverId: 1}, {unique: true}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.FileServers.createIndex({orgId: 1}, {unique: false}))"
-    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({userId: 1}, {path: 1}}, {unique: false}))"
+    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({userId: 1, path: 1}, {unique: false}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.PendingOAuth2.createIndex({state: 1}, {unique: false}))"
 
     # TODO(mredolatti): setup indexes for file-server app

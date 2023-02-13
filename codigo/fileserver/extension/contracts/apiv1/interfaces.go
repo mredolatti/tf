@@ -1,10 +1,26 @@
 package apiv1
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/mredolatti/tf/codigo/fileserver/extension/contracts"
+)
+
+type CreateFunc = func(map[string]interface{}) (Plugin, error)
+
+const V contracts.Version = 1
+
+const CreateFuncName = "Create"
 
 // ---------------
 // File & Metadata
 // ---------------
+
+// Public errors
+var (
+	ErrFileDoesNotExist = errors.New("file does not exist")
+	ErrFileExists       = errors.New("file exists")
+)
 
 // File methods
 type File interface {
@@ -50,12 +66,21 @@ type Files interface {
 // Authorization
 // -------------
 
-
 // AnyObject is used as an object for permissions that don't target a specific one (ie: Create)
 const AnyObject = "__GLOBAL__"
 
 // EveryOne is used as an object for permissions that don't target a specific user, but affects everyone
 const EveryOne = "__EVERYONE__"
+
+// Permission types bitmask constants
+type Operation uint32
+
+const (
+	OperationRead   Operation = (1 << 0)
+	OperationWrite  Operation = (1 << 1)
+	OperationCreate Operation = (1 << 2)
+	OperationAdmin  Operation = (1 << 31)
+)
 
 // Public errors
 var (
@@ -65,18 +90,18 @@ var (
 )
 
 type Permission interface {
-	Can(operation int) (bool, error)
-	Grant(operation int) error
-	Revoke(operation int) error
+	Can(operation Operation) (bool, error)
+	Grant(operation Operation) error
+	Revoke(operation Operation) error
 }
 
 // Authorization defines the interface of an authorization handling component
 type Authorization interface {
-	Can(subject string, operation int, object string) (bool, error)
-	Grant(subject string, operation int, object string) error
-	Revoke(subject string, operation int, object string) error
-	AllForSubject(subject string) map[string]Permission
-	AllForObject(object string) map[string]Permission
+	Can(subject string, operation Operation, object string) (bool, error)
+	Grant(subject string, operation Operation, object string) error
+	Revoke(subject string, operation Operation, object string) error
+	AllForSubject(subject string) (map[string]Permission, error)
+	AllForObject(object string) (map[string]Permission, error)
 }
 
 // ---------------------
@@ -84,8 +109,7 @@ type Authorization interface {
 // ---------------------
 
 type Plugin interface {
-	Initialize(interface{}) error
-	GetFileStorage() (Files, error)
-	GetFileMetadataStorage() (FilesMetadata, error)
-	GetAuthorization() (Authorization, error)
+	GetFileStorage() Files
+	GetFileMetadataStorage() FilesMetadata
+	GetAuthorization() Authorization
 }

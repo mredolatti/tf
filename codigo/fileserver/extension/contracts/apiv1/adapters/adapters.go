@@ -1,7 +1,8 @@
-package apiv1
+package adapters
 
 import (
 	"github.com/mredolatti/tf/codigo/fileserver/authz"
+	"github.com/mredolatti/tf/codigo/fileserver/extension/contracts/apiv1"
 	"github.com/mredolatti/tf/codigo/fileserver/models"
 	"github.com/mredolatti/tf/codigo/fileserver/storage"
 )
@@ -10,7 +11,11 @@ import (
 // from internal ones. enhancing plugin compatibility via the use of adapters for each version
 
 type FilesWrapper struct {
-	w Files
+	w apiv1.Files
+}
+
+func NewFilesWrapper(w apiv1.Files) *FilesWrapper {
+	return &FilesWrapper{w: w}
 }
 
 // Read implements storage.Files
@@ -29,7 +34,11 @@ func (fw *FilesWrapper) Write(id string, data []byte, force bool) error {
 }
 
 type FilesMetaWrapper struct {
-	w FilesMetadata
+	w apiv1.FilesMetadata
+}
+
+func NewFilesMetaWrapper(w apiv1.FilesMetadata) *FilesMetaWrapper {
+	return &FilesMetaWrapper{w: w}
 }
 
 // Create implements storage.FilesMetadata
@@ -46,7 +55,7 @@ func (fmw *FilesMetaWrapper) Get(id string) (models.FileMetadata, error) {
 
 // GetMany implements storage.FilesMetadata
 func (fmw *FilesMetaWrapper) GetMany(filter *storage.Filter) (map[string]models.FileMetadata, error) {
-	f := Filter(*filter)
+	f := apiv1.Filter(*filter)
 	res, err := fmw.w.GetMany(&f)
 	if err != nil {
 		return nil, err
@@ -66,57 +75,87 @@ func (fmw *FilesMetaWrapper) Remove(id string, whenNs int64) error {
 
 // Update implements storage.FilesMetadata
 func (fmw *FilesMetaWrapper) Update(id string, updated models.FileMetadata, whenNs int64) (models.FileMetadata, error) {
-	res, err := fmw.w.Update(id, updated.(FileMetadata), whenNs)
-	return res.(FileMetadata), err
+	res, err := fmw.w.Update(id, updated.(apiv1.FileMetadata), whenNs)
+	return res.(apiv1.FileMetadata), err
 }
 
 type AuthorizationWrapper struct {
-	w Authorization
+	w apiv1.Authorization
+}
+
+func NewAuthWrapper(w apiv1.Authorization) *AuthorizationWrapper {
+	return &AuthorizationWrapper{w: w}
 }
 
 // AllForObject implements authz.Authorization
-func (aw *AuthorizationWrapper) AllForObject(object string) map[string]authz.Permission {
-	res := aw.w.AllForObject(object)
+func (aw *AuthorizationWrapper) AllForObject(object string) (map[string]authz.Permission, error) {
+	res, err := aw.w.AllForObject(object)
+	if err != nil {
+		return nil, err
+	}
 	if len(res) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	toRet := make(map[string]authz.Permission, len(res))
 	for k, v := range toRet {
 		toRet[k] = v.(authz.Permission)
 	}
-	return toRet
+	return toRet, nil
 }
 
 // AllForSubject implements authz.Authorization
-func (aw *AuthorizationWrapper) AllForSubject(subject string) map[string]authz.Permission {
-	res := aw.w.AllForSubject(subject)
+func (aw *AuthorizationWrapper) AllForSubject(subject string) (map[string]authz.Permission, error) {
+	res, err := aw.w.AllForSubject(subject)
+	if err != nil {
+		return nil, err
+	}
 	if len(res) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	toRet := make(map[string]authz.Permission, len(res))
-	for k, v := range toRet {
-		toRet[k] = v.(authz.Permission)
+	for k, v := range res {
+		toRet[k] = &PermissionWrapper{p: v}
 	}
-	return toRet
+	return toRet, nil
 }
 
 // Can implements authz.Authorization
-func (aw *AuthorizationWrapper) Can(subject string, operation int, object string) (bool, error) {
-	return aw.w.Can(subject, operation, object)
+func (aw *AuthorizationWrapper) Can(subject string, operation authz.Operation, object string) (bool, error) {
+	return aw.w.Can(subject, apiv1.Operation(operation), object)
 }
 
 // Grant implements authz.Authorization
-func (aw *AuthorizationWrapper) Grant(subject string, operation int, object string) error {
-	return aw.w.Grant(subject, operation, object)
+func (aw *AuthorizationWrapper) Grant(subject string, operation authz.Operation, object string) error {
+	return aw.w.Grant(subject, apiv1.Operation(operation), object)
 }
 
 // Revoke implements authz.Authorization
-func (aw *AuthorizationWrapper) Revoke(subject string, operation int, object string) error {
-	return aw.w.Revoke(subject, operation, object)
+func (aw *AuthorizationWrapper) Revoke(subject string, operation authz.Operation, object string) error {
+	return aw.w.Revoke(subject, apiv1.Operation(operation), object)
+}
+
+type PermissionWrapper struct {
+	p apiv1.Permission
+}
+
+// Can implements authz.Permission
+func (p *PermissionWrapper) Can(operation authz.Operation) (bool, error) {
+	return p.p.Can(apiv1.Operation(operation))
+}
+
+// Grant implements authz.Permission
+func (p *PermissionWrapper) Grant(operation authz.Operation) error {
+	return p.p.Grant(apiv1.Operation(operation))
+}
+
+// Revoke implements authz.Permission
+func (p *PermissionWrapper) Revoke(operation authz.Operation) error {
+	return p.p.Revoke(apiv1.Operation(operation))
 }
 
 var _ storage.Files = (*FilesWrapper)(nil)
 var _ storage.FilesMetadata = (*FilesMetaWrapper)(nil)
 var _ authz.Authorization = (*AuthorizationWrapper)(nil)
+var _ authz.Permission = (*PermissionWrapper)(nil)

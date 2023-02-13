@@ -41,6 +41,7 @@ clean:
 	rm -Rf ./incoming
 	rm -f ./index-server
 	rm -f ./file-server
+	rm -f ./fsbasic.so
 
 ## Construir index-server y file-server
 build: index-server file-server
@@ -52,6 +53,9 @@ index-server: $(sources) go.sum
 ## Construir file-server
 file-server: $(sources) go.sum
 	$(GO) build -o file-server ./fileserver/cmd/server/main.go
+
+fsbasic.so: $(sources) go.sum
+	$(GO) build -o fsbasic.so --buildmode=plugin ./fileserver/extension/plugins/fsbasic/plugin
 
 ## Ejecutar tests incluyando analisis de race conditions
 test:
@@ -108,10 +112,12 @@ debuglocal-indexserver-postgres:
 		dlv debug indexsrv/cmd/server/main.go
 
 ## Ejecucion local de file-server
-runlocal-fileserver-postgres: file-server $(pki_tgts)
+runlocal-fileserver: file-server $(pki_tgts)
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
-		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
+		FS_PSQL_URI="postgres://postgres:mysecretpassword@localhost:5432/filesrv" \
+		FS_STORAGE_PLUGIN="./fsbasic.so" \
+		FS_STORAGE_PLUGIN_CONF='{"filePath": "/home/martin/fsbasic/files", "authDBPath": "/home/martin/fsbasic/authdb"}' \
 		./file-server
 
 ## iniciar file-server en delve
