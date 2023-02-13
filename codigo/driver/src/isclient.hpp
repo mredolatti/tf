@@ -16,6 +16,11 @@ class IndexServerClient
 {
     public:
 
+    struct Config
+    {
+        std::string url;
+    };
+
     using http_client_ptr_t = std::shared_ptr<http::Client>;
 
     using response_t = jsend::Response<models::Mapping>;
@@ -29,12 +34,13 @@ class IndexServerClient
     IndexServerClient& operator=(IndexServerClient&&) = delete;
     ~IndexServerClient() = default;
 
-    explicit IndexServerClient(http_client_ptr_t http_client);
+    explicit IndexServerClient(http_client_ptr_t http_client, Config config);
 
     response_result_t get_all();
 
     private:
     http_client_ptr_t client_;
+    std::string url_;
 };
 
 } // namespace mifs::apiclients

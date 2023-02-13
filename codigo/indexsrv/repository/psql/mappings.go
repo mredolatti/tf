@@ -18,7 +18,7 @@ const (
 	_all                    = " RETURNING *"
 	mappingListQuery        = "SELECT * FROM mappings WHERE user_id = $1"
 	mappingListByPathQuery  = "SELECT * FROM mappings WHERE user_id = $1 AND path <@ $2"
-	_mappingAddTpl          = "INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) VALUES ($1, $2, $3, $4, $5, $6)"
+	_mappingAddTpl          = "INSERT INTO mappings(user_id, server_id, path, ref, updated) VALUES ($1, $2, $3, $4, $5)"
 	mappingAddQuery         = _mappingAddTpl + _all
 	mappingAddOrUpdateQuery = ("INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) " +
 		"VALUES (:user_id, :server_id, :path, :ref, :updated, :deleted) " +
@@ -42,8 +42,8 @@ type Mapping struct {
 	ServerIDField string `db:"server_id"`
 	PathField     string `db:"path"`
 	RefField      string `db:"ref"`
-	DeletedField  bool   `db:"deleted"`
 	UpdatedField  int64  `db:"updated"`
+	DeletedField  bool   `db:"deleted"`
 }
 
 // UserID returns the if of the user who has an mapping in a file server
@@ -119,16 +119,16 @@ func (r *MappingRepository) ListByPath(ctx context.Context, userID string, path 
 
 // Add adds a mapping
 func (r *MappingRepository) Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error) {
+
 	var fetched Mapping
 	err := r.db.QueryRowxContext(
 		ctx,
 		mappingAddQuery,
 		userID,
 		mapping.FileServerID(),
+		formatterForStorage.Replace(mapping.Path()),
 		mapping.Ref(),
-		formatterForDisplay.Replace(mapping.Path()),
-		mapping.Updated(),
-		mapping.Deleted(),
+		mapping.Updated().UnixNano(),
 	).StructScan(&fetched)
 	if err != nil {
 		return nil, fmt.Errorf("error executing users::add in postgres: %w", err)

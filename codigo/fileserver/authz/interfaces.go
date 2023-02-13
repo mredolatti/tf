@@ -11,20 +11,21 @@ const AnyObject = "__GLOBAL__"
 const EveryOne = "__EVERYONE__"
 
 // Permission types bitmask constants
+type Operation uint32
+
 const (
-	Read   = (1 << 0)
-	Write  = (1 << 1)
-	Create = (1 << 2)
-	Admin  = (1 << 31)
+	OperationRead   Operation = (1 << 0)
+	OperationWrite  Operation = (1 << 1)
+	OperationCreate Operation = (1 << 2)
+	OperationAdmin  Operation = (1 << 31)
 )
 
 // IsValidOperation returns true is the provided operation is valid
-func IsValidOperation(operation int) bool {
+func IsValidOperation(operation Operation) bool {
 	switch operation {
-	case Read, Write, Create, Admin:
+	case OperationRead, OperationWrite, OperationCreate, OperationAdmin:
 		return true
 	}
-
 	return false
 }
 
@@ -37,39 +38,47 @@ var (
 
 // Authorization defines the interface of an authorization handling component
 type Authorization interface {
-	Can(subject string, operation int, object string) (bool, error)
-	Grant(subject string, operation int, object string) error
-	Revoke(subject string, operation int, object string) error
-	AllForSubject(subject string) map[string]Permission
-	AllForObject(object string) map[string]Permission
+	Can(subject string, operation Operation, object string) (bool, error)
+	Grant(subject string, operation Operation, object string) error
+	Revoke(subject string, operation Operation, object string) error
+	AllForSubject(subject string) (map[string]Permission, error)
+	AllForObject(object string) (map[string]Permission, error)
 }
 
-// Permission contains the set of operations that a subject can perform on a certain object
-type Permission int
+type Permission interface {
+	Can(operation Operation) (bool, error)
+	Grant(operation Operation) error
+	Revoke(operation Operation) error
+}
+
+// IntPermission contains the set of operations that a subject can perform on a certain object
+type IntPermission int
 
 // Can returns true if operation is allowed
-func (p Permission) Can(operation int) (bool, error) {
+func (p *IntPermission) Can(operation Operation) (bool, error) {
 	if !IsValidOperation(operation) {
 		return false, ErrNoSuchPermission
 	}
-	return (p & Permission(operation)) != 0, nil
+	return (*p & IntPermission(operation)) != 0, nil
 }
 
 // Grant enables operation
-func (p *Permission) Grant(operation int) error {
+func (p *IntPermission) Grant(operation Operation) error {
 	if !IsValidOperation(operation) {
 		return ErrNoSuchPermission
 	}
 
-	(*p) |= Permission(operation)
+	(*p) |= IntPermission(operation)
 	return nil
 }
 
 // Revoke disables operation
-func (p *Permission) Revoke(operation int) error {
+func (p *IntPermission) Revoke(operation Operation) error {
 	if !IsValidOperation(operation) {
 		return ErrNoSuchPermission
 	}
-	(*p) &= (Permission(operation ^ 0xFFFFFFFF))
+	(*p) &= (IntPermission(operation ^ 0xFFFFFFFF))
 	return nil
 }
+
+var _ Permission = (*IntPermission)(nil)

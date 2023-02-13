@@ -3,21 +3,55 @@
 #define FUSE_USE_VERSION 35
 
 #include <fuse3/fuse.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
 #include <iostream>
 
-
-// helpers: mover a otro lado
-mode_t dtype2stmode(unsigned char in)
+class EntryInfo : public mifs::types::FSElemVisitor
 {
-    // las constantes son las mismas pero corridas unos bits para la izq
-    // https://github.com/bminor/glibc/blob/master/io/sys/stat.h#L104
-    // https://github.com/bminor/glibc/blob/master/sysdeps/unix/sysv/linux/bits/stat.h#L32
-    // https://github.com/bminor/glibc/blob/master/dirent/dirent.h#L100
-    return in << 12;
+    public:
+    void visit_file(const mifs::types::FSEFile&) override;
+    void visit_link(const mifs::types::FSELink&) override;
+    void visit_folder(const mifs::types::FSEFolder&) override;
+    
+    __mode_t st_mode() const;
+    int st_nlink() const;
+
+    private:
+    enum class Type
+    {
+        File,
+        Folder,
+        Link
+    };
+    Type type_;
+};
+
+void EntryInfo::visit_file(const mifs::types::FSEFile&)     { type_ = Type::File; }
+void EntryInfo::visit_link(const mifs::types::FSELink&)     { type_ = Type::Link; }
+void EntryInfo::visit_folder(const mifs::types::FSEFolder&) { type_ = Type::Folder; }
+
+__mode_t EntryInfo::st_mode() const
+{
+    switch (type_) {
+        case Type::File:    return S_IFREG;
+        case Type::Folder:  return S_IFDIR;
+        case Type::Link:    return S_IFLNK;
+    }
+    assert(false); // shold never get here
+}
+
+int EntryInfo::st_nlink() const
+{
+    switch (type_) {
+        case Type::File:    return 1;
+        case Type::Folder:  return 2;
+        case Type::Link:    return 1;
+    }
+    assert(false); // shold never get here
 }
 
 // fuse
@@ -38,43 +72,20 @@ static int mifs_getattr(const char* path, struct stat* stbuf, struct fuse_file_i
         return 0;
     }
 
-    SPDLOG_LOGGER_TRACE(ctx->logger(), "gathering statsa for: '{}'", path);
+    SPDLOG_LOGGER_TRACE(ctx->logger(), "gathering stats for: '{}'", path);
     auto res{ctx->file_manager().stat(path)};
     if (!res) {
-        SPDLOG_LOGGER_ERROR(ctx->logger(), "failed to stat '{}'", path);
+        SPDLOG_LOGGER_ERROR(ctx->logger(), "failed to stat '{}': {}", path, res.error());
         return 1;
     }
 
     auto& de{(*res)};
-    stbuf->st_mode = (de.is_directory() ? S_IFDIR : S_IFREG);
-    stbuf->st_nlink = (de.is_directory() ? 2 : 1);
+    EntryInfo v;
+    de->accept(v);
+    stbuf->st_mode = v.st_mode();
+    stbuf->st_nlink = v.st_nlink();
+    stbuf->st_size = de->size_bytes();
     return 0;
-
-
-    //    struct stat {
-    //           dev_t     st_dev;         /* ID of device containing file */
-    //           ino_t     st_ino;         /* Inode number */
-    //           mode_t    st_mode;        /* File type and mode */
-    //           nlink_t   st_nlink;       /* Number of hard links */
-    //           uid_t     st_uid;         /* User ID of owner */
-    //           gid_t     st_gid;         /* Group ID of owner */
-    //           dev_t     st_rdev;        /* Device ID (if special file) */
-    //           off_t     st_size;        /* Total size, in bytes */
-    //           blksize_t st_blksize;     /* Block size for filesystem I/O */
-    //           blkcnt_t  st_blocks;      /* Number of 512B blocks allocated */
-
-    //           /* Since Linux 2.6, the kernel supports nanosecond
-    //              precision for the following timestamp fields.
-    //              For the details before Linux 2.6, see NOTES. */
-
-    //           struct timespec st_atim;  /* Time of last access */
-    //           struct timespec st_mtim;  /* Time of last modification */
-    //           struct timespec st_ctim;  /* Time of last status change */
-
-    //       #define st_atime st_atim.tv_sec      /* Backward compatibility */
-    //       #define st_mtime st_mtim.tv_sec
-    //       #define st_ctime st_ctim.tv_sec
-    //       };
 
     // TODO(mredolatti): llenar stbuf con las propiedades necesarias
     // - st_dev ?
@@ -87,8 +98,6 @@ static int mifs_getattr(const char* path, struct stat* stbuf, struct fuse_file_i
     // - st_blksize ?
     // - st_blocks ?
     // - st_atim = st_mtim = st_ctm = timestamp de ultima modificacion (del server)
-
-    return 0;
 }
 
 static int mifs_access(const char *path, int mask)
@@ -113,45 +122,26 @@ static int mifs_readdir(
     auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
     auto entries{ctx->file_manager().list(path)};
     if (!entries) {
-        std::cout << "fallo `fm.list`\n";
         return 1; // TODO(mredolatti): devolver codigo apropiado
     }
 
-    std::cout << "llegaron " << (*entries).size() << " direntries\n";
-
     for (auto&& de : (*entries)) {
-        std::cout << "agregando: " << de.name() << '\n';
+        if (!de) {
+            SPDLOG_LOGGER_ERROR(ctx->logger(), "null direntry");
+            std::abort();
+        }
+
+        SPDLOG_LOGGER_INFO(ctx->logger(), "agregando direntry: {}", de->name());
+        EntryInfo v;
+        de->accept(v);
         struct stat st;
         memset(&st, 0, sizeof(st));
         st.st_ino = 0;
-        st.st_mode = (de.is_directory() ? S_IFDIR : S_IFREG);
-        if (filler(buf, de.name().c_str(), &st, 0, static_cast<enum fuse_fill_dir_flags>(0))) {
+        st.st_mode = v.st_mode();
+        if (filler(buf, de->name().c_str(), &st, 0, static_cast<enum fuse_fill_dir_flags>(0))) {
             break;
         }
     }
-
-
-
-
-/*
-    auto dp{opendir(path)};
-    if (dp == nullptr) {
-        return -errno;
-    }
-
-    struct dirent *de;
-    while ((de = readdir(dp)) != nullptr) {
-        struct stat st;
-        memset(&st, 0, sizeof(st));
-        st.st_ino = de->d_ino;
-        st.st_mode = dtype2stmode(de->d_type);
-        if (filler(buf, de->d_name, &st, 0, static_cast<enum fuse_fill_dir_flags>(0))) {
-            break;
-        }
-    }
-
-    closedir(dp);
-    */
     return 0;
 }
 
@@ -233,34 +223,60 @@ static int mifs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     return 0;
 }
 
-static int mifs_open(const char *path, struct fuse_file_info *fi)
+static int mifs_readlink(const char* path, char* buffer, size_t buffer_size)
 {
-    auto res{open(path, fi->flags)};
-    if (res == -1) {
-        return -errno;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    SPDLOG_LOGGER_TRACE(ctx->logger(), "reading link for: '{}'", path);
+    auto res{ctx->file_manager().stat(path)};
+    if (!res) {
+        return 1; // TODO
     }
 
-    fi->fh = res;
+    const auto* as_link{dynamic_cast<const mifs::types::FSELink*>((*res).get())};
+    assert(as_link);
+
+    auto resolved{fmt::format("{}/servers/{}/{}", ctx->mount_point(), as_link->server_id(), as_link->ref())};
+    std::size_t idx{};
+    while (buffer_size > 1 && idx < resolved.size()) {
+        buffer[idx] = resolved[idx];
+        idx++;
+        buffer_size--;
+    }
+    buffer[idx] = '\0';
+
+    return 0;
+}
+
+
+static int mifs_open(const char *path, struct fuse_file_info *fi)
+{
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    SPDLOG_LOGGER_INFO(ctx->logger(), "opening file: {}", path);
+    fi->fh = ctx->file_manager().open(path, 0 /*TODO */);
     return 0;
 }
 
 static int mifs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    auto fd{(fi == nullptr) ? open(path, O_RDONLY) : fi->fh};
-    if (fd == -1) {
-        return -errno;
-    }
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    SPDLOG_LOGGER_INFO(ctx->logger(), "reading from file: {}", path);
 
-    auto res{pread(fd, buf, size, offset)};
-    if (res == -1) {
-        res = -errno;
+    std::size_t read_bytes;
+    if (fi == nullptr) {
+        SPDLOG_LOGGER_TRACE(ctx->logger(), "reading by path: {}", path);
+        read_bytes = ctx->file_manager().read(path, buf, offset, size);
+    } else {
+        SPDLOG_LOGGER_TRACE(ctx->logger(), "reading by fd: {}", fi->fh);
+        read_bytes = ctx->file_manager().read(fi->fh, buf, offset, size);
     }
+    return read_bytes;
 
-    if(fi == nullptr) {
-        close(fd);
-    }
-
-    return res;
+    /*
+    auto fd{(fi == nullptr) ? 123456 : fi->fh};
+    SPDLOG_LOGGER_INFO(ctx->logger(), "fd: {}", fd);
+    strcpy(buf, "hola\n");
+    return 5;
+    */
 }
 
 static int mifs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
@@ -316,6 +332,7 @@ static int mifs_opendir(const char *dir, struct fuse_file_info *info)
 
 static const struct fuse_operations mifs_oper = {
     .getattr    = mifs_getattr,
+    .readlink   = mifs_readlink,
     .mkdir      = mifs_mkdir,
     .unlink     = mifs_unlink,
     .rmdir      = mifs_rmdir,
@@ -343,11 +360,19 @@ int init_fuse(int argc, char *argv[], ContextData& ctx)
     return fuse_main(argc, argv, &mifs_oper, &ctx);
 }
 
-ContextData::ContextData(mifs::log::logger_t logger, mifs::FileManager& fm) :
+ContextData::ContextData(std::string mount_point, mifs::log::logger_t logger, mifs::FileManager& fm) :
     logger_{std::move(logger)},
     fm_{fm}
-{}
+{
+    char mount_point_buffer[1024];
+    realpath(mount_point.c_str(), mount_point_buffer);
+    mount_point_ = std::string{mount_point_buffer};
+}
 
 mifs::log::logger_t& ContextData::logger() { return logger_; }
 mifs::FileManager& ContextData::file_manager() { return fm_; }
+const std::string& ContextData::mount_point() const { return mount_point_; }
+
+//---------------------------------------
+
 

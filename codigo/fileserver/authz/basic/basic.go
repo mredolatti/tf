@@ -18,7 +18,7 @@ func NewInMemoryAuthz() *InMemoryAuthz {
 }
 
 // Can returns whether a subject an perform a certain operation on an object
-func (i *InMemoryAuthz) Can(subject string, operation int, object string) (bool, error) {
+func (i *InMemoryAuthz) Can(subject string, operation authz.Operation, object string) (bool, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	p := i.permissions.forSubjectAndObject(subject, object)
@@ -30,23 +30,23 @@ func (i *InMemoryAuthz) Can(subject string, operation int, object string) (bool,
 }
 
 // AllForSubject returns all the objects that the provided subject has access to and it's permissions
-func (i *InMemoryAuthz) AllForSubject(subject string) map[string]authz.Permission {
+func (i *InMemoryAuthz) AllForSubject(subject string) (map[string]authz.Permission, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	res := i.permissions.forSubject(subject)
 	delete(res, authz.AnyObject)
-	return res
+	return res, nil
 }
 
 // AllForObject returns all the subjects that can perform at least one operation on the provided object
-func (i *InMemoryAuthz) AllForObject(object string) map[string]authz.Permission {
+func (i *InMemoryAuthz) AllForObject(object string) (map[string]authz.Permission, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	return i.permissions.forObject(object)
+	return i.permissions.forObject(object), nil
 }
 
 // Grant access to subject on object to perform operation
-func (i *InMemoryAuthz) Grant(subject string, operation int, object string) error {
+func (i *InMemoryAuthz) Grant(subject string, operation authz.Operation, object string) error {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	i.permissions.grant(subject, operation, object)
@@ -54,16 +54,16 @@ func (i *InMemoryAuthz) Grant(subject string, operation int, object string) erro
 }
 
 // Revoke access to subject on object to perform operation
-func (i *InMemoryAuthz) Revoke(subject string, operation int, object string) error {
+func (i *InMemoryAuthz) Revoke(subject string, operation authz.Operation, object string) error {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	i.permissions.revoke(subject, operation, object)
 	return nil
 }
 
-type permissionMap map[string]map[string]authz.Permission
+type permissionMap map[string]map[string]authz.IntPermission
 
-func (p *permissionMap) forSubjectAndObject(subject string, object string) *authz.Permission {
+func (p *permissionMap) forSubjectAndObject(subject string, object string) authz.Permission {
 	if *p == nil {
 		return nil
 	}
@@ -91,7 +91,11 @@ func (p *permissionMap) forSubject(subject string) map[string]authz.Permission {
 		return nil
 	}
 
-	return forSubject
+	pm := make(map[string]authz.Permission, len(forSubject))
+	for k, v := range forSubject {
+		pm[k] = &v
+	}
+	return pm
 }
 
 func (p *permissionMap) forObject(object string) map[string]authz.Permission {
@@ -103,22 +107,21 @@ func (p *permissionMap) forObject(object string) map[string]authz.Permission {
 	for subject, forObject := range *p {
 		for obj, permission := range forObject {
 			if obj == object {
-				tmp[subject] = permission
+				tmp[subject] = &permission
 			}
 		}
 	}
-
 	return tmp
 }
 
-func (p *permissionMap) grant(subject string, operation int, object string) error {
+func (p *permissionMap) grant(subject string, operation authz.Operation, object string) error {
 	if *p == nil {
 		*p = make(permissionMap)
 	}
 
 	forUser, ok := (*p)[subject]
 	if !ok {
-		forUser = make(map[string]authz.Permission)
+		forUser = make(map[string]authz.IntPermission)
 	}
 
 	forObject := forUser[object] // create if it doesn't exist
@@ -130,7 +133,7 @@ func (p *permissionMap) grant(subject string, operation int, object string) erro
 	return nil
 }
 
-func (p *permissionMap) revoke(subject string, operation int, object string) error {
+func (p *permissionMap) revoke(subject string, operation authz.Operation, object string) error {
 	if *p == nil {
 		return nil // Nothing to be done
 	}

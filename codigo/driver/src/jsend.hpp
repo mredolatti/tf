@@ -78,8 +78,6 @@ util::Expected<Response<T>, int> parse(std::string_view body, std::string_view r
         parsed_items.emplace_back(*parse_result);
     }
 
-    std::cout << "parseados " << parsed_items.size() << " items\n";
-
     typename Response<T>::data_t::value_type map_data{resource, std::move(parsed_items)};
     toRet.data = typename Response<T>::data_t{std::move(map_data)};
     return toRet;

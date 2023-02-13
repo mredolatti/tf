@@ -60,7 +60,7 @@ Mapping::parse_result_t Mapping::parse<rapidjson::Document::ValueType>(const rap
 
     return Mapping{
         doc["path"].GetString(),
-        0, // TODO(mredolatti): send size in mapping
+        5, // TODO(mredolatti): send size in mapping
         doc["ref"].GetString(),
         doc["serverId"].GetString()
     };
