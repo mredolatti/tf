@@ -1,5 +1,6 @@
 /* Enable l-tree extension for paths */
 CREATE EXTENSION ltree;
+CREATE EXTENSION pgcrypto;
 
 CREATE DATABASE indexsrv ENCODING 'utf-8';
 
@@ -12,8 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR NOT NULL PRIMARY KEY,
     name VARCHAR NOT NULL,
     email VARCHAR UNIQUE NOT NULL,
-    access_token VARCHAR NOT NULL,
-    refresh_token VARCHAR NOT NULL
+    password_hash VARCHAR NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS file_servers (

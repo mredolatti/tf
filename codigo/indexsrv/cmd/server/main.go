@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -24,6 +25,9 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository/mongodb"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository/psql"
+	"github.com/mredolatti/tf/codigo/indexsrv/repository/redis"
+
+	goredis "github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -64,12 +68,21 @@ func main() {
 		os.Exit(1)
 	}
 
+
+
+	sessionManager, err := setupSessionCache(repo.Users(), &cfg.Redis)
+	if err != nil {
+		logger.Error("error setting up session cache: %s", err)
+		os.Exit(1)
+	}
+
 	userAPI, err := users.New(&users.Options{
 		Host:                cfg.Server.Host,
 		Port:                cfg.Server.Port,
 		GoogleCredentialsFn: cfg.GoogleCredentialsFn,
 		Logger:              logger,
 		UserManager:         authentication.NewUserManager(repo.Users()),
+		SessionManager: sessionManager,
 		Mapper: mapper.New(mapper.Config{
 			LastUpdateTolerance: 1 * time.Hour,
 			Repo:                repo.Mappings(),
@@ -105,7 +118,20 @@ func setupRepositories(cfg *config.Main) (repository.Factory, error) {
 	default:
 		return nil, fmt.Errorf("unknown db-engine: %s", cfg.DBEngine)
 	}
+}
 
+func setupSessionCache(usersRepo repository.UserRepository, redisCfg *conf.Redis) (authentication.SessionManager, error) {
+	redisClient := goredis.NewClient(&goredis.Options{
+		Addr: fmt.Sprintf("%s:%d", redisCfg.Host, redisCfg.Port),
+		DB: redisCfg.DB,
+	})
+
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("error setting up redis connection: %w", err)
+	}
+
+	sessionRepo := redis.NewSessionRepository(redisClient)
+	return authentication.NewSessionManager(sessionRepo, usersRepo, 12*time.Hour, 50), nil
 }
 
 func setupShutdown(rtm runtime.Interface) {
@@ -161,6 +187,11 @@ func parseEnvVars() *config.Main {
 			User:     os.Getenv("IS_PG_USER"),
 			Password: os.Getenv("IS_PG_PWD"),
 			DB:       os.Getenv("IS_PG_DB"),
+		},
+		Redis: conf.Redis{
+			Host: os.Getenv("IS_REDIS_HOST"),
+			Port: conf.IntOr(os.Getenv("IS_REDIS_PORT"), 6379),
+			DB: conf.IntOr(os.Getenv("IS_REDIS_DB"), 0),
 		},
 	}
 }

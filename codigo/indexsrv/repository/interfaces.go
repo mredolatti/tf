@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 )
@@ -22,8 +23,9 @@ type Factory interface {
 // UserRepository defines the interface for a user storage access class
 type UserRepository interface {
 	Get(ctx context.Context, id string) (models.User, error)
-	Add(ctx context.Context, id string, name string, email string, accessToken string, refreshToken string) (models.User, error)
-	UpdateTokens(ctx context.Context, id string, accessToken string, refreshToken string) (models.User, error)
+	GetByEmail(ctx context.Context, email string) (models.User, error)
+	Add(ctx context.Context, id string, name string, email string, passwordHash string) (models.User, error)
+	UpdatePassword(ctx context.Context, id string, passwordHash string) (models.User, error)
 	Remove(ctx context.Context, userID string) error
 }
 
@@ -56,7 +58,7 @@ type FileServerRepository interface {
 type UserAccountRepository interface {
 	List(ctx context.Context, userID string) ([]models.UserAccount, error)
 	Get(ctx context.Context, userID string, serverID string) (models.UserAccount, error)
-	Add(ctx context.Context, userID, serverID, accessToken, refreshToken string) (models.UserAccount, error)
+	Add(ctx context.Context, userID, serverID, passwordHash, refreshToken string) (models.UserAccount, error)
 	Remove(ctx context.Context, userID string, serverID string) error
 	UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error
 	UpdateTokens(ctx context.Context, userID, serverID, accessToken, refreshToken string) error
@@ -66,4 +68,10 @@ type UserAccountRepository interface {
 type PendingOAuth2Repository interface {
 	Put(ctx context.Context, userID string, serverID string, state string) (models.PendingOAuth2, error)
 	Pop(ctx context.Context, state string) (models.PendingOAuth2, error)
+}
+
+type SessionRepository interface {
+	Get(ctx context.Context, token string) (models.Session, error)
+	Put(ctx context.Context, token string, userID string, TTL time.Duration) error
+	Remove(ctx context.Context, token string) error
 }

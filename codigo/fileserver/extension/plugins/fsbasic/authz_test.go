@@ -42,7 +42,4 @@ func TestFsBasicAuthz(t *testing.T) {
 	assert.Nil(t, err)
 	err = authz.Grant("martin", apiv1.OperationWrite, "file3.txt")
 	assert.Nil(t, err)
-
-	t.Error(authz.AllForSubject("martin"))
-
 }

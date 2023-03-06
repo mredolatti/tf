@@ -22,13 +22,12 @@ func TestUserIntegration(t *testing.T) {
 	repo := NewUserRepository(db)
 
 	// Insertion
-	userInserted, err := repo.Add(ctx, "", "user1", "a@b.com", "someAccess", "someRefresh")
+	userInserted, err := repo.Add(ctx, "", "user1", "a@b.com", "someHashedPass")
 	assert.Nil(t, err)
 
-	assert.Equal(t, userInserted.Name(), "user1", "shold be equal")
-	assert.Equal(t, userInserted.Email(), "a@b.com", "shold be equal")
-	assert.Equal(t, userInserted.AccessToken(), "someAccess", "shold be equal")
-	assert.Equal(t, userInserted.RefreshToken(), "someRefresh", "shold be equal")
+	assert.Equal(t, userInserted.Name(), "user1")
+	assert.Equal(t, userInserted.Email(), "a@b.com")
+	assert.Equal(t, userInserted.PasswordHash(), "someHashedPass")
 
 	// Fetching
 	userFetched, err := repo.Get(ctx, userInserted.ID())
@@ -36,15 +35,14 @@ func TestUserIntegration(t *testing.T) {
 	assert.Equal(t, userInserted, userFetched, "should be equal")
 
 	// Updating tokens
-	updated, err := repo.UpdateTokens(ctx, userFetched.ID(), "newAccess", "newRefresh")
+	updated, err := repo.UpdatePassword(ctx, userFetched.ID(), "newHashedPass")
 	assert.Nil(t, err)
 	oid, _ := primitive.ObjectIDFromHex(userFetched.ID())
 	assert.Equal(t, updated, &User{
 		IDField: oid,
 		NameField: userFetched.Name(),
 		EmailField: updated.Email(),
-		AccessTokenField: "newAccess",
-		RefreshTokenField: "newRefresh",
+		PasswordHashField: "newHashedPass",
 	})
 	fetchedAfterUpdate, err := repo.Get(ctx, userInserted.ID())
 	assert.Nil(t, err)

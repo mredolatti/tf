@@ -17,8 +17,7 @@ type User struct {
 	IDField           primitive.ObjectID `bson:"_id"`
 	NameField         string             `bson:"name"`
 	EmailField        string             `bson:"email"`
-	AccessTokenField  string             `bson:"accessToken"`
-	RefreshTokenField string             `bson:"refreshToken"`
+	PasswordHashField string             `bson:"password"`
 }
 
 // ID returns the id of the user
@@ -37,13 +36,8 @@ func (f *User) Email() string {
 }
 
 // AccessToken returns the last access token of the user
-func (f *User) AccessToken() string {
-	return f.AccessTokenField
-}
-
-// RefreshToken returns the refresh token for the user
-func (f *User) RefreshToken() string {
-	return f.RefreshTokenField
+func (f *User) PasswordHash() string {
+	return f.PasswordHashField
 }
 
 type UserRepository struct {
@@ -56,15 +50,13 @@ func (r *UserRepository) Add(
 	id string,
 	name string,
 	email string,
-	accessToken string,
-	refreshToken string,
+	passwordHash string,
 ) (models.User, error) {
 	u := User{
 		IDField:           primitive.NewObjectID(),
 		NameField:         name,
 		EmailField:        email,
-		AccessTokenField:  accessToken,
-		RefreshTokenField: refreshToken,
+		PasswordHashField: passwordHash,
 	}
 
 	res, err := r.collection.InsertOne(ctx, &u)
@@ -83,6 +75,24 @@ func (r *UserRepository) Get(ctx context.Context, id string) (models.User, error
 		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", id, err)
 	}
 	res := r.collection.FindOne(ctx, bson.D{{Key: "_id", Value: oid}})
+	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error fetching user from mongodb: %w", err)
+	}
+
+	var u User
+	if err := res.Decode(&u); err != nil {
+		return nil, fmt.Errorf("error deserializing user from mongo result: %w", err)
+	}
+
+	return &u, nil
+}
+
+// GetByEmail
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (models.User, error) {
+	res := r.collection.FindOne(ctx, bson.D{{Key: "email", Value: email}})
 	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, repository.ErrNotFound
@@ -117,7 +127,7 @@ func (r *UserRepository) Remove(ctx context.Context, userID string) error {
 }
 
 // UpdateTokens implements repository.UserRepository
-func (r *UserRepository) UpdateTokens(ctx context.Context, id string, accessToken string, refreshToken string) (models.User, error) {
+func (r *UserRepository) UpdatePassword(ctx context.Context, id string, passwordHash string) (models.User, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", id, err)
@@ -125,7 +135,7 @@ func (r *UserRepository) UpdateTokens(ctx context.Context, id string, accessToke
 	res := r.collection.FindOneAndUpdate(
 		ctx,
 		bson.D{{Key: "_id", Value: oid}},
-		bson.D{{Key: "$set", Value: bson.D{{Key: "accessToken", Value: accessToken}, {Key: "refreshToken", Value: refreshToken}}}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "password", Value: passwordHash}}}},
 	)
 
 	if err := res.Err(); err != nil {
@@ -138,8 +148,7 @@ func (r *UserRepository) UpdateTokens(ctx context.Context, id string, accessToke
 	}
 
 	// findOneAndUpdate returns the document without the updated fields.
-	u.AccessTokenField = accessToken
-	u.RefreshTokenField = refreshToken
+	u.PasswordHashField = passwordHash
 	return &u, nil
 }
 
