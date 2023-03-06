@@ -36,8 +36,8 @@ type Interface interface {
 	DeleteFileContents(user string, id string) error
 
 	// Permission
-	Grant(user string, id string, permission int) error
-	Revoke(user string, id string, permission int) error
+	Grant(user string, id string, operation authz.Operation) error
+	Revoke(user string, id string, permission authz.Operation) error
 
 	// Listeners
 	AddListener(l ChangeListener)
@@ -63,14 +63,19 @@ func New(files storage.Files, metadatas storage.FilesMetadata, authorization aut
 
 // ListFileMetadata lists all known file (metas) that a user has access to
 func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMetadata, error) {
-	objsWithAuth := i.authorization.AllForSubject(user)
+	objsWithAuth, err := i.authorization.AllForSubject(user)
+	if err != nil {
+		return nil, fmt.Errorf("error permissions for user '%s': %w", user, err)
+	}
 	if len(objsWithAuth) == 0 { // supplied user doesn't have access to any file
 		return nil, nil
 	}
 
 	fileIDList := make([]string, 0, len(objsWithAuth))
 	for id := range objsWithAuth {
-		fileIDList = append(fileIDList, id)
+		if id != authz.AnyObject {
+			fileIDList = append(fileIDList, id)
+		}
 	}
 
 	if query == nil { // para que no falle
@@ -96,7 +101,7 @@ func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMet
 
 // GetFileMetadata fetches a single file-metadata record
 func (i *Impl) GetFileMetadata(user string, id string) (models.FileMetadata, error) {
-	allowed, err := i.authorization.Can(user, authz.Read, id)
+	allowed, err := i.authorization.Can(user, authz.OperationRead, id)
 	if err != nil {
 		return nil, fmt.Errorf("error reading permissions: %w", err)
 	}
@@ -115,7 +120,7 @@ func (i *Impl) GetFileMetadata(user string, id string) (models.FileMetadata, err
 
 // CreateFileMetadata creates a file-metadata record
 func (i *Impl) CreateFileMetadata(user string, data models.FileMetadata) (models.FileMetadata, error) {
-	allowed, err := i.authorization.Can(user, authz.Create, authz.AnyObject)
+	allowed, err := i.authorization.Can(user, authz.OperationCreate, authz.AnyObject)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get permission: %w", err)
 	}
@@ -129,9 +134,9 @@ func (i *Impl) CreateFileMetadata(user string, data models.FileMetadata) (models
 		return nil, fmt.Errorf("error storing new file-meta: %w", err)
 	}
 
-	i.authorization.Grant(user, authz.Read, meta.ID())
-	i.authorization.Grant(user, authz.Write, meta.ID())
-	i.authorization.Grant(user, authz.Admin, meta.ID())
+	i.authorization.Grant(user, authz.OperationRead, meta.ID())
+	i.authorization.Grant(user, authz.OperationWrite, meta.ID())
+	i.authorization.Grant(user, authz.OperationAdmin, meta.ID())
 
 	i.notify(Change{EventType: EventFileAvailable, FileRef: meta.ID(), User: user})
 
@@ -140,7 +145,7 @@ func (i *Impl) CreateFileMetadata(user string, data models.FileMetadata) (models
 
 // UpdateFileMetadata updates an already existing file-metadata record
 func (i *Impl) UpdateFileMetadata(user string, id string, data models.FileMetadata) (models.FileMetadata, error) {
-	allowed, err := i.authorization.Can(user, authz.Write, id)
+	allowed, err := i.authorization.Can(user, authz.OperationWrite, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get permission: %w", err)
 	}
@@ -161,7 +166,7 @@ func (i *Impl) UpdateFileMetadata(user string, id string, data models.FileMetada
 
 // DeleteFileMetadata removes a file-metadata record
 func (i *Impl) DeleteFileMetadata(user string, id string) error {
-	allowed, err := i.authorization.Can(user, authz.Write, id)
+	allowed, err := i.authorization.Can(user, authz.OperationWrite, id)
 	if err != nil {
 		return fmt.Errorf("error reading permissions: %w", err)
 	}
@@ -182,21 +187,21 @@ func (i *Impl) DeleteFileMetadata(user string, id string) error {
 // GetFileContents returns the contents of a file
 func (i *Impl) GetFileContents(user string, id string) ([]byte, error) {
 	// TODO(mredolatti): Fix and re-enable!
-	// allowed, err := i.authorization.Can(user, authz.Read, id)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error reading permissions: %s", err)
-	// }
+	allowed, err := i.authorization.Can(user, authz.OperationRead, id)
+	if err != nil {
+		return nil, fmt.Errorf("error reading permissions: %s", err)
+	}
 
-	// if !allowed {
-	// 	return nil, ErrUnauthorized
-	// }
+	if !allowed {
+		return nil, ErrUnauthorized
+	}
 
 	return i.files.Read(id)
 }
 
 // UpdateFileContents updates the contents of a file
 func (i *Impl) UpdateFileContents(user string, id string, data []byte) error {
-	allowed, err := i.authorization.Can(user, authz.Create, authz.AnyObject)
+	allowed, err := i.authorization.Can(user, authz.OperationCreate, authz.AnyObject)
 	if err != nil {
 		return fmt.Errorf("error reading permissions: %s", err)
 	}
@@ -217,7 +222,7 @@ func (i *Impl) UpdateFileContents(user string, id string, data []byte) error {
 
 // DeleteFileContents deletest he contents of a file
 func (i *Impl) DeleteFileContents(user string, id string) error {
-	allowed, err := i.authorization.Can(user, authz.Write, id)
+	allowed, err := i.authorization.Can(user, authz.OperationWrite, id)
 	if err != nil {
 		return fmt.Errorf("error reading permissions: %s", err)
 	}
@@ -243,13 +248,13 @@ func (i *Impl) AddListener(l ChangeListener) {
 }
 
 // Grant enables user to execute `permission` on id
-func (i *Impl) Grant(user string, id string, permission int) error {
-	return i.authorization.Grant(user, permission, id)
+func (i *Impl) Grant(user string, id string, operation authz.Operation) error {
+	return i.authorization.Grant(user, operation, id)
 }
 
 // Revoke prevents user from executing `permission` on id
-func (i *Impl) Revoke(user string, id string, permission int) error {
-	return i.authorization.Revoke(user, permission, id)
+func (i *Impl) Revoke(user string, id string, operation authz.Operation) error {
+	return i.authorization.Revoke(user, operation, id)
 }
 
 func (i *Impl) notify(c Change) {
