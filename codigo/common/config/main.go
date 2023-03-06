@@ -22,3 +22,9 @@ type Postgres struct {
 	Password string
 	DB       string
 }
+
+type Redis struct {
+	Host string
+	Port int
+	DB int
+}

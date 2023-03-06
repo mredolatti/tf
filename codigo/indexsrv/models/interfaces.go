@@ -9,8 +9,7 @@ type User interface {
 	ID() string
 	Name() string
 	Email() string
-	AccessToken() string
-	RefreshToken() string
+	PasswordHash() string
 }
 
 // Organization defines the institute model
@@ -61,17 +60,6 @@ type PendingOAuth2 interface {
 	FileServerID() string
 }
 
-// FileQuery has optional fields that can be set to narrow the search for a file/path
-// filtering by the following criteria
-type FileQuery struct {
-	ID            *string
-	OrgID         *string
-	ServerID      *string
-	PatientID     *string
-	UpdatedAfter  *time.Time
-	UpdatedBefore *time.Time
-}
-
 // MappingQuery has optional fields that can be set to narrow the search for mapping
 // filtering by several criteria
 type MappingQuery struct {
@@ -81,4 +69,9 @@ type MappingQuery struct {
 	Path          *string
 	UpdatedAfter  *time.Time
 	UpdatedBefore *time.Time
+}
+
+type Session interface {
+	User() string
+	ValidUntil() time.Time
 }

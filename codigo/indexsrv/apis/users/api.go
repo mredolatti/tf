@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/memstore"
+	//	"github.com/gin-contrib/sessions"
+	//	"github.com/gin-contrib/sessions/memstore"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/login"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/mappings"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/ui"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/middleware"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 
@@ -24,6 +25,7 @@ type Options struct {
 	Port                int
 	GoogleCredentialsFn string
 	UserManager         authentication.UserManager
+	SessionManager      authentication.SessionManager
 	Mapper              mapper.Interface
 	ServerRegistrar     registrar.Interface
 	Logger              log.Interface
@@ -42,27 +44,23 @@ func New(options *Options) (*API, error) {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// TODO: Cambiar esto a postgres o redis
-	store := memstore.NewStore([]byte("secret"))
-	router.Use(sessions.Sessions("mysession", store))
+	// Setup authentication middleware
+	samw := middleware.NewSessionAuth(options.SessionManager, options.Logger)
 
-	loginController, err := login.New(options.UserManager, options.Logger, options.GoogleCredentialsFn)
-	if err != nil {
-		return nil, fmt.Errorf("error instantiating login controller: %w", err)
-	}
+	// Setup login controller
+	loginController := login.New(options.UserManager, options.SessionManager, samw, options.Logger)
 	loginController.Register(router)
 
-	// uiController := ui.New(options.Logger, options.Mapper)
-	// uiController.Register(router)
 
+	// Setup session-protected api group 
+	protected := router.Group("/")
+	protected.Use(samw.Handle)
 	mappingController := mappings.New(options.Logger, options.Mapper)
-	mappingController.Register(router)
-
+	mappingController.Register(protected)
 	oauth2Controller := fslinks.New(options.Logger, options.ServerRegistrar)
-	oauth2Controller.Register(router)
+	oauth2Controller.Register(protected)
 
 	return &API{
-		//		ui:    uiController,
 		login: loginController,
 		server: http.Server{
 			Addr:    fmt.Sprintf("%s:%d", options.Host, options.Port),

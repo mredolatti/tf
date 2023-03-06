@@ -44,7 +44,7 @@ function init_db() {
     mongo_query ${MONGO_DB_INDEX} "printjson(db.UserAccounts.createIndex({userId: 1}, {unique: false}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.UserAccounts.createIndex({userId: 1, serverId: 1}, {unique: true}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.FileServers.createIndex({orgId: 1}, {unique: false}))"
-    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({userId: 1}, {path: 1}}, {unique: false}))"
+    mongo_query ${MONGO_DB_INDEX} "printjson(db.Mappings.createIndex({userId: 1, path: 1}, {unique: false}))"
     mongo_query ${MONGO_DB_INDEX} "printjson(db.PendingOAuth2.createIndex({state: 1}, {unique: false}))"
 
     # TODO(mredolatti): setup indexes for file-server app
@@ -59,7 +59,8 @@ function setup_fixtures() {
         "$(f_fs ${org1} 'fs1' 'servercito' 'https://file-server:9877/authorize' 'https://file-server:9877/token' 'https://file-server:9877/file' 'file-server:9000')" \
     )
 
-    user1=$(mongo_insert_one "${MONGO_DB_INDEX}" "Users" "$(f_user_id '63ad6d1c01c2a1a5c1259b9f' 'Martín Redolatti' 'martinredolatti@gmail.com' 'qwerty' 'ytrewq')")
+    passhash=$(htpasswd  -B -C10 -nb "a@b.com" "qwerty" | cut -d':' -f2 | awk NF)
+    user1=$(mongo_insert_one "${MONGO_DB_INDEX}" "Users" "$(f_user_id '63ad6d1c01c2a1a5c1259b9f' 'Martín Redolatti' 'martinredolatti@gmail.com' ${passhash})")
 
     _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file1.txt' 'path/to/file1.txt' '1646394925714181390')")
     _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file2.txt' 'path/to/file2.txt' '1646394925714181390')")
@@ -96,7 +97,7 @@ function f_user() {
 
 function f_user_id() {
 	# 
-    echo "{_id: ObjectId('${1}'), name: '${2}', email: '${3}', accessToken: '${4}', refreshToken: '${5}'}"
+    echo "{_id: ObjectId('${1}'), name: '${2}', email: '${3}', password: '${4}'}"
 }
 
 function f_map() {

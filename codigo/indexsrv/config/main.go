@@ -11,4 +11,5 @@ type Main struct {
 	Server              conf.Server
 	Mongo               conf.Mongo
 	Postgres            conf.Postgres
+	Redis               conf.Redis
 }
