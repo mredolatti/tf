@@ -10,6 +10,7 @@ type User interface {
 	Name() string
 	Email() string
 	PasswordHash() string
+	TFASecret() string
 }
 
 // Organization defines the institute model
@@ -49,6 +50,7 @@ type Mapping interface {
 	FileServerID() string
 	Ref() string
 	Path() string
+	SizeBytes() int64
 	Updated() time.Time
 	Deleted() bool
 }
@@ -73,5 +75,6 @@ type MappingQuery struct {
 
 type Session interface {
 	User() string
+	TFADone() bool
 	ValidUntil() time.Time
 }

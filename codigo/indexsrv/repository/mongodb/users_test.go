@@ -34,7 +34,7 @@ func TestUserIntegration(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, userInserted, userFetched, "should be equal")
 
-	// Updating tokens
+	// Updating pass
 	updated, err := repo.UpdatePassword(ctx, userFetched.ID(), "newHashedPass")
 	assert.Nil(t, err)
 	oid, _ := primitive.ObjectIDFromHex(userFetched.ID())
@@ -47,6 +47,14 @@ func TestUserIntegration(t *testing.T) {
 	fetchedAfterUpdate, err := repo.Get(ctx, userInserted.ID())
 	assert.Nil(t, err)
 	assert.Equal(t, fetchedAfterUpdate, updated)
+
+	// updateing 2fa secret
+	err = repo.Update2FA(ctx, userFetched.Email(), "newSecret")
+	assert.Nil(t, err)
+
+	with2fa, err := repo.Get(ctx, userInserted.ID())
+	assert.Nil(t, err)
+	assert.Equal(t, with2fa.TFASecret(), "newSecret")
 
 	// Removing
 	err = repo.Remove(ctx, userFetched.ID())

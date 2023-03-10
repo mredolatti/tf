@@ -18,6 +18,7 @@ const (
 	userGetByEmailQuery     = "SELECT * FROM users WHERE email = $1"
 	userAddQuery            = "INSERT INTO users(id, name,email,password_hash) VALUES ($1, $2, $3, $4) RETURNING *"
 	userUpdatePasswordQuery = "UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING *"
+	userUpdate2FAQuery      = "UPDATE users SET tfa_secret = $2 WHERE id = $1 RETURNING *"
 	userDelQuery            = "DELETE FROM users WHERE id = $1"
 )
 
@@ -27,6 +28,7 @@ type User struct {
 	NameField         string `db:"name"`
 	EmailField        string `db:"email"`
 	PasswordHashField string `db:"password_hash"`
+	TFASecretField    *string `db:"tfa_secret"`
 }
 
 // ID returns the id of the user
@@ -47,6 +49,15 @@ func (f *User) Email() string {
 // AccessToken returns the last access token of the user
 func (f *User) PasswordHash() string {
 	return f.PasswordHashField
+}
+
+// TFASecret implements models.User
+func (f *User) TFASecret() string {
+	if f.TFASecretField == nil {
+		return ""
+	}
+
+	return *f.TFASecretField
 }
 
 // UserRepository is a mapping to a table in postgres that allows enables operations on users
@@ -127,9 +138,18 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id string, password
 	var user User
 	err := r.db.QueryRowxContext(ctx, userUpdatePasswordQuery, id, passwordHash).StructScan(&user)
 	if err != nil {
-		return nil, fmt.Errorf("error executing users::update_tokens in postgres: %w", err)
+		return nil, fmt.Errorf("error executing users::update_password in postgres: %w", err)
 	}
 	return &user, nil
 }
 
+// Update2FA implements repository.UserRepository
+func (r *UserRepository) Update2FA(ctx context.Context, id string, tfaSecret string) error {
+	if err := r.db.QueryRowxContext(ctx, userUpdate2FAQuery, id, tfaSecret).Err(); err != nil {
+		return fmt.Errorf("error executing users::update_2faSecret in postgres: %w", err)
+	}
+	return nil
+}
+
 var _ repository.UserRepository = (*UserRepository)(nil)
+var _ models.User = (*User)(nil)

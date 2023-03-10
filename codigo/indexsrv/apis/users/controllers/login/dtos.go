@@ -9,6 +9,7 @@ type userRegistrationDTO struct {
 type userLoginDTO struct {
 	EmailField    string `json:"email"`
 	PasswordField string `json:"password"`
+	OTP           string `json:"OTP"`
 }
 
 type tokenDTO struct {

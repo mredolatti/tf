@@ -16,8 +16,10 @@ import (
 type Session struct {
 	UserProp       string `json:"user"`
 	ValidUntilProp int64  `json:"validUntil"`
+	TFADoneProp    bool   `json:"tfaDone"`
 }
 
+// TFADone implements models.Session
 // User implements models.Session
 func (s *Session) User() string {
 	return s.UserProp
@@ -26,6 +28,10 @@ func (s *Session) User() string {
 // ValidUntil implements models.Session
 func (s *Session) ValidUntil() time.Time {
 	return time.UnixMicro(s.ValidUntilProp)
+}
+
+func (s *Session) TFADone() bool {
+	return s.TFADoneProp
 }
 
 type SessionRepository struct {
@@ -56,16 +62,17 @@ func (r *SessionRepository) Get(ctx context.Context, token string) (models.Sessi
 }
 
 // Put implements repository.SessionRepository
-func (r *SessionRepository) Put(ctx context.Context, token string, userID string, TTL time.Duration) error {
+func (r *SessionRepository) Put(ctx context.Context, token string, userID string, tfaDone bool, TTL time.Duration) error {
 	serialized, err := json.Marshal(&Session{
-		UserProp: userID,
+		UserProp:       userID,
 		ValidUntilProp: time.Now().Add(TTL).UnixMicro(),
+		TFADoneProp: tfaDone,
 	})
 	if err != nil {
 		return fmt.Errorf("error serializing session: %w", err)
 	}
 
-	if res := r.client.Set(ctx, sessionKey(token), serialized, time.Second * time.Duration(TTL.Seconds())); err != nil {
+	if res := r.client.Set(ctx, sessionKey(token), serialized, time.Second*time.Duration(TTL.Seconds())); err != nil {
 		return fmt.Errorf("error writing token to redis: %w", res.Err())
 	}
 

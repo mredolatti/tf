@@ -50,7 +50,8 @@ func TestUserAccountsIntegration(t *testing.T) {
 
 	list, err := repo.List(ctx, userID.Hex())
 	assert.Nil(t, err)
-	assert.Contains(t, list, inserted1, inserted2)
+	assert.Contains(t, list, inserted1)
+	assert.Contains(t, list, inserted2)
 
 	err = repo.UpdateCheckpoint(ctx, userID.Hex(), fs1ID.Hex(), 123)
 	assert.Nil(t, err)

@@ -21,11 +21,11 @@ var (
 )
 
 type SessionAuth struct {
-	sessionStore authentication.SessionManager
+	sessionStore authentication.UserManager
 	logger       log.Interface
 }
 
-func NewSessionAuth(sessionStore authentication.SessionManager, logger log.Interface) *SessionAuth {
+func NewSessionAuth(sessionStore authentication.UserManager, logger log.Interface) *SessionAuth {
 	return &SessionAuth{
 		sessionStore: sessionStore,
 		logger: logger,
@@ -41,7 +41,7 @@ func (m *SessionAuth) Handle(ctx *gin.Context) {
 		return
 	}
 
-	session, err := m.sessionStore.LookUp(ctx.Request.Context(), sessionID)
+	session, err := m.sessionStore.GetSession(ctx.Request.Context(), sessionID)
 	if err != nil {
 		if errors.Is(err, authentication.ErrNoSuchSession) {
 			m.logger.Error("Token '%s' provided in request not found", sessionID)

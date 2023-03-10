@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	//	"github.com/gin-contrib/sessions"
-	//	"github.com/gin-contrib/sessions/memstore"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/fslinks"
@@ -25,7 +23,6 @@ type Options struct {
 	Port                int
 	GoogleCredentialsFn string
 	UserManager         authentication.UserManager
-	SessionManager      authentication.SessionManager
 	Mapper              mapper.Interface
 	ServerRegistrar     registrar.Interface
 	Logger              log.Interface
@@ -44,21 +41,21 @@ func New(options *Options) (*API, error) {
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// Setup authentication middleware
-	samw := middleware.NewSessionAuth(options.SessionManager, options.Logger)
+	// Setup authentication middlewares
+	samw := middleware.NewSessionAuth(options.UserManager, options.Logger)
+	tfamw := middleware.NewTFACheck(options.Logger)
 
 	// Setup login controller
-	loginController := login.New(options.UserManager, options.SessionManager, samw, options.Logger)
+	loginController := login.New(options.UserManager, samw, options.Logger)
 	loginController.Register(router)
 
-
-	// Setup session-protected api group 
+	// Setup session-protected api group
 	protected := router.Group("/")
-	protected.Use(samw.Handle)
+	protected.Use(samw.Handle, tfamw.Handle)
 	mappingController := mappings.New(options.Logger, options.Mapper)
 	mappingController.Register(protected)
-	oauth2Controller := fslinks.New(options.Logger, options.ServerRegistrar)
-	oauth2Controller.Register(protected)
+	fsLinksController := fslinks.New(options.Logger, options.ServerRegistrar)
+	fsLinksController.Register(protected)
 
 	return &API{
 		login: loginController,

@@ -9,17 +9,18 @@ enum ChangeType {
 }
 
 message Update {
-    string fileReference = 1;
-    ChangeType changeType = 2;
-    int64 checkpoint = 3;
+  string fileReference = 1;
+  ChangeType changeType = 2;
+  int64 checkpoint = 3;
+  int64 sizeBytes = 4;
 }
 
 message SyncUserRequest {
-    string userID = 1;
-    int64 checkpoint = 2;
-    bool keepAlive = 3;
+  string userID = 1;
+  int64 checkpoint = 2;
+  bool keepAlive = 3;
 }
 
 service FileRefSync {
-    rpc SyncUser (SyncUserRequest) returns (stream Update) {}
+  rpc SyncUser(SyncUserRequest) returns (stream Update) {}
 }

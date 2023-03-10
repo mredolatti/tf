@@ -1,13 +1,11 @@
 package files
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 
 	"github.com/mredolatti/tf/codigo/common/dtos/jsend"
 	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
-
 	"github.com/mredolatti/tf/codigo/common/dtos"
 	"github.com/mredolatti/tf/codigo/common/log"
 
@@ -106,17 +104,8 @@ func (c *Controller) create(ctx *gin.Context) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(ctx.Request.Body)
-	if err != nil {
-		c.logger.Error("files.create: failed to read request body : %s", err)
-		ctx.AbortWithStatus(500)
-		return
-	}
-	defer ctx.Request.Body.Close()
-
 	var dto dtos.FileMetadata
-	err = json.Unmarshal(body, &dto)
-	if err != nil {
+	if err := ctx.ShouldBindJSON(&dto); err != nil {
 		c.logger.Error("files.create: failed to parse josn in request body : %s", err)
 		ctx.AbortWithStatus(400)
 		return
@@ -151,17 +140,8 @@ func (c *Controller) update(ctx *gin.Context) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(ctx.Request.Body)
-	if err != nil {
-		c.logger.Error("files.update: failed to read request body : %s", err)
-		ctx.AbortWithStatus(500)
-		return
-	}
-	defer ctx.Request.Body.Close()
-
 	var dto dtos.FileMetadata
-	err = json.Unmarshal(body, &dto)
-	if err != nil {
+	if err := ctx.ShouldBindJSON(&dto); err != nil {
 		c.logger.Error("files.update: failed to parse json in request body : %s", err)
 		ctx.AbortWithStatus(400)
 		return

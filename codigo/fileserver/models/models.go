@@ -15,6 +15,7 @@ type FileMetadata interface {
 	ID() string
 	Name() string
 	Notes() string
+	SizeBytes() int64
 	PatientID() string
 	Type() string
 	ContentID() string

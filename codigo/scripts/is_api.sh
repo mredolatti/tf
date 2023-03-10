@@ -118,7 +118,7 @@ function is_list() {
 function is_link_fs() {
     usage="usage: idx_link_fs -s <server_id>"
    local OPTIND
-   while getopts "s:h" options; do
+   while getopts "s:" options; do
        case ${options} in
            s) local sid=${OPTARG} ;;
            h) echo ${usage} && return 0 ;;

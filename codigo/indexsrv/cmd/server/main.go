@@ -70,7 +70,7 @@ func main() {
 
 
 
-	sessionManager, err := setupSessionCache(repo.Users(), &cfg.Redis)
+	sessionCache, err := setupSessionCache(repo.Users(), &cfg.Redis)
 	if err != nil {
 		logger.Error("error setting up session cache: %s", err)
 		os.Exit(1)
@@ -81,8 +81,7 @@ func main() {
 		Port:                cfg.Server.Port,
 		GoogleCredentialsFn: cfg.GoogleCredentialsFn,
 		Logger:              logger,
-		UserManager:         authentication.NewUserManager(repo.Users()),
-		SessionManager: sessionManager,
+		UserManager:         authentication.NewUserManager(repo.Users(), sessionCache, logger),
 		Mapper: mapper.New(mapper.Config{
 			LastUpdateTolerance: 1 * time.Hour,
 			Repo:                repo.Mappings(),
@@ -120,7 +119,7 @@ func setupRepositories(cfg *config.Main) (repository.Factory, error) {
 	}
 }
 
-func setupSessionCache(usersRepo repository.UserRepository, redisCfg *conf.Redis) (authentication.SessionManager, error) {
+func setupSessionCache(usersRepo repository.UserRepository, redisCfg *conf.Redis) (repository.SessionRepository, error) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: fmt.Sprintf("%s:%d", redisCfg.Host, redisCfg.Port),
 		DB: redisCfg.DB,
@@ -130,8 +129,7 @@ func setupSessionCache(usersRepo repository.UserRepository, redisCfg *conf.Redis
 		return nil, fmt.Errorf("error setting up redis connection: %w", err)
 	}
 
-	sessionRepo := redis.NewSessionRepository(redisClient)
-	return authentication.NewSessionManager(sessionRepo, usersRepo, 12*time.Hour, 50), nil
+	return redis.NewSessionRepository(redisClient), nil
 }
 
 func setupShutdown(rtm runtime.Interface) {

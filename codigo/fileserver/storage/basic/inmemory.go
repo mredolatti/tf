@@ -214,6 +214,7 @@ type InMemoryMetadata struct {
 	name        string
 	notes       string
 	patientID   string
+	sizeBytes   int64
 	typ         string
 	contentID   string
 	lastUpdated int64
@@ -233,6 +234,10 @@ func (i *InMemoryMetadata) Name() string {
 // Notes returns the notes associated to the file
 func (i *InMemoryMetadata) Notes() string {
 	return i.notes
+}
+
+func (i *InMemoryMetadata) SizeBytes() int64 {
+	return i.sizeBytes
 }
 
 // PatientID returns the id of the patient associated to this file

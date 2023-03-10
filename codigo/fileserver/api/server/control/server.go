@@ -52,6 +52,7 @@ func (c *Server) SyncUser(request *is2fs.SyncUserRequest, stream is2fs.FileRefSy
 			FileReference: forUser[idx].ID(),
 			ChangeType:    is2fs.ChangeType_FileChangeUpdate,
 			Checkpoint:    forUser[idx].LastUpdated(),
+			SizeBytes:     forUser[idx].SizeBytes(),
 		})
 	}
 

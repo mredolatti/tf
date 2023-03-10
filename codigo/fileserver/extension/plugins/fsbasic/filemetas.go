@@ -19,6 +19,7 @@ type FileMetadata struct {
 	ftype       string
 	contentID   string
 	lastUpdated int64
+	sizeBytes   int64
 	deleted     bool
 }
 
@@ -45,6 +46,10 @@ func (m *FileMetadata) LastUpdated() int64 {
 // Name implements apiv1.FileMetadata
 func (m *FileMetadata) Name() string {
 	return m.name
+}
+
+func (m *FileMetadata) SizeBytes() int64 {
+	return m.sizeBytes
 }
 
 // Notes implements apiv1.FileMetadata
@@ -165,14 +170,15 @@ func getMetaFromStats(fn string) (*FileMetadata, error) {
 	}
 
 	return &FileMetadata{
-		id: stats.Name(),
-		name: stats.Name(),
-		notes: "N/A",
-		patientID: "N/A",
-		contentID: stats.Name(),
+		id:          stats.Name(),
+		name:        stats.Name(),
+		sizeBytes:   stats.Size(),
+		notes:       "N/A",
+		patientID:   "N/A",
+		contentID:   stats.Name(),
 		lastUpdated: stats.ModTime().Unix(),
-		deleted: false,
-		ftype: "N/A",
+		deleted:     false,
+		ftype:       "N/A",
 	}, nil
 }
 
@@ -186,7 +192,7 @@ func getFileType(fn string) (string, error) {
 	_, err = file.Read(buf)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return "N/A", nil 
+			return "N/A", nil
 		}
 		return "", fmt.Errorf("error reading file: %w", err)
 	}
