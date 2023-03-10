@@ -18,11 +18,11 @@ const (
 	_all                    = " RETURNING *"
 	mappingListQuery        = "SELECT * FROM mappings WHERE user_id = $1"
 	mappingListByPathQuery  = "SELECT * FROM mappings WHERE user_id = $1 AND path <@ $2"
-	_mappingAddTpl          = "INSERT INTO mappings(user_id, server_id, path, ref, updated) VALUES ($1, $2, $3, $4, $5)"
+	_mappingAddTpl          = "INSERT INTO mappings(user_id, server_id, size_bytes, path, ref, updated) VALUES ($1, $2, $3, $4, $5, $6)"
 	mappingAddQuery         = _mappingAddTpl + _all
-	mappingAddOrUpdateQuery = ("INSERT INTO mappings(user_id, server_id, path, ref, updated, deleted) " +
-		"VALUES (:user_id, :server_id, :path, :ref, :updated, :deleted) " +
-		"ON CONFLICT (user_id, server_id, ref) DO UPDATE SET updated=EXCLUDED.updated, deleted=EXCLUDED.deleted")
+	mappingAddOrUpdateQuery = ("INSERT INTO mappings(user_id, server_id, size_bytes, path, ref, updated, deleted) " +
+		"VALUES (:user_id, :server_id, :size_bytes, :path, :ref, :updated, :deleted) " +
+		"ON CONFLICT (user_id, server_id, ref) DO UPDATE SET updated=EXCLUDED.updated, size_bytes=EXCLUDED.size_bytes, deleted=EXCLUDED.deleted")
 	mappingDelQuery = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
 )
 
@@ -38,12 +38,13 @@ var formatterForStorage *strings.Replacer = strings.NewReplacer(
 
 // Mapping is a postgres-compatible struct implementing models.Mapping interface
 type Mapping struct {
-	UserIDField   string `db:"user_id"`
-	ServerIDField string `db:"server_id"`
-	PathField     string `db:"path"`
-	RefField      string `db:"ref"`
-	UpdatedField  int64  `db:"updated"`
-	DeletedField  bool   `db:"deleted"`
+	UserIDField    string `db:"user_id"`
+	ServerIDField  string `db:"server_id"`
+	SizeBytesField int64  `db:"size_bytes"`
+	PathField      string `db:"path"`
+	RefField       string `db:"ref"`
+	UpdatedField   int64  `db:"updated"`
+	DeletedField   bool   `db:"deleted"`
 }
 
 // UserID returns the if of the user who has an mapping in a file server
@@ -54,6 +55,10 @@ func (m *Mapping) UserID() string {
 // FileServerID returns the id of the server in which the user has the mapping
 func (m *Mapping) FileServerID() string {
 	return m.ServerIDField
+}
+
+func (m *Mapping) SizeBytes() int64 {
+	return m.SizeBytesField
 }
 
 // Ref returns the internal reference to the file in the server
@@ -126,6 +131,7 @@ func (r *MappingRepository) Add(ctx context.Context, userID string, mapping mode
 		mappingAddQuery,
 		userID,
 		mapping.FileServerID(),
+		mapping.SizeBytes(),
 		formatterForStorage.Replace(mapping.Path()),
 		mapping.Ref(),
 		mapping.Updated().UnixNano(),
@@ -165,10 +171,11 @@ func mappingsFromUpdates(userID string, updates []models.Update) []Mapping {
 		mappings = append(mappings, Mapping{
 			UserIDField:   userID,
 			ServerIDField: update.ServerID,
+			SizeBytesField: update.SizeBytes,
 			RefField:      update.FileRef,
 			DeletedField:  update.ChangeType == models.UpdateTypeFileDelete,
 			UpdatedField:  update.Checkpoint,
-			PathField:     formatterForStorage.Replace(fmt.Sprintf("unnasigned/%s/%s", update.ServerID, update.FileRef)),
+			PathField:     formatterForStorage.Replace(update.UnmappedPath()),
 		})
 	}
 

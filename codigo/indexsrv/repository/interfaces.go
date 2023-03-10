@@ -26,6 +26,7 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (models.User, error)
 	Add(ctx context.Context, id string, name string, email string, passwordHash string) (models.User, error)
 	UpdatePassword(ctx context.Context, id string, passwordHash string) (models.User, error)
+	Update2FA(ctx context.Context, userID string, totp string) error
 	Remove(ctx context.Context, userID string) error
 }
 
@@ -72,6 +73,6 @@ type PendingOAuth2Repository interface {
 
 type SessionRepository interface {
 	Get(ctx context.Context, token string) (models.Session, error)
-	Put(ctx context.Context, token string, userID string, TTL time.Duration) error
+	Put(ctx context.Context, token string, userID string, tfaDone bool, TTL time.Duration) error
 	Remove(ctx context.Context, token string) error
 }

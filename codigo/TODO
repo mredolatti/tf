@@ -1,9 +1,7 @@
 IndexServer
-- Autenticacion en IndexServer (form login + Sesion (redis) + 2FA)
+- Hacer 2FA por user ID y no por mail
+- Hacer que user.tfaSecret() sea *string
 - Revisar API de registro de servidor institucional, rearmar el cilo para que FS1 "se registre a si mismo cuando arranca"
-- Cambio de API gRPC para incluir file Size en la data que viaja
-- Cambio de API REST para incluir file size en mapping
-- Cambio de API REST para incluir unmapped (o agregar un nuevo endpoint)
 
 FileServer
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
@@ -11,47 +9,7 @@ FileServer
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Pendiente:
-
-1. migrar para usar e-mail como id de usuario compartido entre IS y FS
-3. agente local o driver para fs usando fuse
-
-========
-
-4. identificacion en is
-    - google?
-    - mail/pass?
-    - mtls?
-5. Almacenamiento no volatil para archivos
-6. Unit tests
-
-----------------------------------------
-
-
-
+------------------------------------------------------
 
 
 

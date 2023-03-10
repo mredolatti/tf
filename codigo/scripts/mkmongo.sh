@@ -59,14 +59,14 @@ function setup_fixtures() {
         "$(f_fs ${org1} 'fs1' 'servercito' 'https://file-server:9877/authorize' 'https://file-server:9877/token' 'https://file-server:9877/file' 'file-server:9000')" \
     )
 
-    passhash=$(htpasswd  -B -C10 -nb "a@b.com" "qwerty" | cut -d':' -f2 | awk NF)
+    passhash=$(htpasswd  -B -C10 -nb "martinredolatti@gmail.com" "123456" | cut -d':' -f2 | awk NF)
     user1=$(mongo_insert_one "${MONGO_DB_INDEX}" "Users" "$(f_user_id '63ad6d1c01c2a1a5c1259b9f' 'Martín Redolatti' 'martinredolatti@gmail.com' ${passhash})")
 
-    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file1.txt' 'path/to/file1.txt' '1646394925714181390')")
-    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file2.txt' 'path/to/file2.txt' '1646394925714181390')")
-    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file3.txt' 'path/to/another/file3.txt' '1646394925714181390')")
-    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file4.txt' 'path/to/another/file4.txt' '1646394925714181390')")
-    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file5.txt' 'path/to/yet/another/file5.txt' '1646394925714181390')")
+    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file1.txt' '0' 'path/to/file1.txt' '1646394925714181390')")
+    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file2.txt' '0' 'path/to/file2.txt' '1646394925714181390')")
+    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file3.txt' '0' 'path/to/another/file3.txt' '1646394925714181390')")
+    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file4.txt' '0' 'path/to/another/file4.txt' '1646394925714181390')")
+    _=$(mongo_insert_one "${MONGO_DB_INDEX}" "Mappings" "$(f_map ${user1} ${fs1} 'file5.txt' '0' 'path/to/yet/another/file5.txt' '1646394925714181390')")
 
 }
 
@@ -101,7 +101,7 @@ function f_user_id() {
 }
 
 function f_map() {
-    echo "{userId: ObjectId('${1}'), serverId: ObjectId('${2}'), ref: '${3}', path: '${4}', updated: ${5}}"
+    echo "{userId: ObjectId('${1}'), serverId: ObjectId('${2}'), ref: '${3}', sizeBytes: ${4}, path: '${5}', updated: ${6}}"
 }
 # @}
 

@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR NOT NULL PRIMARY KEY,
     name VARCHAR NOT NULL,
     email VARCHAR UNIQUE NOT NULL,
-    password_hash VARCHAR NOT NULL
+    password_hash VARCHAR NOT NULL,
+    tfa_secret VARCHAR
 );
 
 CREATE TABLE IF NOT EXISTS file_servers (
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS user_accounts (
 CREATE TABLE IF NOT EXISTS mappings (
     user_id VARCHAR NOT NULL REFERENCES users(id),
     server_id VARCHAR NOT NULL REFERENCES file_servers(id),
+    size_bytes INT NOT NULL,
     path ltree UNIQUE NOT NULL,
     ref VARCHAR NOT NULL,
     updated BIGINT NOT NULL,

@@ -40,6 +40,7 @@ func TestMappingsIntegration(t *testing.T) {
 	assert.Equal(t, inserted1.Path(), "/path/to/f1")
 	assert.Equal(t, inserted1.Deleted(), false)
 	assert.Equal(t, inserted1.Ref(), "ref1")
+	assert.Equal(t, inserted1.SizeBytes(), int64(0))
 	assert.Equal(t, inserted1.Updated(), currentTime)
 	assert.Equal(t, inserted1.FileServerID(), fsid1.Hex())
 
@@ -60,7 +61,8 @@ func TestMappingsIntegration(t *testing.T) {
 
 	fetched, err := repo.List(ctx, uid1.Hex(), models.MappingQuery{})
 	assert.Nil(t, err)
-	assert.Contains(t, fetched, inserted1, inserted2)
+	assert.Contains(t, fetched, inserted1)
+	assert.Contains(t, fetched, inserted2)
 
 	newTime := currentTime.Add(time.Hour).UnixNano()
 	err = repo.HandleServerUpdates(ctx, uid1.Hex(), []models.Update{
@@ -69,6 +71,7 @@ func TestMappingsIntegration(t *testing.T) {
 			OrganizationID: "someOrg",
 			FileRef:        "ref1",
 			Checkpoint:     newTime,
+			SizeBytes:      100,
 			ChangeType:     models.UpdateTypeFileUpdate,
 		},
 		{
@@ -84,25 +87,28 @@ func TestMappingsIntegration(t *testing.T) {
 			FileRef:        "ref3",
 			Checkpoint:     newTime,
 			ChangeType:     models.UpdateTypeFileAdd,
+			SizeBytes:      200,
 		},
 	})
 	assert.Nil(t, err)
 	inserted1.(*Mapping).UpdatedField = newTime
+	inserted1.(*Mapping).SizeBytesField = 100
 	inserted2.(*Mapping).UpdatedField = newTime
 	inserted2.(*Mapping).DeletedField = true
 
 	fetched, err = repo.List(ctx, uid1.Hex(), models.MappingQuery{})
 	assert.Nil(t, err)
 	assert.Equal(t, len(fetched), 3)
-	assert.Contains(t, fetched, inserted1, inserted2)
+	assert.Contains(t, fetched, inserted1)
 
 	// manually assert 3rd item since we don't have a reference
-	assert.Equal(t, fetched[2].UserID(), uid1.Hex())
-	assert.Equal(t, fetched[2].FileServerID(), fsid1.Hex())
-	assert.Equal(t, fetched[2].Deleted(), false)
-	assert.Equal(t, fetched[2].Path(), fmt.Sprintf("unassigned/%s/ref3", fsid1.Hex()))
-	assert.Equal(t, fetched[2].Ref(), "ref3")
-	assert.Equal(t, fetched[2].Updated().UnixNano(), newTime)
+	assert.Equal(t, uid1.Hex(), fetched[2].UserID())
+	assert.Equal(t, fsid1.Hex(), fetched[2].FileServerID())
+	assert.Equal(t, false, fetched[2].Deleted())
+	assert.Equal(t, fmt.Sprintf("unassigned/%s/ref3", fsid1.Hex()), fetched[2].Path())
+	assert.Equal(t, "ref3", fetched[2].Ref())
+	assert.Equal(t, newTime, fetched[2].Updated().UnixNano())
+	assert.Equal(t, int64(200), fetched[2].SizeBytes())
 }
 
 func BenchmarkMongoMappingNoConcurrency(b *testing.B) {

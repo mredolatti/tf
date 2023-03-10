@@ -6,6 +6,7 @@ type FileMetadata struct {
 	PName        string `json:"name"`
 	PNotes       string `json:"notes"`
 	PPatientID   string `json:"patientId"`
+	PSizeBytes   int64  `json:"sizeBytes"`
 	PType        string `json:"type"`
 	PContentID   string `json:"contentId"`
 	PLastUpdated int64  `json:"lastUpdated"`
@@ -35,6 +36,10 @@ func (f *FileMetadata) PatientID() string {
 // Type returns the type of file
 func (f *FileMetadata) Type() string {
 	return f.PType
+}
+
+func (f *FileMetadata) SizeBytes() int64 {
+	return f.PSizeBytes
 }
 
 // ContentID returns the id of the associated content entry

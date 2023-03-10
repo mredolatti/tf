@@ -18,6 +18,12 @@ type User struct {
 	NameField         string             `bson:"name"`
 	EmailField        string             `bson:"email"`
 	PasswordHashField string             `bson:"password"`
+	TFASecretField    string             `bson:"tfaSecret"`
+}
+
+// TFASecret implements models.User
+func (f *User) TFASecret() string {
+	return f.TFASecretField
 }
 
 // ID returns the id of the user
@@ -151,6 +157,26 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id string, password
 	u.PasswordHashField = passwordHash
 	return &u, nil
 }
+
+// Update2FA implements repository.UserRepository
+func (r *UserRepository) Update2FA(ctx context.Context, id string, keySecret string) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("error constructing objectID for user with id=%s: %w", id, err)
+	}
+
+	res := r.collection.FindOneAndUpdate(
+		ctx,
+		bson.D{{Key: "_id", Value: oid}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "tfaSecret", Value: keySecret}}}},
+	)
+	if err := res.Err(); err != nil {
+		return fmt.Errorf("error updating 2fa key secret in mongodb: %w", err)
+	}
+	return nil
+}
+
+
 
 func NewUserRepository(db *mongo.Database) *UserRepository {
 	return &UserRepository{

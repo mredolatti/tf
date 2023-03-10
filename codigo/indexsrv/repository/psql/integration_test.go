@@ -245,7 +245,7 @@ func TestIntegrationMappings(t *testing.T) {
 	})
 
 	for idx, mapping := range mappings {
-		expectedPath := fmt.Sprintf("unnasigned/%s/file%d", fs.ID(), idx+1)
+		expectedPath := fmt.Sprintf("unassigned/%s/file%d", fs.ID(), idx+1)
 		assert.Equal(t, expectedPath, mapping.Path())
 		var expectedCP int64 = int64(idx) + 1
 		assert.Equal(t, expectedCP, mapping.Updated().UnixNano())
@@ -271,7 +271,7 @@ func TestIntegrationMappings(t *testing.T) {
 	})
 
 	for idx, mapping := range mappings {
-		expectedPath := fmt.Sprintf("unnasigned/%s/file%d", fs.ID(), idx+1)
+		expectedPath := fmt.Sprintf("unassigned/%s/file%d", fs.ID(), idx+1)
 		assert.Equal(t, expectedPath, mapping.Path())
 		var expectedCP int64 = int64(idx) + 5
 		assert.Equal(t, expectedCP, mapping.Updated().UnixNano())
@@ -297,7 +297,7 @@ func TestIntegrationMappings(t *testing.T) {
 	})
 
 	for idx, mapping := range mappings {
-		expectedPath := fmt.Sprintf("unnasigned/%s/file%d", fs.ID(), idx+1)
+		expectedPath := fmt.Sprintf("unassigned/%s/file%d", fs.ID(), idx+1)
 		assert.Equal(t, expectedPath, mapping.Path())
 		var expectedCP int64 = int64(idx) + 9
 		assert.Equal(t, expectedCP, mapping.Updated().UnixNano())
