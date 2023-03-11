@@ -62,6 +62,7 @@ func (t *Token) Raw() string {
 
 // Interface defines the set of methods for managing user <-> server links
 type Interface interface {
+	RegisterServer(ctx context.Context, orgId string, name string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) error
 	InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error)
 	CompleteLinkProcess(ctx context.Context, state string, code string) error
 	GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error)
@@ -92,6 +93,22 @@ func New(
 			Transport: &http.Transport{TLSClientConfig: tlsConfig},
 		},
 	}
+}
+
+// RegisterServer implements Interface
+func (i *Impl) RegisterServer(
+	ctx context.Context,
+	orgID string,
+	name string,
+	authURL string,
+	tokenURL string,
+	fetchURL string,
+	controlEndpoint string,
+) error {
+	if _, err := i.fileServers.Add(ctx, orgID, name, authURL, tokenURL, fetchURL, controlEndpoint); err != nil {
+		return fmt.Errorf("error storing server info in db: %w", err)
+	}
+	return nil
 }
 
 // InitiateLinkProcess sets up the initial parameters to authenticate againsta a file-server,
@@ -288,3 +305,5 @@ type tokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
 }
+
+var _ Interface = (*Impl)(nil)

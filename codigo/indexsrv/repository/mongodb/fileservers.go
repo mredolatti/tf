@@ -65,7 +65,6 @@ type FileServerRepository struct {
 // Add implements repository.FileServerRepository
 func (r *FileServerRepository) Add(
 	ctx context.Context,
-	id string,
 	name string,
 	orgID string,
 	authURL string,

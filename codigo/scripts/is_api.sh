@@ -1,166 +1,241 @@
 #!/usr/bin/env bash
 
-FS_CACERT=${FS_CACERT:-'PKI/root/certs/ca.crt'}
-FS_CERT=${FS_CERT:-'PKI/client/certs/client.crt'}
-FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}
+# Setup base URLs
+BASE_CLIENTS_URL="https://index-server:9876/api/clients/v1"
+BASE_FILESERVERS_URL="https://index-server:9876/api/fileservers/v1"
 
+# Setup user key & cert (+cacert for server validation) to authenticate calls to FS
+USER_FS_CACERT=${USER_FS_CACERT:-'PKI/root/certs/ca.crt'}
+USER_FS_CERT=${USER_FS_CERT:-'PKI/client/certs/client.crt'}
+USER_FS_KEY=${USER_FS_KEY:-'PKI/client/private/client.key'}
+
+# Setup file server cert & key (to call index server on behalf of fs)
+FS_CACERT=${FS_CACERT:-'PKI/root/certs/ca.crt'}
+FS_CERT=${FS_CERT:-'PKI/fileserver/certs/chain.pem'}
+FS_CERT=${FS_CERT:-'PKI/fileserver/certs/chain.pem'}
 
 function is_signup() {
-    usage="usage: is_signup -n <name> -e <email> -p <password>"
-   local OPTIND
-   while getopts "hn:e:p:" options; do
-       case ${options} in
-           n) local name=${OPTARG} ;;
-           e) local email=${OPTARG} ;;
-           p) local password=${OPTARG} ;;
-           h) echo ${usage} && return 0 ;;
-           *) echo ${usage} && return 1 ;;
-       esac
-   done
+    local usage="usage: is_signup -n <name> -e <email> -p <password> [-v]"
+    local verbose=""
+    local OPTIND
+    while getopts "hvn:e:p:" options; do
+        case ${options} in
+            n) local name=${OPTARG} ;;
+            e) local email=${OPTARG} ;;
+            p) local password=${OPTARG} ;;
+	    v) verbose="-v" ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
 
-   [ -z ${name+x} ] && echo ${usage} && return 1
-   [ -z ${email+x} ] && echo ${usage} && return 1
-   [ -z ${password+x} ] && echo ${usage} && return 1
-
-   curl \
-       -v \
-       -L \
-       -XPOST \
-       --cacert ${FS_CACERT} \
-       --cert ${FS_CERT} \
-       --key ${FS_KEY} \
-       -H'Content-Type: application/json' \
-       -d"{\"name\": \"${name}\", \"email\": \"${email}\", \"password\": \"${password}\"}" \
-       "http://index-server:9876/signup"
+    [ -z ${name+x} ] && echo ${usage} && return 1
+    [ -z ${email+x} ] && echo ${usage} && return 1
+    [ -z ${password+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        "${verbose}" \
+        -L \
+        -XPOST \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        -H'Content-Type: application/json' \
+        -d"{\"name\": \"${name}\", \"email\": \"${email}\", \"password\": \"${password}\"}" \
+        "${BASE_CLIENTS_URL}/signup"
 }
 
 function is_login() {
-    usage="usage: is_login -e <email> -p <password> [-f <2fa_passcode>]"
-   local OPTIND
-   while getopts "he:p:f:" options; do
-       case ${options} in
-           e) local email=${OPTARG} ;;
-           p) local password=${OPTARG} ;;
-	   f) local passcode=${OPTARG} ;;
-           h) echo ${usage} && return 0 ;;
-           *) echo ${usage} && return 1 ;;
-       esac
-   done
-
-   [ -z ${email+x} ] && echo ${usage} && return 1
-   [ -z ${password+x} ] && echo ${usage} && return 1
-
-   curl \
-       -v \
-       -L \
-       -XPOST \
-       --cacert ${FS_CACERT} \
-       --cert ${FS_CERT} \
-       --key ${FS_KEY} \
-       -H'Content-Type: application/json' \
-       -d"{\"email\": \"${email}\", \"password\": \"${password}\", \"OTP\": \"${passcode}\"}" \
-       "http://index-server:9876/login"
+    local usage="usage: is_login -e <email> -p <password> [-f <2fa_passcode>]"
+    local verbose=""
+    local OPTIND
+    while getopts "he:p:f:" options; do
+        case ${options} in
+            e) local email=${OPTARG} ;;
+            p) local password=${OPTARG} ;;
+            f) local passcode=${OPTARG} ;;
+	    v) verbose="-v" ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${email+x} ] && echo ${usage} && return 1
+    [ -z ${password+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        "${verbose}" \
+        -L \
+        -XPOST \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        -H'Content-Type: application/json' \
+        -d"{\"email\": \"${email}\", \"password\": \"${password}\", \"OTP\": \"${passcode}\"}" \
+        "${BASE_CLIENTS_URL}/login"
 }
 
 function is_setup_2fa() {
-   usage="usage: is_setup_2fa -t <session_token> -q <target_qr_code_filename>"
-   local OPTIND
-   while getopts "ht:q:" options; do
-       case ${options} in
-           t) local token=${OPTARG} ;;
-	   q) local qr_output=${OPTARG} ;;
-           h) echo ${usage} && return 0 ;;
-           *) echo ${usage} && return 1 ;;
-       esac
-   done
+    local usage="usage: is_setup_2fa -t <session_token> -q <target_qr_code_filename>"
+    local verbose=""
+    local OPTIND
+    while getopts "ht:q:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            q) local qr_output=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
 
-   [ -z ${token+x} ] && echo ${usage} && return 1
-   [ -z ${qr_output+x} ] && echo ${usage} && return 1
-
-   curl \
-       -v \
-       -L \
-       -XPOST \
-       --cacert ${FS_CACERT} \
-       --cert ${FS_CERT} \
-       --key ${FS_KEY} \
-       -H'Content-Type: application/json' \
-       -H"X-MIFS-IS-Session-Token: ${token}" \
-       "http://index-server:9876/2fa" \
-       --output "${qr_output}"
+    [ -z ${token+x} ] && echo ${usage} && return 1
+    [ -z ${qr_output+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        "${verbose}" \
+        -L \
+        -XPOST \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/2fa" \
+        --output "${qr_output}"
 }
 
 function is_list() {
-   usage="usage: is_list -t <session_token>"
-   local OPTIND
-   while getopts "ht:" options; do
-       case ${options} in
-           t) local token=${OPTARG} ;;
-           h) echo ${usage} && return 0 ;;
-           *) echo ${usage} && return 1 ;;
-       esac
-   done
-
-   [ -z ${token+x} ] && echo ${usage} && return 1
-
-   curl \
-       -v \
-       -L \
-       -XGET \
-       --cacert ${FS_CACERT} \
-       --cert ${FS_CERT} \
-       --key ${FS_KEY} \
-       -H'Content-Type: application/json' \
-       -H"X-MIFS-IS-Session-Token: ${token}" \
-       "http://index-server:9876/mappings"
+    local usage="usage: is_list -t <session_token>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XGET \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/mappings"
 }
 
 function is_link_fs() {
-    usage="usage: idx_link_fs -s <server_id>"
-   local OPTIND
-   while getopts "s:" options; do
-       case ${options} in
-           s) local sid=${OPTARG} ;;
-           h) echo ${usage} && return 0 ;;
-           *) echo ${usage} && return 1 ;;
-       esac
-   done
-
-   [ -z ${sid+x} ] && echo ${usage} && return 1
-
-   curl \
-       -v \
-       -L \
-       -XGET \
-       --cacert ${FS_CACERT} \
-       --cert ${FS_CERT} \
-       --key ${FS_KEY} \
-       "http://index-server:9876/accounts/server/${sid}/authorize"
+    local usage="usage: idx_link_fs -s <server_id>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvs:" options; do
+        case ${options} in
+            s) local sid=${OPTARG} ;;
+ 	    v) verbose="-v" ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${sid+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        "${verbose}" \
+        -L \
+        -XGET \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        "${BASE_CLIENTS_URL}/accounts/server/${sid}/authorize"
 }
 
 function is_logout() {
-    usage="usage: is_logout -t <session_token>"
-   local OPTIND
-   while getopts "ht:" options; do
-       case ${options} in
-           t) local token=${OPTARG} ;;
-           h) echo ${usage} && return 0 ;;
-           *) echo ${usage} && return 1 ;;
-       esac
-   done
-
-   [ -z ${token+x} ] && echo ${usage} && return 1
-
-   curl \
-       -v \
-       -L \
-       -XPOST \
-       --cacert ${FS_CACERT} \
-       --cert ${FS_CERT} \
-       --key ${FS_KEY} \
-       -H'Content-Type: application/json' \
-       -H"X-MIFS-IS-Session-Token: ${token}" \
-       "http://index-server:9876/logout"
+    local usage="usage: is_logout -t <session_token>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+ 	    v) verbose="-v" ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        "${verbose}" \
+        -L \
+        -XPOST \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/logout"
 }
 
+function is_test() {
+    curl \
+        -v \
+        -L \
+        -XGET \
+        --cacert ${USER_FS_CACERT} \
+        --cert ${USER_FS_CERT} \
+        --key ${USER_FS_KEY} \
+        "${BASE_FILESERVERS_URL}/test"
+}
 
+function is_server_register() {
+    local usage="usage: is_server_register -i <id> -n <name> -o <orgId> -a <authUrl> t <tokenUrl> -f <fetchUrl> -c <controlEndpoint>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvo:a:t:f:c:" options; do
+        case ${options} in
+	    o) local orgId=${OPTARG} ;;
+	    a) local authUrl=${OPTARG} ;;
+	    f) local fetchUrl=${OPTARG} ;;
+	    c) local controlEndpoint=${OPTARG} ;;
+            t) local tokenUrl=${OPTARG} ;;
+ 	    v) verbose="-v" ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${orgId+x} ] && echo ${usage} && return 1
+    [ -z ${authUrl+x} ] && echo ${usage} && return 1
+    [ -z ${fetchUrl+x} ] && echo ${usage} && return 1
+    [ -z ${controlEndpoint+x} ] && echo ${usage} && return 1
+    [ -z ${tokenUrl+x} ] && echo ${usage} && return 1
+
+    local body="{
+    	\"orgId\": \"${orgId}\",
+    	\"authUrl\": \"${authUrl}\",
+    	\"fetchUrl\": \"${fetchUrl}\",
+    	\"controlEndpoint\": \"${controlEndpoint}\",
+    	\"tokenUrl\": \"${tokenUrl}\"
+    }"
+
+    echo SENDING
+ 
+    curl \
+        "${verbose}" \
+        -L \
+        -XPOST \
+        -H'Content-Type: application/json' \
+	-d "${body}" \
+        --cacert ${FS_CACERT} \
+        --cert ${FS_CERT} \
+        --key ${FS_KEY} \
+        "${BASE_FILESERVERS_URL}/register"
+}

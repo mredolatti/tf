@@ -26,7 +26,6 @@ type FileServer interface {
 	Name() string
 	AuthURL() string
 	TokenURL() string
-	FetchURL() string
 	ControlEndpoint() string
 }
 

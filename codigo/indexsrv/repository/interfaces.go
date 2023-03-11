@@ -51,7 +51,7 @@ type MappingRepository interface {
 type FileServerRepository interface {
 	List(ctx context.Context, orgID string) ([]models.FileServer, error)
 	Get(ctx context.Context, id string) (models.FileServer, error)
-	Add(ctx context.Context, id string, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
+	Add(ctx context.Context, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
 	Remove(ctx context.Context, id string) error
 }
 

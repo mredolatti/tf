@@ -1,41 +1,26 @@
 package fileservers
 
 import (
-	"fmt"
-	"net/http"
+	"crypto/tls"
 
 	"github.com/mredolatti/tf/codigo/common/log"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/fileservers/controllers/registration"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/fileservers/middleware"
+	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Options contins file-server-api configuration parameters
-type Options struct {
-	Host   string
-	Port   int
-	Logger log.Interface
+// Config contins user-api configuration parameters
+type Config struct {
+	Logger          log.Interface
+	TLSConfig       *tls.Config
+	ServerRegistrar registrar.Interface
 }
 
-// API is the server-facing API exposing file-server registration endpoints
-type API struct {
-	server http.Server
-}
-
-// New instantiates a new file-server-api
-func New(options *Options) (*API, error) {
-
-	router := gin.New()
-	router.Use(gin.Recovery())
-
-	return &API{
-		server: http.Server{
-			Addr:    fmt.Sprintf("%s:%d", options.Host, options.Port),
-			Handler: router,
-		},
-	}, nil
-}
-
-// Start blocks while accepting incoming connections. returns an error when done
-func (a *API) Start() error {
-	return a.server.ListenAndServe()
+func Mount(router gin.IRouter, config *Config) {
+	tlsMW := middleware.NewTLSClientValidator(config.Logger, config.TLSConfig)
+	router.Use(tlsMW.Handle)
+	servregController := registration.New(config.Logger, config.ServerRegistrar)
+	servregController.Register(router)
 }
