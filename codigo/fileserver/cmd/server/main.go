@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/mredolatti/tf/codigo/fileserver/api/oauth2"
 	"github.com/mredolatti/tf/codigo/fileserver/api/server"
 	"github.com/mredolatti/tf/codigo/fileserver/filemanager"
+	"github.com/mredolatti/tf/codigo/fileserver/registrar"
 	"github.com/mredolatti/tf/codigo/fileserver/repository/psql"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
@@ -27,6 +30,9 @@ func main() {
 	}
 
 	logger, err := log.New(os.Stdout, logLevel)
+	mustBeNil(err)
+
+	err = registerServer(cfg, logger)
 	mustBeNil(err)
 
 	rtm, err := runtime.New(logger)
@@ -86,33 +92,64 @@ func setupOAuth2Wrapper(dbURI string, logger log.Interface, jwtSecret string) *o
 	return oauth2W
 }
 
+func registerServer(cfg *config, logger log.Interface) error {
+	reg, err := registrar.New(&registrar.Config{
+		ServerName:         cfg.serverName,
+		OrgName:            cfg.orgName,
+		ThisHost:           cfg.host,
+		ClientPort:         cfg.clientAPIPort,
+		ControlPort:        cfg.serverAPIPort,
+		IndexServerBaseURL: cfg.indexServerBaseURL,
+		RootCAFn:           cfg.rootCA,
+		CertChainFn:        cfg.serverCertChain,
+		PrivateKeyFn:       cfg.serverPrivateKey,
+	}, logger)
+	if err != nil {
+		return fmt.Errorf("error building registrar: %s", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := reg.EnsureThisServerIsRegistered(ctx); err != nil {
+		return fmt.Errorf("error while trying to register server: %w", err)
+	}
+
+	return nil
+}
+
 type config struct {
-	debug             bool
-	host              string
-	clientAPIPort     int
-	serverAPIPort     int
-	serverCertChain   string
-	serverPrivateKey  string
-	rootCA            string
-	jwtSecret         string
-	psqlURI           string
-	storagePlugin     string
-	storagePluginConf string
+	serverName         string
+	orgName            string
+	debug              bool
+	host               string
+	clientAPIPort      int
+	serverAPIPort      int
+	serverCertChain    string
+	serverPrivateKey   string
+	rootCA             string
+	jwtSecret          string
+	psqlURI            string
+	storagePlugin      string
+	storagePluginConf  string
+	indexServerBaseURL string
 }
 
 func parseEnvVars() *config {
 	return &config{
-		debug:             os.Getenv("FS_LOG_DEBUG") == "true",
-		host:              os.Getenv("FS_HOST"),
-		clientAPIPort:     intOr(os.Getenv("FS_CLIENT_PORT"), 9877),
-		serverAPIPort:     intOr(os.Getenv("FS_SERVER_PORT"), 9000),
-		serverCertChain:   os.Getenv("FS_SERVER_CERT_CHAIN"),
-		serverPrivateKey:  os.Getenv("FS_SERVER_PRIVATE_KEY"),
-		rootCA:            os.Getenv("FS_ROOT_CA"),
-		jwtSecret:         os.Getenv("FS_JWT_SECRET"),
-		psqlURI:           os.Getenv("FS_PSQL_URI"),
-		storagePlugin:     os.Getenv("FS_STORAGE_PLUGIN"),
-		storagePluginConf: os.Getenv("FS_STORAGE_PLUGIN_CONF"),
+		serverName:         "filesrv1",
+		orgName:            "unicen",
+		indexServerBaseURL: "https://index-server:9876/api/fileservers/v1",
+		debug:              os.Getenv("FS_LOG_DEBUG") == "true",
+		host:               os.Getenv("FS_HOST"),
+		clientAPIPort:      intOr(os.Getenv("FS_CLIENT_PORT"), 9877),
+		serverAPIPort:      intOr(os.Getenv("FS_SERVER_PORT"), 9000),
+		serverCertChain:    os.Getenv("FS_SERVER_CERT_CHAIN"),
+		serverPrivateKey:   os.Getenv("FS_SERVER_PRIVATE_KEY"),
+		rootCA:             os.Getenv("FS_ROOT_CA"),
+		jwtSecret:          os.Getenv("FS_JWT_SECRET"),
+		psqlURI:            os.Getenv("FS_PSQL_URI"),
+		storagePlugin:      os.Getenv("FS_STORAGE_PLUGIN"),
+		storagePluginConf:  os.Getenv("FS_STORAGE_PLUGIN_CONF"),
 	}
 }
 

@@ -25,13 +25,13 @@ func TestFileServersIntegration(t *testing.T) {
 	oid2 := primitive.NewObjectID().Hex()
 
 	// Insertion
-	inserted1, err := repo.Add(ctx, "", "fs1", oid1, "http://auth.org1.io", "http://token.org1.io", "http://fetch.org1.io", "ctrl1")
+	inserted1, err := repo.Add(ctx, "fs1", oid1, "http://auth.org1.io", "http://token.org1.io", "http://fetch.org1.io", "ctrl1")
 	assert.Nil(t, err)
-	inserted2, err := repo.Add(ctx, "", "fs2", oid1, "http://auth.org2.io", "http://token.org2.io", "http://fetch.org2.io", "ctrl2")
+	inserted2, err := repo.Add(ctx, "fs2", oid1, "http://auth.org2.io", "http://token.org2.io", "http://fetch.org2.io", "ctrl2")
 	assert.Nil(t, err)
-	inserted3, err := repo.Add(ctx, "", "fs3", oid2, "http://auth.org3.io", "http://token.org3.io", "http://fetch.org3.io", "ctrl3")
+	inserted3, err := repo.Add(ctx, "fs3", oid2, "http://auth.org3.io", "http://token.org3.io", "http://fetch.org3.io", "ctrl3")
 	assert.Nil(t, err)
-	inserted4, err := repo.Add(ctx, "", "fs4", oid2, "http://auth.org4.io", "http://token.org4.io", "http://fetch.org4.io", "ctrl4")
+	inserted4, err := repo.Add(ctx, "fs4", oid2, "http://auth.org4.io", "http://token.org4.io", "http://fetch.org4.io", "ctrl4")
 	assert.Nil(t, err)
 
 	assert.Equal(t, inserted1.Name(), "fs1")

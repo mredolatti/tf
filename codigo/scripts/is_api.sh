@@ -184,6 +184,37 @@ function is_logout() {
         "${BASE_CLIENTS_URL}/logout"
 }
 
+
+# ---- ADMIN API---------------
+
+function is_admin_add_org() {
+    local usage="usage: is_admin_add_org -n <org_name>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvn:" options; do
+        case ${options} in
+            n) local org_name=${OPTARG} ;;
+ 	    v) verbose="-v" ;;
+            h) echo ${usage} && return 0 ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${org_name+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XPOST \
+        --cacert ${USER_FS_CACERT} \
+	-H'Content-Type: application/json' \
+	-d"{\"name\": \"${org_name}\"}" \
+        "${BASE_CLIENTS_URL}/admin/organizations"
+}
+
+
+# -----FILE SERVERS API------------
+
 function is_test() {
     curl \
         -v \
@@ -226,10 +257,8 @@ function is_server_register() {
     	\"tokenUrl\": \"${tokenUrl}\"
     }"
 
-    echo SENDING
- 
     curl \
-        "${verbose}" \
+        ${verbose} \
         -L \
         -XPOST \
         -H'Content-Type: application/json' \

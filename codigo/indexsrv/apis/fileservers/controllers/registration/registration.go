@@ -39,26 +39,22 @@ func (c *Controller) registerServer(ctx *gin.Context) {
 		return
 	}
 
-	commonName, err := middleware.ServerCommonNameFromContext(ctx)
+	cn, err := middleware.ServerCommonNameFromContext(ctx)
 	if err != nil {
 		c.logger.Error("failed to get common-name from TLS params: ", err.Error())
 		ctx.AbortWithStatus(500)
 		return
 	}
 
-	if err := c.registry.RegisterServer(
-		ctx.Request.Context(),
-		dto.OrgID,
-		commonName,
-		dto.AuthURL,
-		dto.TokenURL,
-		dto.FetchURL,
-		dto.ControlEndpoint,
-	); err != nil {
+	err = c.registry.RegisterServer(ctx.Request.Context(), dto.OrgName, cn, dto.AuthURL, dto.TokenURL, dto.FetchURL, dto.ControlEndpoint)
+	switch err {
+	case nil:
+		ctx.JSON(200, dtos.RegistrationResultDTO{Result: dtos.ResultOK})
+	case registrar.ErrServerAlreadyRegistered:
+		c.logger.Info("received registration request for already registered server: [%s::%s]", dto.OrgName, cn)
+		ctx.JSON(200, dtos.RegistrationResultDTO{Result: dtos.ResultAlreadyRegistered})
+	default:
 		c.logger.Error("error registering server: %s", err.Error())
-		ctx.AbortWithStatus(500)
-		return
+		ctx.Status(500) // TODO(mredolatti): add more info in response
 	}
-
-	ctx.Status(200)
 }

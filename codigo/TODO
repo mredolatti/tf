@@ -1,3 +1,6 @@
+Mongo y PSQL:
+- Agregar indices por nombre, mail, etc donde corresponda
+
 IndexServer
 - Hacer que user.tfaSecret() sea *string
 - Organizar API para usuarios que permita listar servidores y hacer el authorize

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"runtime"
 	"sort"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -29,7 +28,7 @@ func TestOrgRepoIntegration(t *testing.T) {
 	// Cleanup
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'")
 
-	added, err := repo.Add(context.Background(), &Organization{NameField: "test_org_1"})
+	added, err := repo.Add(context.Background(), "test_org_1")
 	assert.Nil(t, err)
 	assert.Equal(t, "test_org_1", added.Name())
 
@@ -67,7 +66,7 @@ func TestFileServerRepoIntegration(t *testing.T) {
 		db.Query("DELETE FROM organizations WHERE name = 'test_org_1'")
 	}()
 
-	newOrg, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
+	newOrg, err := orgRepo.Add(context.Background(), "test_org_1")
 	assert.Nil(t, err)
 	assert.Equal(t, "test_org_1", newOrg.Name())
 
@@ -75,10 +74,8 @@ func TestFileServerRepoIntegration(t *testing.T) {
 
 	fsRepo := NewFileServerRepository(db)
 	rand.Seed(time.Now().UnixNano())
-	newID := strconv.FormatInt(rand.Int63(), 10)
-	newServer, err := fsRepo.Add(context.Background(), newID, "server1", newOrg.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
+	newServer, err := fsRepo.Add(context.Background(), "server1", newOrg.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	assert.Nil(t, err)
-	assert.Equal(t, newID, newServer.ID())
 	assert.Equal(t, "server1", newServer.Name())
 	assert.Equal(t, newOrg.ID(), newServer.OrganizationID())
 	assert.Equal(t, "https://auth.server1", newServer.AuthURL())
@@ -114,7 +111,7 @@ func TestIntegrationUsers(t *testing.T) {
 	// Cleanup
 	defer db.Query("DELETE FROM users WHERE name = 'user_1'")
 
-	added, err := repo.Add(context.Background(), "some_id", "user1", "some@pepe.com", "somePassHash")
+	added, err := repo.Add(context.Background(), "user1", "some@pepe.com", "somePassHash")
 	assert.Nil(t, err)
 	assert.Equal(t, "user1", added.Name())
 
@@ -153,19 +150,19 @@ func TestIntegrationUserAccounts(t *testing.T) {
 	assert.Nil(t, err)
 
 	orgRepo := NewOrganizationRepository(db)
-	org, err := orgRepo.Add(bg, &Organization{NameField: "test_org_1"})
+	org, err := orgRepo.Add(bg, "test_org_1")
 	assert.Nil(t, err)
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
 
 	fsRepo := NewFileServerRepository(db)
-	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
+	fs, err := fsRepo.Add(bg, "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	assert.Nil(t, err)
-	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
+	defer db.Query("DELETE FROM file_servers WHERE name = 'server1'") // cleanup
 
 	userRepo := NewUserRepository(db)
-	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "sph")
+	user, err := userRepo.Add(bg, "user1", "user@some.com", "sph")
 	assert.Nil(t, err)
-	defer db.Query("DELETE FROM users WHERE id = 'user_123'") // cleanup
+	defer db.Query("DELETE FROM users WHERE name = 'user1'") // cleanup
 
 	// initial population done: now test!
 
@@ -206,19 +203,19 @@ func TestIntegrationMappings(t *testing.T) {
 	assert.Nil(t, err)
 
 	orgRepo := NewOrganizationRepository(db)
-	org, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
+	org, err := orgRepo.Add(context.Background(), "test_org_1")
 	assert.Nil(t, err)
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
 
 	fsRepo := NewFileServerRepository(db)
-	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
+	fs, err := fsRepo.Add(bg, "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	assert.Nil(t, err)
-	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
+	defer db.Query("DELETE FROM file_servers WHERE name = 'server1'") // cleanup
 
 	userRepo := NewUserRepository(db)
-	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "sph")
+	user, err := userRepo.Add(bg, "user1", "user@some.com", "sph")
 	assert.Nil(t, err)
-	defer db.Query("DELETE FROM users WHERE id = 'user_123'") // cleanup
+	defer db.Query("DELETE FROM users WHERE name = 'user1'") // cleanup
 
 	// DB population done
 	// Test begins below:
@@ -314,19 +311,19 @@ func TestIntegrationPendingOAuth2(t *testing.T) {
 	assert.Nil(t, err)
 
 	orgRepo := NewOrganizationRepository(db)
-	org, err := orgRepo.Add(context.Background(), &Organization{NameField: "test_org_1"})
+	org, err := orgRepo.Add(context.Background(), "test_org_1")
 	assert.Nil(t, err)
 	defer db.Query("DELETE FROM organizations WHERE name = 'test_org_1'") // cleanup
 
 	fsRepo := NewFileServerRepository(db)
-	fs, err := fsRepo.Add(bg, "server_123", "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
+	fs, err := fsRepo.Add(bg, "server1", org.ID(), "https://auth.server1", "https://token.server1", "sftp://fetch.server1", "control.server1:1234")
 	assert.Nil(t, err)
-	defer db.Query("DELETE FROM file_servers WHERE id = 'server_123'") // cleanup
+	defer db.Query("DELETE FROM file_servers WHERE name = 'server1'") // cleanup
 
 	userRepo := NewUserRepository(db)
-	user, err := userRepo.Add(bg, "user_123", "user1", "user@some.com", "sph")
+	user, err := userRepo.Add(bg, "user1", "user@some.com", "sph")
 	assert.Nil(t, err)
-	defer db.Query("DELETE FROM users WHERE id = 'user_123'") // cleanup
+	defer db.Query("DELETE FROM users WHERE name = 'user1'") // cleanup
 
 	// DB population done
 	// Test begins below:
@@ -356,24 +353,21 @@ func BenchmarkPSQLMappingInsertion(b *testing.B) {
 
 	ctx := context.Background()
 	userRepo := NewUserRepository(db)
-	user, err := userRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), "name", fmt.Sprintf("mail_%d", r.Int()), "sph")
+	user, err := userRepo.Add(ctx, "name", fmt.Sprintf("mail_%d", r.Int()), "sph")
 	if err != nil {
 		panic(err.Error())
 	}
 	defer userRepo.Remove(ctx, user.ID())
 
 	orgRepo := NewOrganizationRepository(db)
-	org, err := orgRepo.Add(ctx, &Organization{
-		IDField:   fmt.Sprintf("id_%d", r.Int()),
-		NameField: fmt.Sprintf("name_%d", r.Int()),
-	})
+	org, err := orgRepo.Add(ctx, fmt.Sprintf("name_%d", r.Int()))
 	if err != nil {
 		panic(err.Error())
 	}
 	defer orgRepo.Remove(ctx, org.ID())
 
 	fsRepo := NewFileServerRepository(db)
-	fs, err := fsRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), fmt.Sprintf("name_%d", r.Int()), org.ID(), "authURL", "tokenURL", "fetchURL", "controlEndpoint")
+	fs, err := fsRepo.Add(ctx, fmt.Sprintf("name_%d", r.Int()), org.ID(), "authURL", "tokenURL", "fetchURL", "controlEndpoint")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -429,24 +423,21 @@ func benchmarkPSQLMappingInsertionConcurrent(b *testing.B, concurrency int) {
 
 	ctx := context.Background()
 	userRepo := NewUserRepository(db)
-	user, err := userRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), "name", fmt.Sprintf("mail_%d", r.Int()), "sph")
+	user, err := userRepo.Add(ctx, "name", fmt.Sprintf("mail_%d", r.Int()), "sph")
 	if err != nil {
 		panic(err.Error())
 	}
 	defer userRepo.Remove(ctx, user.ID())
 
 	orgRepo := NewOrganizationRepository(db)
-	org, err := orgRepo.Add(ctx, &Organization{
-		IDField:   fmt.Sprintf("id_%d", r.Int()),
-		NameField: fmt.Sprintf("name_%d", r.Int()),
-	})
+	org, err := orgRepo.Add(ctx, fmt.Sprintf("name_%d", r.Int()))
 	if err != nil {
 		panic(err.Error())
 	}
 	defer orgRepo.Remove(ctx, org.ID())
 
 	fsRepo := NewFileServerRepository(db)
-	fs, err := fsRepo.Add(ctx, fmt.Sprintf("id_%d", r.Int()), fmt.Sprintf("name_%d", r.Int()), org.ID(), "authURL", "tokenURL", "fetchURL", "controlEndpoint")
+	fs, err := fsRepo.Add(ctx, fmt.Sprintf("name_%d", r.Int()), org.ID(), "authURL", "tokenURL", "fetchURL", "controlEndpoint")
 	if err != nil {
 		panic(err.Error())
 	}

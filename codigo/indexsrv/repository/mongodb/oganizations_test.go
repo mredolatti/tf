@@ -21,13 +21,13 @@ func TestOrganizationIntegration(t *testing.T) {
 	repo := NewOrganizationRepository(db)
 
 	// Insertion
-	inserted1, err := repo.Add(ctx, &Organization{NameField: "someOrg1"})
+	inserted1, err := repo.Add(ctx, "someOrg1")
 	assert.Nil(t, err)
-	inserted2, err := repo.Add(ctx, &Organization{NameField: "someOrg2"})
+	inserted2, err := repo.Add(ctx, "someOrg2")
 	assert.Nil(t, err)
-	inserted3, err := repo.Add(ctx, &Organization{NameField: "someOrg3"})
+	inserted3, err := repo.Add(ctx, "someOrg3")
 	assert.Nil(t, err)
-	inserted4, err := repo.Add(ctx, &Organization{NameField: "someOrg4"})
+	inserted4, err := repo.Add(ctx, "someOrg4")
 	assert.Nil(t, err)
 
 	assert.Equal(t, inserted1.Name(), "someOrg1")

@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	orgListQuery = "SELECT * FROM organizations"
-	orgGetQuery  = "SELECT * FROM organizations WHERE id = $1"
-	ogAddQuery   = "INSERT INTO organizations(name) VALUES ($1) RETURNING *"
-	orgDelQuery  = "DELETE FROM organizations WHERE id = $1"
+	orgListQuery      = "SELECT * FROM organizations"
+	orgGetQuery       = "SELECT * FROM organizations WHERE id = $1"
+	orgGetByNameQuery = "SELECT * FROM organizations WHERE name = $1"
+	ogAddQuery        = "INSERT INTO organizations(name) VALUES ($1) RETURNING *"
+	orgDelQuery       = "DELETE FROM organizations WHERE id = $1"
 )
 
 // Organization is a postgres-compatible struct implementing models.Organization interface
@@ -76,10 +77,24 @@ func (r *OrganizationRepository) Get(ctx context.Context, id string) (models.Org
 	return &org, nil
 }
 
+// Get returns an organization that matches the supplied name
+func (r *OrganizationRepository) GetByName(ctx context.Context, name string) (models.Organization, error) {
+	var org Organization
+	err := r.db.QueryRowxContext(ctx, orgGetByNameQuery, name).StructScan(&org)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error executing organizations::get in postgres: %w", err)
+	}
+
+	return &org, nil
+}
+
 // Add adds an organization with the supplied name
-func (r *OrganizationRepository) Add(ctx context.Context, org models.Organization) (models.Organization, error) {
+func (r *OrganizationRepository) Add(ctx context.Context, name string) (models.Organization, error) {
 	var read Organization
-	err := r.db.QueryRowxContext(ctx, ogAddQuery, org.Name()).StructScan(&read)
+	err := r.db.QueryRowxContext(ctx, ogAddQuery, name).StructScan(&read)
 	if err != nil {
 		return nil, fmt.Errorf("error executing organizations::add in postgres: %w", err)
 	}

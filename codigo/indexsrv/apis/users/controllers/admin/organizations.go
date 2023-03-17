@@ -1,4 +1,4 @@
-package organizations
+package admin
 
 import (
 	"context"
@@ -7,20 +7,44 @@ import (
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
-	"github.com/mredolatti/tf/codigo/indexsrv/repository"
+	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 )
 
 // Controller bundles endpoints used by the user to interact with sources and files
 type Controller struct {
 	logger log.Interface
-	repo   repository.OrganizationRepository // TODO: usar el registrar en lugar del repo directo
+	registrar registrar.Interface
+}
+
+func New(registrar registrar.Interface, logger log.Interface) *Controller {
+	return &Controller{
+		logger: logger,
+		registrar: registrar,
+	}
 }
 
 // Register mounts the endpoints exposed by this controller on a route
 func (c *Controller) Register(router gin.IRouter) {
+	router.POST("/organizations", c.create)
 	router.GET("/organizations", c.list)
 	router.GET("/organizations/:orgId", c.get)
-	router.POST("/organizations", c.link)
+}
+
+func (c *Controller) create(ctx *gin.Context) {
+	var dto DTO
+	if err := ctx.ShouldBindJSON(&dto); err != nil {
+		c.logger.Error("error reading body: ", err)
+		ctx.AbortWithStatus(400)
+		return
+	}
+
+	if err := c.registrar.AddNewOrganization(ctx.Request.Context(), dto.Name); err != nil {
+		c.logger.Error("error creating new organization: ", err)
+		ctx.AbortWithStatus(500)
+		return
+	}
+
+	ctx.Status(200)
 }
 
 func (c *Controller) list(ctx *gin.Context) {
@@ -29,7 +53,7 @@ func (c *Controller) list(ctx *gin.Context) {
 		return
 	}
 
-	orgs, err := c.repo.List(ctx.Request.Context())
+	orgs, err := c.registrar.ListOrganizations(ctx.Request.Context())
 	if err != nil {
 		c.logger.Error("error fetching organizations for user %s: %s", userID, err)
 		// TODO: Verificar el error
@@ -53,7 +77,7 @@ func (c *Controller) get(ctx *gin.Context) {
 		return
 	}
 
-	org, err := c.repo.Get(context.Background(), orgID)
+	org, err := c.registrar.GetOrganization(context.Background(), orgID)
 	if err != nil {
 		c.logger.Error("error fetching organization with id '%s' for user %s: %s", orgID, userID, err)
 		// TODO: Verificar el error
@@ -62,10 +86,6 @@ func (c *Controller) get(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, formatOrg(org))
-}
-
-func (c *Controller) link(ctx *gin.Context) {
-	// TODO:
 }
 
 func formatOrgs(orgs []models.Organization) []DTO {

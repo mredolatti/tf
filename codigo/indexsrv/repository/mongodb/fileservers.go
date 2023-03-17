@@ -88,6 +88,9 @@ func (r *FileServerRepository) Add(
 
 	res, err := r.collection.InsertOne(ctx, &u)
 	if err != nil {
+		if isMongoError(err, errorCodeDuplicateKey) {
+			return nil, repository.ErrAlreadyExists
+		}
 		return nil, fmt.Errorf("error inserting fileServer in mongodb: %w", err)
 	}
 

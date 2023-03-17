@@ -16,7 +16,7 @@ const (
 	fsListByOrg = "SELECT * FROM file_servers WHERE org_id = $1"
 	fsGetQuery  = "SELECT * FROM file_servers WHERE id = $1"
 	fsAddQuery  = "INSERT INTO file_servers(name, org_id, auth_url, token_url, fetch_url, control_endpoint) " +
-		"VALUES ($2, $3, $4, $5, $6, $7) RETURNING *"
+		"VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
 	fsDelQuery = "DELETE FROM file_servers WHERE id = $1"
 )
 

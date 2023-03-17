@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"os"
 	"os/signal"
@@ -32,8 +31,6 @@ func main() {
 
 	cfg := parseEnvVars()
 
-	fmt.Printf("%+v\n", cfg)
-
 	var logLevel = log.Info
 	if cfg.Debug {
 		logLevel = log.Debug
@@ -56,8 +53,15 @@ func main() {
 		os.Exit(1)
 	}
 
-
-	serverRegistrar := registrar.New(repo.FileServers(), repo.Accounts(), repo.PendingOAuth(), &tls.Config{}) // TODO: ARREGLAR ESTO
+	serverRegistrar := registrar.New(&registrar.Config{
+		FileServers: repo.FileServers(),
+		UserAccounts: repo.Accounts(),
+		Organizations: repo.Organizations(),
+		Pauth2Flows: repo.PendingOAuth(),
+		RootCAFN: cfg.Server.RootCAFn,
+		ServerCertFN: cfg.Server.CertChainFn,
+		ServerPrivateKeyFN: cfg.Server.PrivateKeyFn,
+	})
 
 	fsLinks, err := fslinks.New(logger, repo.Users(), repo.Organizations(), repo.FileServers(), serverRegistrar, cfg.Server.RootCAFn)
 	if err != nil {
@@ -80,7 +84,7 @@ func main() {
 			Accounts:            repo.Accounts(),
 			ServerLinks:         fsLinks,
 		}),
-		Server: cfg.Server,
+		Server:          cfg.Server,
 		ServerRegistrar: serverRegistrar,
 	})
 
