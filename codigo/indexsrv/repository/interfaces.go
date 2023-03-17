@@ -8,8 +8,8 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 )
 
-// ErrNotFound is an error to be returned when a requested item is not found
 var ErrNotFound = errors.New("not found")
+var ErrAlreadyExists = errors.New("already exists")
 
 type Factory interface {
 	Users() UserRepository
@@ -24,7 +24,7 @@ type Factory interface {
 type UserRepository interface {
 	Get(ctx context.Context, id string) (models.User, error)
 	GetByEmail(ctx context.Context, email string) (models.User, error)
-	Add(ctx context.Context, id string, name string, email string, passwordHash string) (models.User, error)
+	Add(ctx context.Context, name string, email string, passwordHash string) (models.User, error)
 	UpdatePassword(ctx context.Context, id string, passwordHash string) (models.User, error)
 	Update2FA(ctx context.Context, userID string, totp string) error
 	Remove(ctx context.Context, userID string) error
@@ -33,8 +33,9 @@ type UserRepository interface {
 // OrganizationRepository defines the interface for an Organization storage access class
 type OrganizationRepository interface {
 	Get(ctx context.Context, id string) (models.Organization, error)
+	GetByName(ctx context.Context, name string) (models.Organization, error)
 	List(ctx context.Context) ([]models.Organization, error)
-	Add(ctx context.Context, source models.Organization) (models.Organization, error)
+	Add(ctx context.Context, name string) (models.Organization, error)
 	Remove(ctx context.Context, id string) error
 }
 
@@ -51,7 +52,7 @@ type MappingRepository interface {
 type FileServerRepository interface {
 	List(ctx context.Context, orgID string) ([]models.FileServer, error)
 	Get(ctx context.Context, id string) (models.FileServer, error)
-	Add(ctx context.Context, id string, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
+	Add(ctx context.Context, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
 	Remove(ctx context.Context, id string) error
 }
 

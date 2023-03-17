@@ -8,7 +8,6 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-oauth2/oauth2/v4 v4.4.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/uuid v1.1.2
 	github.com/jackc/pgx/v4 v4.14.1
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/pquerna/otp v1.4.0
@@ -37,6 +36,7 @@ require (
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
+	github.com/google/uuid v1.1.2 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.2.0 // indirect

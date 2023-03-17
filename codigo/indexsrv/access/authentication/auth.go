@@ -11,8 +11,6 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -128,8 +126,7 @@ func (m *UserManagerImpl) Signup(ctx context.Context, name string, email string,
 		return nil, fmt.Errorf("error hashing password: %w", err)
 	}
 
-	id := uuid.New().String()
-	created, err := m.users.Add(ctx, id, name, email, passwordHash)
+	created, err := m.users.Add(ctx, name, email, passwordHash)
 	if err != nil {
 		return nil, fmt.Errorf("error creating user in db: %w", err)
 	}

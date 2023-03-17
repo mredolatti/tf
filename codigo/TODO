@@ -1,9 +1,13 @@
+Mongo y PSQL:
+- Agregar indices por nombre, mail, etc donde corresponda
+
 IndexServer
-- Hacer 2FA por user ID y no por mail
 - Hacer que user.tfaSecret() sea *string
-- Revisar API de registro de servidor institucional, rearmar el cilo para que FS1 "se registre a si mismo cuando arranca"
+- Organizar API para usuarios que permita listar servidores y hacer el authorize
+
 
 FileServer
+- Enviar estado al iniciar, si falla realizar registro
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
 
 

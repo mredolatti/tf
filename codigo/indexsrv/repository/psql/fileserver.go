@@ -15,8 +15,8 @@ import (
 const (
 	fsListByOrg = "SELECT * FROM file_servers WHERE org_id = $1"
 	fsGetQuery  = "SELECT * FROM file_servers WHERE id = $1"
-	fsAddQuery  = "INSERT INTO file_servers(id, name, org_id, auth_url, token_url, fetch_url, control_endpoint) " +
-		"VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *"
+	fsAddQuery  = "INSERT INTO file_servers(name, org_id, auth_url, token_url, fetch_url, control_endpoint) " +
+		"VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
 	fsDelQuery = "DELETE FROM file_servers WHERE id = $1"
 )
 
@@ -110,7 +110,6 @@ func (r *FileServerRepository) Get(ctx context.Context, id string) (models.FileS
 // Add adds a file server with the supplied name
 func (r *FileServerRepository) Add(
 	ctx context.Context,
-	id string,
 	name string,
 	orgID string,
 	authURL string,
@@ -119,7 +118,7 @@ func (r *FileServerRepository) Add(
 	controlEndpoint string,
 ) (models.FileServer, error) {
 	var server FileServer
-	err := r.db.QueryRowxContext(ctx, fsAddQuery, id, name, orgID, authURL, tokenURL, fetchURL, controlEndpoint).StructScan(&server)
+	err := r.db.QueryRowxContext(ctx, fsAddQuery, name, orgID, authURL, tokenURL, fetchURL, controlEndpoint).StructScan(&server)
 	if err != nil {
 		return nil, fmt.Errorf("error executing file_server::add in postgres: %w", err)
 	}

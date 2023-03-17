@@ -22,7 +22,7 @@ func TestUserIntegration(t *testing.T) {
 	repo := NewUserRepository(db)
 
 	// Insertion
-	userInserted, err := repo.Add(ctx, "", "user1", "a@b.com", "someHashedPass")
+	userInserted, err := repo.Add(ctx, "user1", "a@b.com", "someHashedPass")
 	assert.Nil(t, err)
 
 	assert.Equal(t, userInserted.Name(), "user1")
@@ -49,7 +49,7 @@ func TestUserIntegration(t *testing.T) {
 	assert.Equal(t, fetchedAfterUpdate, updated)
 
 	// updateing 2fa secret
-	err = repo.Update2FA(ctx, userFetched.Email(), "newSecret")
+	err = repo.Update2FA(ctx, userFetched.ID(), "newSecret")
 	assert.Nil(t, err)
 
 	with2fa, err := repo.Get(ctx, userInserted.ID())

@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,7 +14,7 @@ import (
 	"github.com/mredolatti/tf/codigo/common/runtime"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
-	"github.com/mredolatti/tf/codigo/indexsrv/apis/users"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis"
 	"github.com/mredolatti/tf/codigo/indexsrv/config"
 	"github.com/mredolatti/tf/codigo/indexsrv/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
@@ -33,8 +30,6 @@ import (
 func main() {
 
 	cfg := parseEnvVars()
-
-	fmt.Printf("%+v\n", cfg)
 
 	var logLevel = log.Info
 	if cfg.Debug {
@@ -58,9 +53,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	tlsConfig := parseTLSConfig(&cfg.Server)
-
-	serverRegistrar := registrar.New(repo.FileServers(), repo.Accounts(), repo.PendingOAuth(), tlsConfig)
+	serverRegistrar := registrar.New(&registrar.Config{
+		FileServers: repo.FileServers(),
+		UserAccounts: repo.Accounts(),
+		Organizations: repo.Organizations(),
+		Pauth2Flows: repo.PendingOAuth(),
+		RootCAFN: cfg.Server.RootCAFn,
+		ServerCertFN: cfg.Server.CertChainFn,
+		ServerPrivateKeyFN: cfg.Server.PrivateKeyFn,
+	})
 
 	fsLinks, err := fslinks.New(logger, repo.Users(), repo.Organizations(), repo.FileServers(), serverRegistrar, cfg.Server.RootCAFn)
 	if err != nil {
@@ -68,28 +69,25 @@ func main() {
 		os.Exit(1)
 	}
 
-
-
 	sessionCache, err := setupSessionCache(repo.Users(), &cfg.Redis)
 	if err != nil {
 		logger.Error("error setting up session cache: %s", err)
 		os.Exit(1)
 	}
 
-	userAPI, err := users.New(&users.Options{
-		Host:                cfg.Server.Host,
-		Port:                cfg.Server.Port,
-		GoogleCredentialsFn: cfg.GoogleCredentialsFn,
-		Logger:              logger,
-		UserManager:         authentication.NewUserManager(repo.Users(), sessionCache, logger),
+	apiBundle, err := apis.Setup(&apis.Config{
+		Logger:      logger,
+		UserManager: authentication.NewUserManager(repo.Users(), sessionCache, logger),
 		Mapper: mapper.New(mapper.Config{
 			LastUpdateTolerance: 1 * time.Hour,
 			Repo:                repo.Mappings(),
 			Accounts:            repo.Accounts(),
 			ServerLinks:         fsLinks,
 		}),
+		Server:          cfg.Server,
 		ServerRegistrar: serverRegistrar,
 	})
+
 	if err != nil {
 		logger.Error("error constructing user-facing API: %s", err)
 		os.Exit(1)
@@ -97,7 +95,7 @@ func main() {
 
 	go func() {
 		time.Sleep(1 * time.Second)
-		err := userAPI.Start()
+		err := apiBundle.ListenAndServe()
 		if err != nil {
 			fmt.Println("HTTP server error: ", err)
 		}
@@ -122,7 +120,7 @@ func setupRepositories(cfg *config.Main) (repository.Factory, error) {
 func setupSessionCache(usersRepo repository.UserRepository, redisCfg *conf.Redis) (repository.SessionRepository, error) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: fmt.Sprintf("%s:%d", redisCfg.Host, redisCfg.Port),
-		DB: redisCfg.DB,
+		DB:   redisCfg.DB,
 	})
 
 	if err := redisClient.Ping(context.Background()).Err(); err != nil {
@@ -140,25 +138,6 @@ func setupShutdown(rtm runtime.Interface) {
 		<-sigs
 		rtm.Unblock()
 	}()
-}
-
-func parseTLSConfig(cfg *conf.Server) *tls.Config {
-	certBytes, err := ioutil.ReadFile(cfg.RootCAFn)
-	if err != nil {
-		panic("cannot read root certificate file: " + err.Error())
-	}
-	caPool := x509.NewCertPool()
-	caPool.AppendCertsFromPEM(certBytes)
-
-	certs, err := tls.LoadX509KeyPair(cfg.CertChainFn, cfg.PrivateKeyFn)
-	if err != nil {
-		panic("cannot read server certficate chain / private key files: " + err.Error())
-	}
-
-	return &tls.Config{
-		Certificates: []tls.Certificate{certs},
-		RootCAs:      caPool,
-	}
 }
 
 func parseEnvVars() *config.Main {
@@ -189,31 +168,7 @@ func parseEnvVars() *config.Main {
 		Redis: conf.Redis{
 			Host: os.Getenv("IS_REDIS_HOST"),
 			Port: conf.IntOr(os.Getenv("IS_REDIS_PORT"), 6379),
-			DB: conf.IntOr(os.Getenv("IS_REDIS_DB"), 0),
+			DB:   conf.IntOr(os.Getenv("IS_REDIS_DB"), 0),
 		},
 	}
 }
-
-/*
-	return &config{
-		debug:               os.Getenv("IS_LOG_DEBUG") == "true",
-		host:                os.Getenv("IS_HOST"),
-		port:                intOr(os.Getenv("IS_PORT"), 9876),
-		dbEngine:            os.Getenv("IS_DB_ENGINE"),
-		mongoHost:           os.Getenv("IS_HOST"),
-		mongoPort:           intOr(os.Getenv("IS_PORT"), 27017),
-		mongoUser:           os.Getenv("IS_USERNAME"),
-		mongoPassword:       os.Getenv("IS_PASSWORD"),
-		mongoDB:             os.Getenv("IS_MONGO_DATABASE"),
-		postgresHost:        os.Getenv("IS_PG_HOST"),
-		postgresPort:        intOr(os.Getenv("IS_PG_PORT"), 5432),
-		postgresUser:        os.Getenv("IS_PG_USER"),
-		postgresPassword:    os.Getenv("IS_PG_PWD"),
-		postgresDB:          os.Getenv("IS_PG_DB"),
-		googleCredentialsFn: os.Getenv("IS_GOOGLE_CREDS_FN"),
-		rootCAFn:            os.Getenv("IS_ROOT_CA"),
-		certChainFn:         os.Getenv("IS_SERVER_CERT_CHAIN"),
-		privateKeyFn:        os.Getenv("IS_SERVER_PRIVATE_KEY"),
-	}
-}
-*/

@@ -84,16 +84,17 @@ mongo-rebuild:
 mongo-shell:
 	$(BASH) ./scripts/mkmongo.sh -s
 
-## Ejecucion local de index-server
+# ------------ Targets para ejecucion local
+
+## Ejecucion local de index-server con mongo como store
 runlocal-indexserver: index-server $(pki_tgts)
 	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" \
-		IS_DB_ENGINE="mongo" IS_MONGO_HOSTS="localhost:27017" \
-		IS_MONGO_DATABASE="mifs_indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
+		IS_DB_ENGINE="mongo" IS_MONGO_HOSTS="localhost:27017" IS_MONGO_DATABASE="mifs_indexsrv" \
 		IS_ROOT_CA="PKI/root/certs/ca.crt" IS_SERVER_CERT_CHAIN="PKI/indexserver/certs/chain.pem" \
 		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
 		./index-server
 
-## Ejecucion local de index-server
+## Ejecucion local de index-server con postgres como store
 runlocal-indexserver-postgres: index-server $(pki_tgts)
 	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
 		IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
@@ -102,17 +103,9 @@ runlocal-indexserver-postgres: index-server $(pki_tgts)
 		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
 		./index-server
 
-## Iniciar index-server en delve
-debuglocal-indexserver-postgres:
-	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
-		IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
-		IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
-		IS_ROOT_CA="PKI/root/certs/ca.crt" IS_SERVER_CERT_CHAIN="PKI/indexserver/certs/chain.pem" \
-		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
-		dlv debug indexsrv/cmd/server/main.go
-
+# TODO(mredolatti): ver de habilitar mongodb tambien para fs
 ## Ejecucion local de file-server
-runlocal-fileserver: file-server $(pki_tgts)
+runlocal-fileserver: file-server $(pki_tgts) fsbasic.so
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
 		FS_PSQL_URI="postgres://postgres:mysecretpassword@localhost:5432/filesrv" \
@@ -120,13 +113,34 @@ runlocal-fileserver: file-server $(pki_tgts)
 		FS_STORAGE_PLUGIN_CONF='{"filePath": "/home/martin/fsbasic/files", "authDBPath": "/home/martin/fsbasic/authdb"}' \
 		./file-server
 
+
+# ------------- Targets para debug
+
+## Iniciar index-server en delve con mongodb como store
+debug-indexserver:
+	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" \
+		IS_DB_ENGINE="mongo" IS_MONGO_HOSTS="localhost:27017" IS_MONGO_DATABASE="mifs_indexsrv" \
+		IS_ROOT_CA="PKI/root/certs/ca.crt" IS_SERVER_CERT_CHAIN="PKI/indexserver/certs/chain.pem" \
+		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
+		dlv debug indexsrv/cmd/server/main.go
+
+## Iniciar index-server en delve con postgres como store
+debug-indexserver-postgres:
+	IS_LOG_DEBUG="true" IS_HOST="index-server" IS_PORT="9876" IS_PG_USER="postgres" \
+		IS_PG_PWD="mysecretpassword" IS_PG_HOST="localhost" IS_PG_PORT="5432" \
+		IS_PG_DB="indexsrv" IS_GOOGLE_CREDS_FN="./client_secret.json" \
+		IS_ROOT_CA="PKI/root/certs/ca.crt" IS_SERVER_CERT_CHAIN="PKI/indexserver/certs/chain.pem" \
+		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
+		dlv debug indexsrv/cmd/server/main.go
+
 ## iniciar file-server en delve
-debuglocal-fileserver-postgres:
+debug-fileserver-postgres:
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
 		dlv debug fileserver/cmd/server/main.go
 
+# ------------------------------------
 
 ## Run a CLI gRPC client against a local instance of file-server
 runlocal-evans-fs:

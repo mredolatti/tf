@@ -25,8 +25,8 @@ type FileServer interface {
 	OrganizationID() string
 	Name() string
 	AuthURL() string
-	TokenURL() string
 	FetchURL() string
+	TokenURL() string
 	ControlEndpoint() string
 }
 

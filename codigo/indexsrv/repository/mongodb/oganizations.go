@@ -33,10 +33,10 @@ type OrganizationRepository struct {
 }
 
 // Add implements repository.OrganizationRepository
-func (r *OrganizationRepository) Add(ctx context.Context, source models.Organization) (models.Organization, error) {
+func (r *OrganizationRepository) Add(ctx context.Context, name string) (models.Organization, error) {
 	u := Organization{
 		IDField:   primitive.NewObjectID(),
-		NameField: source.Name(),
+		NameField: name,
 	}
 
 	res, err := r.collection.InsertOne(ctx, &u)
@@ -74,6 +74,24 @@ func (r *OrganizationRepository) Get(ctx context.Context, id string) (models.Org
 		return nil, fmt.Errorf("error constructing objectID for organization with id=%s: %w", id, err)
 	}
 	res := r.collection.FindOne(ctx, bson.D{{Key: "_id", Value: oid}})
+	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error fetching organization from mongodb: %w", err)
+	}
+
+	var u Organization
+	if err := res.Decode(&u); err != nil {
+		return nil, fmt.Errorf("error deserializing organization from mongo result: %w", err)
+	}
+
+	return &u, nil
+}
+
+// Get implements repository.OrganizationRepository
+func (r *OrganizationRepository) GetByName(ctx context.Context, name string) (models.Organization, error) {
+	res := r.collection.FindOne(ctx, bson.D{{Key: "name", Value: name}})
 	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, repository.ErrNotFound

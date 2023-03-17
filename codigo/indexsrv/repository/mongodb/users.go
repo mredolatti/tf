@@ -51,13 +51,7 @@ type UserRepository struct {
 }
 
 // Add implements repository.UserRepository
-func (r *UserRepository) Add(
-	ctx context.Context,
-	id string,
-	name string,
-	email string,
-	passwordHash string,
-) (models.User, error) {
+func (r *UserRepository) Add(ctx context.Context, name string, email string, passwordHash string) (models.User, error) {
 	u := User{
 		IDField:           primitive.NewObjectID(),
 		NameField:         name,
@@ -175,8 +169,6 @@ func (r *UserRepository) Update2FA(ctx context.Context, id string, keySecret str
 	}
 	return nil
 }
-
-
 
 func NewUserRepository(db *mongo.Database) *UserRepository {
 	return &UserRepository{

@@ -16,7 +16,7 @@ const (
 	userListQuery           = "SELECT * FROM users"
 	userGetQuery            = "SELECT * FROM users WHERE id = $1"
 	userGetByEmailQuery     = "SELECT * FROM users WHERE email = $1"
-	userAddQuery            = "INSERT INTO users(id, name,email,password_hash) VALUES ($1, $2, $3, $4) RETURNING *"
+	userAddQuery            = "INSERT INTO users(name,email,password_hash) VALUES ($1, $2, $3) RETURNING *"
 	userUpdatePasswordQuery = "UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING *"
 	userUpdate2FAQuery      = "UPDATE users SET tfa_secret = $2 WHERE id = $1 RETURNING *"
 	userDelQuery            = "DELETE FROM users WHERE id = $1"
@@ -115,9 +115,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (models.U
 }
 
 // Add adds a new user to the system
-func (r *UserRepository) Add(ctx context.Context, id string, name string, email string, passwordHash string) (models.User, error) {
+func (r *UserRepository) Add(ctx context.Context, name string, email string, passwordHash string) (models.User, error) {
 	var user User
-	err := r.db.QueryRowxContext(ctx, userAddQuery, id, name, email, passwordHash).StructScan(&user)
+	err := r.db.QueryRowxContext(ctx, userAddQuery, name, email, passwordHash).StructScan(&user)
 	if err != nil {
 		return nil, fmt.Errorf("error executing users::add in postgres: %w", err)
 	}

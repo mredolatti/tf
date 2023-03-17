@@ -3,6 +3,7 @@ package registrar
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,42 +27,21 @@ const (
 
 // Public errors
 var (
-	ErrAccountExists = errors.New("account already exists")
+	ErrOrgNotFound = errors.New("organization not found")
+	ErrServerAlreadyRegistered = errors.New("server already registered")
 
+	ErrAccountExists = errors.New("account already exists")
 	ErrInvalidToken  = errors.New("error parsing raw token")
 	ErrInvalidClaims = errors.New("unknown claims in jwt")
 )
 
-// Token is a type mapping to jwt.Token
-type Token struct {
-	raw string
-}
-
-// TokenClaims is a type alias to jwt.StandardClaims
-type TokenClaims = jwt.StandardClaims
-
-// ParseClaims type-asserts the token's claims and returns them
-func (t *Token) ParseClaims() (*TokenClaims, error) {
-	var parser jwt.Parser
-	parsed, _, err := parser.ParseUnverified(t.raw, &TokenClaims{})
-	if err != nil {
-		return nil, ErrInvalidToken
-	}
-
-	claims, ok := parsed.Claims.(*TokenClaims)
-	if !ok {
-		return nil, ErrInvalidClaims
-	}
-	return claims, nil
-}
-
-// Raw returns the full token string
-func (t *Token) Raw() string {
-	return t.raw
-}
-
 // Interface defines the set of methods for managing user <-> server links
 type Interface interface {
+	AddNewOrganization(ctx context.Context, name string) error
+	ListOrganizations(ctx context.Context) ([]models.Organization, error)
+	GetOrganization(ctx context.Context, id string) (models.Organization, error)
+	RegisterServer(ctx context.Context, orgId string, name string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) error
+
 	InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error)
 	CompleteLinkProcess(ctx context.Context, state string, code string) error
 	GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error)
@@ -71,27 +51,90 @@ type Interface interface {
 type Impl struct {
 	randGen       *randGenerator
 	fileServers   repository.FileServerRepository
+	organizations repository.OrganizationRepository
 	userAccoounts repository.UserAccountRepository
 	oauth2Flows   repository.PendingOAuth2Repository
 	httpClient    http.Client
 }
 
+type Config struct {
+	FileServers        repository.FileServerRepository
+	UserAccounts       repository.UserAccountRepository
+	Organizations      repository.OrganizationRepository
+	Pauth2Flows        repository.PendingOAuth2Repository
+	RootCAFN           string
+	ServerCertFN       string
+	ServerPrivateKeyFN string
+}
+
 // New constructs a new registrar
-func New(
-	fileServers repository.FileServerRepository,
-	userAccoounts repository.UserAccountRepository,
-	oauth2Flows repository.PendingOAuth2Repository,
-	tlsConfig *tls.Config,
-) *Impl {
+func New(cfg *Config) *Impl {
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = setupTLSConfig(cfg.RootCAFN, cfg.ServerCertFN, cfg.ServerPrivateKeyFN)
 	return &Impl{
 		randGen:       newRandGenerator(),
-		fileServers:   fileServers,
-		userAccoounts: userAccoounts,
-		oauth2Flows:   oauth2Flows,
-		httpClient: http.Client{
-			Transport: &http.Transport{TLSClientConfig: tlsConfig},
-		},
+		fileServers:   cfg.FileServers,
+		userAccoounts: cfg.UserAccounts,
+		organizations: cfg.Organizations,
+		oauth2Flows:   cfg.Pauth2Flows,
+		httpClient:    http.Client{Transport: transport},
 	}
+}
+
+func (i *Impl) AddNewOrganization(ctx context.Context, name string) error {
+	if _, err := i.organizations.Add(ctx, name); err != nil {
+		return fmt.Errorf("error storing new org in database: %w", err)
+	}
+	return nil
+}
+
+func (i *Impl) ListOrganizations(ctx context.Context) ([]models.Organization, error) {
+	orgs, err := i.organizations.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error reading orgs from db: %w", err)
+	}
+	return orgs, nil
+}
+
+func (i *Impl) GetOrganization(ctx context.Context, id string) (models.Organization, error) {
+	org, err := i.organizations.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrOrgNotFound
+		}
+		return nil, fmt.Errorf("error reading org from db: %w", err)
+	}
+	return org, nil
+}
+
+
+// RegisterServer implements Interface
+func (i *Impl) RegisterServer(
+	ctx context.Context,
+	orgName string,
+	serverName string,
+	authURL string,
+	tokenURL string,
+	fetchURL string,
+	controlEndpoint string,
+) error {
+
+	org, err := i.organizations.GetByName(ctx, orgName)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrOrgNotFound
+		}
+		return fmt.Errorf("error fetching organization '%s': %w", orgName, err)
+	}
+
+	if _, err := i.fileServers.Add(ctx, serverName, org.ID(), authURL, tokenURL, fetchURL, controlEndpoint); err != nil {
+		if errors.Is(err, repository.ErrAlreadyExists) {
+			return ErrServerAlreadyRegistered
+		}
+		return fmt.Errorf("error storing server info in db: %w", err)
+	}
+	return nil
 }
 
 // InitiateLinkProcess sets up the initial parameters to authenticate againsta a file-server,
@@ -288,3 +331,27 @@ type tokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
 }
+
+func setupTLSConfig(rootCAFN string, serverCertFN string, serverPrivateKeyFN string) *tls.Config {
+	certBytes, err := ioutil.ReadFile(rootCAFN)
+	if err != nil {
+		panic("cannot read root certificate file: " + err.Error())
+	}
+	caPool := x509.NewCertPool()
+	caPool.AppendCertsFromPEM(certBytes)
+
+	certs, err := tls.LoadX509KeyPair(serverCertFN, serverPrivateKeyFN)
+	if err != nil {
+		panic("cannot read server certficate chain / private key files: " + err.Error())
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{certs},
+		RootCAs:      caPool,
+		ClientAuth:   tls.RequestClientCert,
+	}
+}
+
+
+
+var _ Interface = (*Impl)(nil)
