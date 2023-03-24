@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/mredolatti/tf/codigo/common/refutil"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 
@@ -86,7 +87,7 @@ func TestFileServerRepoIntegration(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "server1", server.Name())
 
-	servers, err := fsRepo.List(context.Background(), newOrg.ID())
+	servers, err := fsRepo.List(context.Background(), models.FileServersQuery{OrgID: refutil.Ref(newOrg.ID())})
 	found := false
 	for _, s := range servers {
 		if s.ID() == server.ID() {

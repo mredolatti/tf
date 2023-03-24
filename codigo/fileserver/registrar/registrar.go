@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	authPath  = "auth"
+	authPath  = "authorize"
 	tokenPath = "token"
 	fetchPath = "files"
 )

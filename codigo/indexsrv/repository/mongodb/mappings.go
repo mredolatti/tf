@@ -89,18 +89,24 @@ func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID stri
 		}
 
 		switch update.ChangeType {
-		case models.UpdateTypeFileAdd:
-			ops = append(ops, mongo.NewInsertOneModel().SetDocument(Mapping{
-				IDField:        primitive.NewObjectID(),
-				UserIDField:    uid,
-				ServerIDField:  fsid,
-				PathField:      update.UnmappedPath(), //fmt.Sprintf("unassigned/%s/%s", update.ServerID, update.FileRef),
-				SizeBytesField: update.SizeBytes,
-				RefField:       update.FileRef,
-				DeletedField:   false,
-				UpdatedField:   update.Checkpoint,
-			}))
-		case models.UpdateTypeFileUpdate, models.UpdateTypeFileDelete:
+		case models.UpdateTypeFileAdd, models.UpdateTypeFileUpdate:
+			ops = append(ops, mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}, {Key: "ref", Value: update.FileRef}}).
+				SetUpdate(bson.D{
+					{Key: "$setOnInsert", Value: bson.D{
+						{Key: "_id", Value: primitive.NewObjectID()},
+						{Key: "path", Value: update.UnmappedPath()},
+					}},
+					{Key: "$set", Value: bson.D{
+						{Key: "userId", Value: uid},
+						{Key: "serverId", Value: fsid},
+						{Key: "ref", Value: update.FileRef},
+						{Key: "updated", Value: update.Checkpoint},
+						{Key: "sizeBytes", Value: update.SizeBytes},
+						{Key: "deleted", Value: update.ChangeType == models.UpdateTypeFileDelete},
+					}}}).
+				SetUpsert(true))
+		case models.UpdateTypeFileDelete:
 			ops = append(ops, mongo.NewUpdateOneModel().
 				SetFilter(bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}, {Key: "ref", Value: update.FileRef}}).
 				SetUpdate(bson.D{{Key: "$set", Value: bson.D{

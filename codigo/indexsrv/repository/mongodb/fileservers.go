@@ -99,12 +99,13 @@ func (r *FileServerRepository) Add(
 }
 
 // Get implements repository.FileServerRepository
-func (r *FileServerRepository) List(ctx context.Context, orgID string) ([]models.FileServer, error) {
-	oid, err := primitive.ObjectIDFromHex(orgID)
+func (r *FileServerRepository) List(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error) {
+
+	filter, err := buildListFilter(query)
 	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for fileServer with id=%s: %w", orgID, err)
+		return nil, err
 	}
-	cursor, err := r.collection.Find(ctx, bson.D{{Key: "orgId", Value: oid}})
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching fileServer from mongodb: %w", err)
 	}
@@ -165,6 +166,34 @@ func NewFileServerRepository(db *mongo.Database) *FileServerRepository {
 	return &FileServerRepository{
 		collection: db.Collection("FileServers"),
 	}
+}
+
+func buildListFilter(query models.FileServersQuery) (bson.D, error) {
+	var filter bson.D
+	if query.OrgID != nil {
+		oid, err := primitive.ObjectIDFromHex(*query.OrgID)
+		if err != nil {
+			return nil, fmt.Errorf("error constructing objectID for orgID with id=%s: %w", *query.OrgID, err)
+
+		}
+		filter = append(filter, bson.E{Key: "orgId", Value: oid})
+	}
+
+	var objectIDs []primitive.ObjectID
+	for _, id := range query.IDs {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return nil, fmt.Errorf("error constructing objectID for fileServer with id=%s: %w", id, err)
+
+		}
+		objectIDs = append(objectIDs, oid)
+	}
+	
+	if objectIDs != nil {
+		filter = append(filter, bson.E{Key: "_id", Value: bson.E{Key: "$in", Value: objectIDs}})
+	}
+
+	return filter, nil
 }
 
 var _ repository.FileServerRepository = (*FileServerRepository)(nil)

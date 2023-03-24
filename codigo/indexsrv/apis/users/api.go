@@ -7,6 +7,7 @@ import (
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/fslinks"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/login"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/mappings"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers/organizations"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/middleware"
 	"github.com/mredolatti/tf/codigo/indexsrv/mapper"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
@@ -32,13 +33,19 @@ func Mount(router gin.IRouter, config *Config) {
 	loginController := login.New(config.UserManager, samw, config.Logger)
 	loginController.Register(router)
 
+
+
+
 	// Setup session-protected api group
 	protected := router.Group("/")
 	protected.Use(samw.Handle, tfamw.Handle)
 	mappingController := mappings.New(config.Logger, config.Mapper)
 	mappingController.Register(protected)
+	organizationController := organizations.New(config.ServerRegistrar, config.Logger)
+	organizationController.Register(protected)
 	fsLinksController := fslinks.New(config.Logger, config.ServerRegistrar)
 	fsLinksController.Register(protected)
+
 
 	// Setup admin-token protected endpoints
 	// TODO(mredolatti): create and use middleware that authenticates an admin

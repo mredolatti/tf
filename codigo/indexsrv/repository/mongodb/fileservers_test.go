@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mredolatti/tf/codigo/common/refutil"
+	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -45,12 +47,12 @@ func TestFileServersIntegration(t *testing.T) {
 	assert.Equal(t, inserted1, fetched1)
 
 	// Listing
-	list1, err := repo.List(ctx, oid1)
+	list1, err := repo.List(ctx, models.FileServersQuery{OrgID: refutil.Ref(oid1)})
 	assert.Nil(t, err)
 	assert.Contains(t, list1, inserted1)
 	assert.Contains(t, list1, inserted2)
 
-	list2, err := repo.List(ctx, oid2)
+	list2, err := repo.List(ctx, models.FileServersQuery{OrgID: refutil.Ref(oid2)})
 	assert.Nil(t, err)
 	assert.Contains(t, list2, inserted3)
 	assert.Contains(t, list2, inserted4)

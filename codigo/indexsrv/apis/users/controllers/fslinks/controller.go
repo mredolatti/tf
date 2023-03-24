@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mredolatti/tf/codigo/common/log"
+	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/middleware"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 )
 
@@ -30,17 +31,21 @@ func (c *Controller) Register(router gin.IRouter) {
 
 func (c *Controller) initialRedirect(ctx *gin.Context) {
 
-	// TODO(mredolatti): get proper userID here
-	userID := "63ad6d1c01c2a1a5c1259b9f"
+	session, err := middleware.SessionFromContext(ctx)
+	if err != nil {
+		c.logger.Error("error getting session information: %s", err.Error())
+		ctx.AbortWithStatus(500)
+		return
+	}
 
 	serverID := ctx.Param("serverId")
 	force := ctx.Query("force") == "true"
 
-	url, err := c.reg.InitiateLinkProcess(ctx.Request.Context(), userID, serverID, force)
+	url, err := c.reg.InitiateLinkProcess(ctx.Request.Context(), session.User(), serverID, force)
 	if err != nil {
 		if errors.Is(err, registrar.ErrAccountExists) {
 			ctx.JSON(400, "account already exists")
-			c.logger.Error("requested initial link with an already existing account (%s/%s)", userID, serverID)
+			c.logger.Error("requested initial link with an already existing account (%s/%s)", session.User(), serverID)
 			return
 		}
 		ctx.JSON(500, "unable to initiate oauth2 flow")

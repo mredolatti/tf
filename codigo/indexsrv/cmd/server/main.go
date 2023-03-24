@@ -54,12 +54,12 @@ func main() {
 	}
 
 	serverRegistrar := registrar.New(&registrar.Config{
-		FileServers: repo.FileServers(),
-		UserAccounts: repo.Accounts(),
-		Organizations: repo.Organizations(),
-		Pauth2Flows: repo.PendingOAuth(),
-		RootCAFN: cfg.Server.RootCAFn,
-		ServerCertFN: cfg.Server.CertChainFn,
+		FileServers:        repo.FileServers(),
+		UserAccounts:       repo.Accounts(),
+		Organizations:      repo.Organizations(),
+		Pauth2Flows:        repo.PendingOAuth(),
+		RootCAFN:           cfg.Server.RootCAFn,
+		ServerCertFN:       cfg.Server.CertChainFn,
 		ServerPrivateKeyFN: cfg.Server.PrivateKeyFn,
 	})
 
@@ -81,6 +81,7 @@ func main() {
 		Mapper: mapper.New(mapper.Config{
 			LastUpdateTolerance: 1 * time.Hour,
 			Repo:                repo.Mappings(),
+			Users:               repo.Users(),
 			Accounts:            repo.Accounts(),
 			ServerLinks:         fsLinks,
 		}),

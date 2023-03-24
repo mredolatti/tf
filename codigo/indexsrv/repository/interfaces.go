@@ -50,7 +50,7 @@ type MappingRepository interface {
 
 // FileServerRepository defines the interface for a file server collection
 type FileServerRepository interface {
-	List(ctx context.Context, orgID string) ([]models.FileServer, error)
+	List(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error)
 	Get(ctx context.Context, id string) (models.FileServer, error)
 	Add(ctx context.Context, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
 	Remove(ctx context.Context, id string) error

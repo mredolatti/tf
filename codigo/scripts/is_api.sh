@@ -34,7 +34,7 @@ function is_signup() {
     [ -z ${password+x} ] && echo ${usage} && return 1
  
     curl \
-        "${verbose}" \
+        ${verbose} \
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
@@ -64,7 +64,7 @@ function is_login() {
     [ -z ${password+x} ] && echo ${usage} && return 1
  
     curl \
-        "${verbose}" \
+        ${verbose} \
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
@@ -93,7 +93,7 @@ function is_setup_2fa() {
     [ -z ${qr_output+x} ] && echo ${usage} && return 1
  
     curl \
-        "${verbose}" \
+        ${verbose} \
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
@@ -132,29 +132,108 @@ function is_list() {
         "${BASE_CLIENTS_URL}/mappings"
 }
 
-function is_link_fs() {
-    local usage="usage: idx_link_fs -s <server_id>"
+function is_list_orgs() {
+    local usage="usage: is_list_orgs -t <session_token>"
     local verbose=""
     local OPTIND
-    while getopts "hvs:" options; do
+    while getopts "hvt:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XGET \
+        --cacert ${USER_FS_CACERT} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/organizations"
+}
+
+function is_list_servers_for_org() {
+    local usage="usage: is_list_orgs -t <session_token> -o <oid>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:o:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+	    o) local org_id=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XGET \
+        --cacert ${USER_FS_CACERT} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/organizations/${org_id}/servers"
+}
+
+function is_list_servers() {
+    local usage="usage: is_list_servers -t <session_token>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XGET \
+        --cacert ${USER_FS_CACERT} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/servers"
+}
+
+function is_link_fs() {
+    local usage="usage: idx_link_fs -s <server_id> -t <token>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:" options; do
         case ${options} in
             s) local sid=${OPTARG} ;;
+	    t) local token=${OPTARG} ;;
  	    v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
  
+    [ -z ${token+x} ] && echo ${usage} && return 1
     [ -z ${sid+x} ] && echo ${usage} && return 1
  
     curl \
-        "${verbose}" \
+        ${verbose} \
         -L \
         -XGET \
         --cacert ${USER_FS_CACERT} \
         --cert ${USER_FS_CERT} \
         --key ${USER_FS_KEY} \
-        "${BASE_CLIENTS_URL}/accounts/server/${sid}/authorize"
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/servers/${sid}/link"
 }
 
 function is_logout() {
@@ -173,7 +252,7 @@ function is_logout() {
     [ -z ${token+x} ] && echo ${usage} && return 1
  
     curl \
-        "${verbose}" \
+        ${verbose} \
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \

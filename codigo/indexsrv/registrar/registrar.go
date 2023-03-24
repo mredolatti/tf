@@ -40,6 +40,8 @@ type Interface interface {
 	AddNewOrganization(ctx context.Context, name string) error
 	ListOrganizations(ctx context.Context) ([]models.Organization, error)
 	GetOrganization(ctx context.Context, id string) (models.Organization, error)
+	ListServers(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error)
+	GetServer(ctx context.Context, id string) (models.FileServer, error)
 	RegisterServer(ctx context.Context, orgId string, name string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) error
 
 	InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error)
@@ -52,7 +54,7 @@ type Impl struct {
 	randGen       *randGenerator
 	fileServers   repository.FileServerRepository
 	organizations repository.OrganizationRepository
-	userAccoounts repository.UserAccountRepository
+	userAccounts repository.UserAccountRepository
 	oauth2Flows   repository.PendingOAuth2Repository
 	httpClient    http.Client
 }
@@ -75,7 +77,7 @@ func New(cfg *Config) *Impl {
 	return &Impl{
 		randGen:       newRandGenerator(),
 		fileServers:   cfg.FileServers,
-		userAccoounts: cfg.UserAccounts,
+		userAccounts: cfg.UserAccounts,
 		organizations: cfg.Organizations,
 		oauth2Flows:   cfg.Pauth2Flows,
 		httpClient:    http.Client{Transport: transport},
@@ -108,6 +110,24 @@ func (i *Impl) GetOrganization(ctx context.Context, id string) (models.Organizat
 	return org, nil
 }
 
+func (i *Impl) ListServers(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error) {
+	fss, err := i.fileServers.List(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error reading servers from db: %w", err)
+	}
+	return fss, nil
+}
+
+func (i *Impl) GetServer(ctx context.Context, id string) (models.FileServer, error) {
+	server, err := i.fileServers.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrOrgNotFound
+		}
+		return nil, fmt.Errorf("error reading server from db: %w", err)
+	}
+	return server, nil
+}
 
 // RegisterServer implements Interface
 func (i *Impl) RegisterServer(
@@ -140,7 +160,7 @@ func (i *Impl) RegisterServer(
 // InitiateLinkProcess sets up the initial parameters to authenticate againsta a file-server,
 // and returns a URL to redirect the user to
 func (i *Impl) InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error) {
-	if acc, _ := i.userAccoounts.Get(ctx, userID, serverID); !force && acc != nil {
+	if acc, _ := i.userAccounts.Get(ctx, userID, serverID); !force && acc != nil {
 		return "", ErrAccountExists
 	}
 
@@ -176,7 +196,7 @@ func (i *Impl) CompleteLinkProcess(ctx context.Context, state string, code strin
 		return fmt.Errorf("error exchanging code for token: %w", err)
 	}
 
-	if _, err := i.userAccoounts.Add(ctx, flow.UserID(), flow.FileServerID(), tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
+	if _, err := i.userAccounts.Add(ctx, flow.UserID(), flow.FileServerID(), tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
 		return fmt.Errorf("error creating user account with received tokens: %w", err)
 	}
 
@@ -227,7 +247,7 @@ func (i *Impl) exchangeCode(ctx context.Context, serverID string, code string) (
 
 // GetValidToken returns the current token if still valid or a refreshed one otherwise
 func (i *Impl) GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error) {
-	acc, err := i.userAccoounts.Get(ctx, userID, serverID)
+	acc, err := i.userAccounts.Get(ctx, userID, serverID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting account from repository: %w", err)
 	}
@@ -255,7 +275,7 @@ func (i *Impl) doRefreshToken(ctx context.Context, userID string, serverID strin
 		return "", fmt.Errorf("error making token refresh request: %w", err)
 	}
 
-	if err := i.userAccoounts.UpdateTokens(ctx, userID, serverID, tokenResponse.AccessToken, tokenResponse.RefreshToken); err != nil {
+	if err := i.userAccounts.UpdateTokens(ctx, userID, serverID, tokenResponse.AccessToken, tokenResponse.RefreshToken); err != nil {
 		return "", fmt.Errorf("error storing new tokens in db: %w", err)
 	}
 

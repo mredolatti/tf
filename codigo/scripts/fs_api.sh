@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 
+
+# Setup base URLs
+BASE_URL="https://file-server:9877"
+
+# Setup user key & cert (+cacert for server validation) to authenticate calls to FS
 FS_CACERT=${FS_CACERT:-'PKI/root/certs/ca.crt'}
 FS_CERT=${FS_CERT:-'PKI/client/certs/client.crt'}
 FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}
 
 function fs_list() {
     curl \
+	-v \
         -XGET \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-        'https://file-server:9877/files'
+        "${BASE_URL}/files"
 }
 
 function fs_get() {
@@ -31,7 +37,7 @@ function fs_get() {
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-        "https://file-server:9877/files/${fid}"
+        "${BASE_URL}/files/${fid}"
 }
 
 function fs_create() {
@@ -58,7 +64,7 @@ function fs_create() {
         --key ${FS_KEY} \
         -H'Content-Type: application/json' \
         -d"{\"name\": \"${name}\", \"notes\": \"${notes}\", \"patientId\": \"${patient}\", \"type\": \"${typ}\"}" \
-        'https://file-server:9877/files'
+        "${BASE_URL}/files"
 }
 
 function fs_update() {
@@ -86,7 +92,7 @@ function fs_update() {
         --key ${FS_KEY} \
         -H'Content-Type: application/json' \
         -d"{\"name\": \"${name}\", \"notes\": \"${notes}\", \"patientId\": \"${patient}\", \"type\": \"${typ}\"}" \
-        "https://file-server:9877/files/${id}"
+        "${BASE_URL}/files/${id}"
 }
 
 function fs_del() {
@@ -107,7 +113,7 @@ function fs_del() {
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-        "https://file-server:9877/files/${fid}"
+        "${BASE_URL}/files/${fid}"
 }
 
 function fs_get_contents() {
@@ -128,7 +134,7 @@ function fs_get_contents() {
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-        "https://file-server:9877/files/${fid}/contents"
+        "${BASE_URL}/files/${fid}/contents"
 }
 
 function fs_update_contents() {
@@ -151,7 +157,7 @@ function fs_update_contents() {
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
         --data-binary "@${fname}" \
-        "https://file-server:9877/files/${fid}/contents"
+        "${BASE_URL}/files/${fid}/contents"
 }
 
 function fs_delete_contents() {
@@ -172,7 +178,7 @@ function fs_delete_contents() {
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-        "https://file-server:9877/files/${fid}/contents"
+        "${BASE_URL}/files/${fid}/contents"
 }
 
 function fs_auth_code() {
@@ -194,11 +200,10 @@ function fs_auth_code() {
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-        "https://file-server:9877/authorize?client_id=${cid}&response_type=code"
+        "${BASE_URL}/authorize?client_id=${cid}&response_type=code"
 }
 
 function fs_exchange_code() {
-
     usage="usage: fs_exchange_code -c <code> -i <client_id> -s <client_secret> -r <redirect_uri>"
     local OPTIND
     while getopts "c:i:s:r:" options; do
@@ -224,5 +229,5 @@ function fs_exchange_code() {
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
-    "https://file-server:9877/token?grant_type=authorization_code&client_id=${cid}&client_secret=${secret}&scope=read&code=${code//[$'\t\r\n ']}&redirect_uri=${redirect}"
+    "${BASE_URL}/token?grant_type=authorization_code&client_id=${cid}&client_secret=${secret}&scope=read&code=${code//[$'\t\r\n ']}&redirect_uri=${redirect}"
 }

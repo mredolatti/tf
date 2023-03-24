@@ -42,20 +42,22 @@ func (c *Controller) list(ctx *gin.Context) {
 
 	var query models.MappingQuery
 	if path := ctx.Query("path"); path != "" {
-		query.Path = refutil.StrRef(path)
+		query.Path = refutil.Ref(path)
 	}
 
 	forceUpdate := false
 	mappings, err := c.maps.Get(ctx.Request.Context(), session.User(), forceUpdate, &query)
 	if err != nil {
 		c.logger.Error("[mappings::list] error fetching: %s", err.Error())
-		ctx.JSON(500, "error fetching mappings")
+		ctx.AbortWithStatusJSON(500, "error fetching mappings")
+		return
 	}
 
 	resp, err := jsend.NewSuccessResponse("mapping", formatMappings(mappings), "")
 	if err != nil {
 		c.logger.Error("[mappings::list] error building response: %s", err.Error())
-		ctx.JSON(500, "error building response")
+		ctx.AbortWithStatusJSON(500, "error building response")
+		return
 	}
 	ctx.JSON(200, resp)
 }
@@ -76,7 +78,7 @@ func (c *Controller) get(ctx *gin.Context) {
  		return
  	}
 
- 	mappings, err := c.maps.Get(ctx.Request.Context(), session.User(), false,  &models.MappingQuery{ID: refutil.StrRef(mappingID)})
+ 	mappings, err := c.maps.Get(ctx.Request.Context(), session.User(), false,  &models.MappingQuery{ID: refutil.Ref(mappingID)})
  	if err != nil {
  		c.logger.Error("error fetching mappings for user %s: %s", session.User(), err)
  		ctx.AbortWithStatus(500)
