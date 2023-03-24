@@ -19,6 +19,7 @@ const (
 // Config parameters to configure the mapper
 type Config struct {
 	LastUpdateTolerance time.Duration
+	Users               repository.UserRepository
 	Repo                repository.MappingRepository
 	Accounts            repository.UserAccountRepository
 	ServerLinks         fslinks.Interface
@@ -34,6 +35,7 @@ type Interface interface {
 type Impl struct {
 	mappings    repository.MappingRepository
 	accounts    repository.UserAccountRepository
+	users       repository.UserRepository
 	serverLinks fslinks.Interface
 }
 
@@ -43,11 +45,13 @@ func New(config Config) *Impl {
 		mappings:    config.Repo,
 		accounts:    config.Accounts,
 		serverLinks: config.ServerLinks,
+		users:       config.Users,
 	}
 }
 
 // Get fetches mappings for a specific user based on a query
 func (i *Impl) Get(ctx context.Context, userID string, forceUpdate bool, query *models.MappingQuery) ([]models.Mapping, error) {
+
 	if query == nil {
 		query = &models.MappingQuery{}
 	}
@@ -60,11 +64,19 @@ func (i *Impl) Get(ctx context.Context, userID string, forceUpdate bool, query *
 }
 
 // Update updates a mapping
-func (i *Impl) Update(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error) {
+func (i *Impl) Update(ctx context.Context, userName string, mapping models.Mapping) (models.Mapping, error) {
 	return nil, nil
 }
 
 func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) error {
+
+
+	user, err := i.users.Get(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("error fetching user information: %w", err)
+	}
+	
+
 	forUser, err := i.accounts.List(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch user accounts for userID=%s: %w", userID, err)
@@ -79,8 +91,10 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 			wg.Add(1)
 			go func(acc models.UserAccount) {
 				defer wg.Done()
-				updates, err := i.serverLinks.FetchUpdates(ctx, acc.FileServerID(), userID, acc.Checkpoint())
-				fmt.Println("updates: ", updates, err)
+
+				fmt.Println("pidiendo con: ", acc.FileServerID(), userID, acc.Checkpoint())
+				updates, err := i.serverLinks.FetchUpdates(ctx, acc.FileServerID(), user, acc.Checkpoint())
+				fmt.Printf("updates: %+v\n", updates)
 				if err != nil {
 					// TODO(mredolatti): Log!
 					atomic.AddInt64(&errCount, 1)
@@ -88,6 +102,7 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 
 				err = i.handleUpdates(ctx, acc, updates)
 				if err != nil {
+					fmt.Println("EEEEE: ", err)
 					// TODO(mredolatti): Log!
 					atomic.AddInt64(&errCount, 1)
 				}

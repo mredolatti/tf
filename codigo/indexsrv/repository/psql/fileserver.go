@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
@@ -13,7 +15,9 @@ import (
 )
 
 const (
-	fsListByOrg = "SELECT * FROM file_servers WHERE org_id = $1"
+	fsListBase = "SELECT * FROM file_servers"
+	fsListOrgFilter = "org_id = $<IDX>"
+	fsListIDFilter = "id in ($<IDX>)"
 	fsGetQuery  = "SELECT * FROM file_servers WHERE id = $1"
 	fsAddQuery  = "INSERT INTO file_servers(name, org_id, auth_url, token_url, fetch_url, control_endpoint) " +
 		"VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
@@ -78,9 +82,12 @@ func NewFileServerRepository(db *sqlx.DB) *FileServerRepository {
 }
 
 // List returns a list of all the file server
-func (r *FileServerRepository) List(ctx context.Context, orgID string) ([]models.FileServer, error) {
+func (r *FileServerRepository) List(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error) {
+
+	q, values := buildListQuery(query)
+
 	var servers []FileServer
-	err := r.db.SelectContext(ctx, &servers, fsListByOrg, orgID)
+	err := r.db.SelectContext(ctx, &servers, q, values...)
 	if err != nil {
 		return nil, fmt.Errorf("error executing file_servers::list in postgres: %w", err)
 	}
@@ -132,6 +139,29 @@ func (r *FileServerRepository) Remove(ctx context.Context, id string) error {
 		return fmt.Errorf("error executiong file_server::del in postgres: %w", err)
 	}
 	return nil
+}
+
+func buildListQuery(query models.FileServersQuery) (preparedStmt string, values []interface{}) {
+
+	paramIdx := 1
+	var queryParts []string
+	if query.IDs != nil {
+		queryParts = append(queryParts, strings.ReplaceAll(fsListIDFilter, "<IDX>", strconv.Itoa(paramIdx)))
+		values = append(values, query.IDs)
+		paramIdx++
+	}
+		
+	if query.OrgID != nil {
+		queryParts = append(queryParts, strings.ReplaceAll(fsListOrgFilter, "<IDX>", strconv.Itoa(paramIdx)))
+		values = append(values, *query.OrgID)
+		paramIdx++
+	}
+
+	if len(queryParts) == 0 {
+		return fsListBase, nil
+	}
+
+	return fmt.Sprintf("%s WHERE %s", fsListBase, strings.Join(queryParts, "AND")), values
 }
 
 var _ repository.FileServerRepository = (*FileServerRepository)(nil)

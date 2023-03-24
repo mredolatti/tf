@@ -62,6 +62,11 @@ type PendingOAuth2 interface {
 	FileServerID() string
 }
 
+type FileServersQuery struct {
+	IDs   []string
+	OrgID *string
+}
+
 // MappingQuery has optional fields that can be set to narrow the search for mapping
 // filtering by several criteria
 type MappingQuery struct {

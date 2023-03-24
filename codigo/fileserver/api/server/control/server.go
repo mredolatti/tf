@@ -41,7 +41,7 @@ func (c *Server) SyncUser(request *is2fs.SyncUserRequest, stream is2fs.FileRefSy
 
 	forUser, err := c.manager.ListFileMetadata(
 		request.GetUserID(),
-		&filemanager.ListQuery{UpdatedAfter: refutil.Int64Ref(request.GetCheckpoint())},
+		&filemanager.ListQuery{UpdatedAfter: refutil.Ref(request.GetCheckpoint())},
 	)
 	if err != nil {
 		return fmt.Errorf("error getting files for user %s: %w", request.GetUserID(), err)

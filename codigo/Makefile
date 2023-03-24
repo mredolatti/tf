@@ -9,9 +9,12 @@ MAKE ?= make
 
 sources := $(shell find . -name *.go)
 grpc_generated := common/is2fs/changes.pb.go common/is2fs/changes_grpc.pb.go
-pki_phony_tgts := $(shell cat PKI/Makefile | grep "\.PHONY" | sed 's/.PHONY: //')
-pki_all_tgts := $(shell make -f Makefile -C ./PKI -s list)
-pki_tgts := $(addprefix PKI/,$(filter-out $(pki_phony_tgts),$(pki_all_tgts)))
+
+# Por algun motivo la autogeneracion del target dejo de andar despues de un update a buildtools. debuggear algun dia
+# pki_phony_tgts := $(shell cat PKI/Makefile | grep "\.PHONY" | sed 's/.PHONY: //')
+# pki_all_tgts := $(shell make -f Makefile -C ./PKI -s list)
+# pki_tgts := $(addprefix PKI/,$(filter-out $(pki_phony_tgts),$(pki_all_tgts)))
+pki_tgts := PKI/client/certs PKI/client/certs/client.crt PKI/client/crl PKI/client/csr PKI/client/csr/client.csr PKI/client/newcerts PKI/client/private PKI/client/private/client.key PKI/fileserver/certs PKI/fileserver/certs/chain.pem PKI/fileserver/certs/fs_server.crt PKI/fileserver/crl PKI/fileserver/csr PKI/fileserver/csr/fs_server.csr PKI/fileserver/newcerts PKI/fileserver/private PKI/fileserver/private/fs_server.key PKI/indexserver/certs PKI/indexserver/certs/chain.pem PKI/indexserver/certs/idx_server.crt PKI/indexserver/crl PKI/indexserver/csr PKI/indexserver/csr/idx_server.csr PKI/indexserver/newcerts PKI/indexserver/private PKI/indexserver/private/idx_server.key PKI/root/certs PKI/root/certs/ca.crt PKI/root/crl PKI/root/csr PKI/root/newcerts PKI/root/private PKI/root/private/ca.key PKI/sub/certs PKI/sub/certs/sub-ca.crt PKI/sub/crl PKI/sub/csr PKI/sub/csr/sub-ca.csr PKI/sub/newcerts PKI/sub/private PKI/sub/private/sub-ca.key
 
 container_incoming_tgts := incoming/fileserver/certs/ca.crt \
 			   incoming/fileserver/certs/key.pem \
@@ -43,8 +46,8 @@ clean:
 	rm -f ./file-server
 	rm -f ./fsbasic.so
 
-## Construir index-server y file-server
-build: index-server file-server
+## Construir index-server, file-server y su respectivo plugin
+build: index-server file-server fsbasic.so
 
 ## Construir index-server
 index-server: $(sources) go.sum
@@ -67,7 +70,7 @@ test-norace:
 
 ## Armar infra de claves publicas
 pki: $(pki_tgts)
-
+ 
 ## Configurar postgres local desde un contenedor
 psql-rebuild:
 	$(BASH) ./scripts/mkpostgres.sh -dcf
@@ -103,7 +106,6 @@ runlocal-indexserver-postgres: index-server $(pki_tgts)
 		IS_SERVER_PRIVATE_KEY="PKI/indexserver/private/idx_server.key" \
 		./index-server
 
-# TODO(mredolatti): ver de habilitar mongodb tambien para fs
 ## Ejecucion local de file-server
 runlocal-fileserver: file-server $(pki_tgts) fsbasic.so
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
@@ -142,9 +144,14 @@ debug-fileserver-postgres:
 
 # ------------------------------------
 
-## Run a CLI gRPC client against a local instance of file-server
-runlocal-evans-fs:
-	evans --host localhost --port 9000 --proto protobuf/changes.proto
+# ## Run a CLI gRPC client against a local instance of file-server
+runlocal-evans-fs: $(pki_tgts)
+	evans \
+		--host localhost \
+		--port 9000 \
+		--tls \
+		--cacert PKI/root/certs/ca.crt \
+		--proto protobuf/changes.proto
 
 ## Construir imagenes de docker para index-server y file-server
 docker-images: infra/Dockerfile.index_server infra/Dockerfile.file_server

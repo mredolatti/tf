@@ -18,7 +18,7 @@ type ctxKeyServerID struct{}
 // Interface defines the methods for a file-server links monitor
 type Interface interface {
 	NotifyServerUp(ctx context.Context, serverID string, healthy bool, uptime int64) error
-	FetchUpdates(ctx context.Context, serverID string, userID string, checkpoint int64) ([]models.Update, error)
+	FetchUpdates(ctx context.Context, serverID string, user models.User, checkpoint int64) ([]models.Update, error)
 }
 
 // Impl is an implementation of fslink.Interface
@@ -71,7 +71,7 @@ func (i *Impl) NotifyServerUp(ctx context.Context, serverID string, healthy bool
 }
 
 // FetchUpdates asks the server for the latest changes in file for a specific user
-func (i *Impl) FetchUpdates(ctx context.Context, serverID string, userID string, checkpoint int64) ([]models.Update, error) {
+func (i *Impl) FetchUpdates(ctx context.Context, serverID string, user models.User, checkpoint int64) ([]models.Update, error) {
 	fs, err := i.servers.Get(ctx, serverID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching server '%s': %w", serverID, err)
@@ -83,13 +83,13 @@ func (i *Impl) FetchUpdates(ctx context.Context, serverID string, userID string,
 	}
 
 	stream, err := pack.client.SyncUser(
-		context.WithValue(context.WithValue(ctx, ctxKeyUserID{}, userID), ctxKeyServerID{}, serverID),
-		&is2fs.SyncUserRequest{Checkpoint: checkpoint, UserID: userID, KeepAlive: false}) //TODO(mredolatti): Either implement this or remove it
+		context.WithValue(context.WithValue(ctx, ctxKeyUserID{}, user.ID()), ctxKeyServerID{}, serverID),
+		&is2fs.SyncUserRequest{Checkpoint: checkpoint, UserID: user.Name(), KeepAlive: false}) //TODO(mredolatti): Either implement this or remove it
 
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error syncing available files for user '%s' in server '%s': %w",
-			userID, serverID, err)
+			user.ID(), serverID, err)
 	}
 
 	var updates []models.Update
@@ -102,7 +102,7 @@ func (i *Impl) FetchUpdates(ctx context.Context, serverID string, userID string,
 		if err != nil {
 			return nil, fmt.Errorf(
 				"error received when reading from stream for user '%s' in server '%s': %w",
-				userID, serverID, err)
+				user.ID(), serverID, err)
 		}
 
 		updates = append(updates, models.Update{
