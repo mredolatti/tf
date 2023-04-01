@@ -241,7 +241,7 @@ func (c *Controller) updateContents(ctx *gin.Context) {
 	}
 
 	if err := c.fm.UpdateFileContents(user, id, body); err != nil {
-		c.logger.Error("files.contents.update: error fetching file contents for %s::%s: : %s", user, id, err)
+		c.logger.Error("files.contents.update: error updating file contents for [%s::%s] : %s", user, id, err)
 		if errors.Is(err, filemanager.ErrUnauthorized) {
 			ctx.AbortWithStatus(401)
 		} else {

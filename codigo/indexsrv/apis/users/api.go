@@ -33,9 +33,6 @@ func Mount(router gin.IRouter, config *Config) {
 	loginController := login.New(config.UserManager, samw, config.Logger)
 	loginController.Register(router)
 
-
-
-
 	// Setup session-protected api group
 	protected := router.Group("/")
 	protected.Use(samw.Handle, tfamw.Handle)

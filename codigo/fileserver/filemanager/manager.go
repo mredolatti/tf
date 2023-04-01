@@ -82,6 +82,10 @@ func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMet
 		query = &ListQuery{}
 	}
 
+	if query == nil {
+		query = &ListQuery{}
+	}
+
 	metas, err := i.metadatas.GetMany(&storage.Filter{
 		IDs:          fileIDList,
 		UpdatedAfter: query.UpdatedAfter,
