@@ -43,6 +43,7 @@ func New(options *Options) (*API, error) {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(gin.Logger())
 	router.Use(middleware.NewPkAuth(options.Logger).Handle)
 
 	login := login.New(options.Logger, options.OAuht2Wrapper)

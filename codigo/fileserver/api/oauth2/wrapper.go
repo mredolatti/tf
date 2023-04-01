@@ -72,7 +72,8 @@ func New(
 	})
 
 	srv.SetResponseErrorHandler(func(re *errors.Response) {
-		logger.Error("oauth2 response error: url='%s' errorCode='%d':", re.URI, re.ErrorCode, re.Error)
+		logger.Error("oauth2 response error:")
+		logger.Error("%+v\n", re)
 	})
 
 	srv.SetUserAuthorizationHandler(func(w http.ResponseWriter, r *http.Request) (string, error) {

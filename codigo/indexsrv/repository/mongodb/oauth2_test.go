@@ -19,14 +19,14 @@ func TestPendingOAuthIntegration(t *testing.T) {
 	defer db.Drop(ctx)
 
 	userID := primitive.NewObjectID()
-	fs1ID := primitive.NewObjectID()
 
 	repo := NewPendingOAuth2Repository(db)
 
-	inserted , err := repo.Put(ctx, userID.Hex(), fs1ID.Hex(), "someState")
+	inserted, err := repo.Put(ctx, userID.Hex(), "org1", "fs1", "someState")
 	assert.Nil(t, err)
 
-	assert.Equal(t, inserted.FileServerID(), fs1ID.Hex())
+	assert.Equal(t, "org1", inserted.OrganizationName())
+	assert.Equal(t, "fs1", inserted.ServerName())
 	assert.Equal(t, inserted.UserID(), userID.Hex())
 	assert.Equal(t, inserted.State(), "someState")
 
@@ -34,4 +34,3 @@ func TestPendingOAuthIntegration(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, inserted, popped)
 }
-

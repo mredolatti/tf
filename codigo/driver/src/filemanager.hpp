@@ -26,7 +26,7 @@ class FileManager
     using stat_result_t = util::Expected<std::unique_ptr<types::FSElem>, int>;
     using http_client_ptr_t = std::shared_ptr<http::Client>;
 
-    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client);
+    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog);
     FileManager() = delete;
     FileManager(const FileManager&) = delete;
     FileManager(FileManager&&) = delete;
@@ -46,11 +46,12 @@ class FileManager
     util::FSMirror fs_mirror_;
     util::FileCache file_cache_;
     util::OpenFileTracker open_files_;
+    util::FileServerCatalog::ptr_t fs_catalog_;
     apiclients::IndexServerClient is_client_;
     apiclients::FileServerClient fs_client_;
     log::logger_t logger_;
 
-    bool ensure_cached(std::string server, std::string ref);
+    bool ensure_cached(const std::string& org, const std::string& server, const std::string& ref);
 };
 
 //class DirentryStub

@@ -22,7 +22,7 @@ type Organization interface {
 // FileServer defines the file-server model
 type FileServer interface {
 	ID() string
-	OrganizationID() string
+	OrganizationName() string
 	Name() string
 	AuthURL() string
 	FetchURL() string
@@ -38,7 +38,8 @@ type Patient interface {
 // UserAccount defines the `user account in file server` model
 type UserAccount interface {
 	UserID() string
-	FileServerID() string
+	OrganizationName() string
+	FileServerName() string
 	Token() string
 	RefreshToken() string
 	Checkpoint() int64
@@ -47,7 +48,8 @@ type UserAccount interface {
 // Mapping defines the mapping model
 type Mapping interface {
 	UserID() string
-	FileServerID() string
+	OrganizationName() string
+	ServerName() string
 	Ref() string
 	Path() string
 	SizeBytes() int64
@@ -59,12 +61,13 @@ type Mapping interface {
 type PendingOAuth2 interface {
 	State() string
 	UserID() string
-	FileServerID() string
+	OrganizationName() string
+	ServerName() string
 }
 
 type FileServersQuery struct {
-	IDs   []string
-	OrgID *string
+	Names []string
+	OrganizationName *string
 }
 
 // MappingQuery has optional fields that can be set to narrow the search for mapping

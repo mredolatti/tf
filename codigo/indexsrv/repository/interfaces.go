@@ -32,7 +32,7 @@ type UserRepository interface {
 
 // OrganizationRepository defines the interface for an Organization storage access class
 type OrganizationRepository interface {
-	Get(ctx context.Context, id string) (models.Organization, error)
+	Get(ctx context.Context, name string) (models.Organization, error)
 	GetByName(ctx context.Context, name string) (models.Organization, error)
 	List(ctx context.Context) ([]models.Organization, error)
 	Add(ctx context.Context, name string) (models.Organization, error)
@@ -45,30 +45,31 @@ type MappingRepository interface {
 	Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error)
 	Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error)
 	Remove(ctx context.Context, userID string, mappingID string) error
-	HandleServerUpdates(ctx context.Context, userID string, updates []models.Update) error
+	HandleServerUpdates(ctx context.Context, userID string, orgName string, serverName string, updates []models.Update) error
 }
 
 // FileServerRepository defines the interface for a file server collection
 type FileServerRepository interface {
 	List(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error)
-	Get(ctx context.Context, id string) (models.FileServer, error)
-	Add(ctx context.Context, name string, orgID string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
+	GetByID(ctx context.Context, id string) (models.FileServer, error)
+	Get(ctx context.Context, orgName string, name string) (models.FileServer, error)
+	Add(ctx context.Context, name string, organizationName string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) (models.FileServer, error)
 	Remove(ctx context.Context, id string) error
 }
 
 // UserAccountRepository defines the interface for interacting with user accounts on file servers
 type UserAccountRepository interface {
 	List(ctx context.Context, userID string) ([]models.UserAccount, error)
-	Get(ctx context.Context, userID string, serverID string) (models.UserAccount, error)
-	Add(ctx context.Context, userID, serverID, passwordHash, refreshToken string) (models.UserAccount, error)
-	Remove(ctx context.Context, userID string, serverID string) error
-	UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error
-	UpdateTokens(ctx context.Context, userID, serverID, accessToken, refreshToken string) error
+	Get(ctx context.Context, userID string, orgName string, serverName string) (models.UserAccount, error)
+	Add(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) (models.UserAccount, error)
+	Remove(ctx context.Context, userID string, orgName string, serverName string) error
+	UpdateCheckpoint(ctx context.Context, userID string, orgName string, serverName string, newCheckpoint int64) error
+	UpdateTokens(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) error
 }
 
 // PendingOAuth2Repository is used to store & retreive in-progress oauth2 flows metadata
 type PendingOAuth2Repository interface {
-	Put(ctx context.Context, userID string, serverID string, state string) (models.PendingOAuth2, error)
+	Put(ctx context.Context, userID string, orgName string, serverName, state string) (models.PendingOAuth2, error)
 	Pop(ctx context.Context, state string) (models.PendingOAuth2, error)
 }
 

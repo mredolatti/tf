@@ -1,5 +1,5 @@
 .PHONY: all clean build test test-norace docker-images pki \
-	runlocal-indexserver runlocal-fileserver help
+	runlocal-indexserver runlocal-fileserver fsbasic_for_debug help
 
 BASH ?= bash
 GO ?= go
@@ -59,6 +59,9 @@ file-server: $(sources) go.sum
 
 fsbasic.so: $(sources) go.sum
 	$(GO) build -o fsbasic.so --buildmode=plugin ./fileserver/extension/plugins/fsbasic/plugin
+
+fsbasic_for_debug: $(sources) go.sum
+	$(GO) build -o fsbasic.so --buildmode=plugin -gcflags='all=-N -l' ./fileserver/extension/plugins/fsbasic/plugin
 
 ## Ejecutar tests incluyando analisis de race conditions
 test:
@@ -136,10 +139,12 @@ debug-indexserver-postgres:
 		dlv debug indexsrv/cmd/server/main.go
 
 ## iniciar file-server en delve
-debug-fileserver-postgres:
+debug-fileserver-postgres: fsbasic_for_debug
 	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
-		FS_PG_USER="postgres" FS_PG_PWD="mysecretpassword" FS_PG_HOST="localhost" FS_PG_PORT="5432" FS_PG_DB="filesrv" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
+		FS_PSQL_URI="postgres://postgres:mysecretpassword@localhost:5432/filesrv" \
+		FS_STORAGE_PLUGIN="./fsbasic.so" \
+		FS_STORAGE_PLUGIN_CONF='{"filePath": "/home/martin/fsbasic/files", "authDBPath": "/home/martin/fsbasic/authdb"}' \
 		dlv debug fileserver/cmd/server/main.go
 
 # ------------------------------------

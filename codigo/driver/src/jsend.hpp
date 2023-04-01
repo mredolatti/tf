@@ -13,7 +13,14 @@
 
 namespace mifs::jsend {
 
-enum class Status {
+enum class JSONParseStatus
+{
+	OK = 0,
+	Error = 1
+};
+
+enum class Status
+{
     SUCCESS,
     FAILURE,
     ERROR
@@ -38,14 +45,14 @@ struct Response
 };
 
 template<typename T>
-util::Expected<Response<T>, int> parse(std::string_view body, std::string_view resource)
+util::Expected<Response<T>, JSONParseStatus> parse(std::string_view body, std::string_view resource)
 {
 
     rapidjson::Document doc;
     doc.Parse(body.data());
 
     if (!doc.HasMember("status") || !doc["status"].IsString()) {
-        return util::Unexpected<int>(-1);
+        return util::Unexpected<JSONParseStatus>{JSONParseStatus::Error};
     }
 
     Response<T> toRet{.status = detail::parse_status(doc["status"].GetString())};
@@ -64,7 +71,7 @@ util::Expected<Response<T>, int> parse(std::string_view body, std::string_view r
 
     const auto& data{doc["data"].GetObject()};
     if (!data.HasMember(resource.data()) || !data[resource.data()].IsArray()) {
-        return util::Unexpected<int>(-1);
+        return util::Unexpected<JSONParseStatus>(JSONParseStatus::Error);
     }
 
     const auto& items{data[resource.data()].GetArray()};
@@ -73,7 +80,7 @@ util::Expected<Response<T>, int> parse(std::string_view body, std::string_view r
     for (auto& item : items) {
         auto parse_result{T::parse(item)};
         if (!parse_result) {
-            continue;
+		return util::Unexpected<JSONParseStatus>{JSONParseStatus::Error};
         }
         parsed_items.emplace_back(*parse_result);
     }

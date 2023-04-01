@@ -33,7 +33,7 @@ func newAuthInterceptor(logger log.Interface, oauth2Wrapper oauth2.Interface) *a
 
 func (a *authInterceptor) Unary() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		if err := a.validate(ctx); err != nil {
+		if _, err := a.validate(ctx); err != nil { // TODO(user validation)
 			return nil, fmt.Errorf("error validating token in incoming rpc: %w", err)
 		}
 		return handler(ctx, req)
@@ -42,33 +42,35 @@ func (a *authInterceptor) Unary() grpc.UnaryServerInterceptor {
 
 func (a *authInterceptor) Stream() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		if err := a.validate(ss.Context()); err != nil {
+		user, err := a.validate(ss.Context())
+		if err != nil {
 			return fmt.Errorf("error validating token in incoming rpc: %w", err)
 		}
 
-		return handler(srv, ss)
+		// TODO(mredolatti): mover esto a un package separado y usar una key para guardar el user
+		return handler(srv, wrapServerStream(ss, context.WithValue(ss.Context(), "user", user)))
 	}
 }
 
-func (a *authInterceptor) validate(ctx context.Context) error {
+func (a *authInterceptor) validate(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return errNoMetadata
+		return "", errNoMetadata
 	}
 
 	values := md["authorization"]
 	if len(values) == 0 {
-		return status.Errorf(codes.Unauthenticated, "missing metadata")
+		return "", status.Errorf(codes.Unauthenticated, "missing metadata")
 	}
 
-	_, err := a.verifyJWT(values[0])
+	user, err := a.verifyJWT(values[0])
 	if err != nil {
-		return fmt.Errorf("error getting user: %w", err)
+		return "", fmt.Errorf("error getting user: %w", err)
 	}
 
 	// TODO(mredolatti): validar que el subject del token este en los SAN del client cert
 
-	return nil
+	return user, nil
 }
 
 func (a *authInterceptor) verifyJWT(token string) (user string, err error) {

@@ -71,8 +71,9 @@ func (r *OrganizationRepository) List(ctx context.Context) ([]models.Organizatio
 func (r *OrganizationRepository) Get(ctx context.Context, id string) (models.Organization, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for organization with id=%s: %w", id, err)
+		return nil, fmt.Errorf("error constructing object id for org with id='%s': %w", id, err)
 	}
+
 	res := r.collection.FindOne(ctx, bson.D{{Key: "_id", Value: oid}})
 	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {

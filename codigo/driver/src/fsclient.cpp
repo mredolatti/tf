@@ -4,49 +4,23 @@
 
 namespace mifs::apiclients {
 
-namespace detail {
-
-ServerInfo::ServerInfo(std::string server_id, std::string server_url, tls::Config tls_config) :
-    server_id_{std::move(server_id)},
-    server_url_{std::move(server_url)},
-    tls_config_{std::move(tls_config)}
-{}
-
-const std::string& ServerInfo::server_id() const
-{
-    return server_id_;
-}
-
-const std::string& ServerInfo::server_url() const
-{
-    return server_url_;
-}
-
-const tls::Config& ServerInfo::tls_config() const
-{
-    return tls_config_;
-}
-
-} // namespace detail
-
-//------------------------------------------------
-
-FileServerClient::FileServerClient(http_client_ptr_t http_client, server_infos_t server_infos) :
+FileServerClient::FileServerClient(http_client_ptr_t http_client, util::FileServerCatalog::ptr_t fs_catalog) :
     client_{std::move(http_client)},
-    server_infos_{std::move(server_infos)}
+    fs_catalog{std::move(fs_catalog)}
 {}
 
-FileServerClient::list_response_result_t FileServerClient::get_all(const std::string& server_id)
+FileServerClient::list_response_result_t FileServerClient::get_all(std::string_view org, std::string_view server_name)
 {
-    const auto it{server_infos_.find(server_id)};
-    if (it == server_infos_.end()) {
+
+    auto server_data{fs_catalog->get(org, server_name)};
+    if (!server_data) {
         return no_response_t{-1};
     }
 
     auto request{http::Request::Builder{}
         .method(http::Method::GET)
-        .uri(fmt::format("{}/files", it->second.server_url()))
-        .tls(it->second.tls_config())
+        .uri(fmt::format("{}/files", server_data->files_url()))
+        .tls(server_data->tls_config())
         .build()};
 
     auto result{client_->execute(request)};
@@ -60,21 +34,26 @@ FileServerClient::list_response_result_t FileServerClient::get_all(const std::st
         return no_response_t{code};
     }
 
-    return jsend::parse<models::FileMetadata>((*result).body(), "files");
+    auto response_res{jsend::parse<models::FileMetadata>((*result).body(), "files")};
+    if (!response_res) {
+	    return no_response_t{-2};
+    }
+
+    return list_response_result_t{*response_res};
 }
 
     
-FileServerClient::contents_response_result_t FileServerClient::contents(const std::string& server_id, const std::string file_id)
+FileServerClient::contents_response_result_t FileServerClient::contents(const std::string& org, const std::string& server_name, const std::string file_id)
 {
-    const auto it{server_infos_.find(server_id)};
-    if (it == server_infos_.end()) {
+    auto server_data{fs_catalog->get(org, server_name)};
+    if (!server_data) {
         return no_response_t{-1};
     }
 
     auto request{http::Request::Builder{}
         .method(http::Method::GET)
-        .uri(fmt::format("{}/files/{}/contents", it->second.server_url(), file_id))
-        .tls(it->second.tls_config())
+        .uri(fmt::format("{}/{}/contents", server_data->files_url(), file_id))
+        .tls(server_data->tls_config())
         .build()};
 
     auto result{client_->execute(request)};

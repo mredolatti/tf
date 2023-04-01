@@ -39,14 +39,14 @@ var (
 type Interface interface {
 	AddNewOrganization(ctx context.Context, name string) error
 	ListOrganizations(ctx context.Context) ([]models.Organization, error)
-	GetOrganization(ctx context.Context, id string) (models.Organization, error)
+	GetOrganization(ctx context.Context, name string) (models.Organization, error)
 	ListServers(ctx context.Context, query models.FileServersQuery) ([]models.FileServer, error)
-	GetServer(ctx context.Context, id string) (models.FileServer, error)
+	GetServer(ctx context.Context, orgName string, name string) (models.FileServer, error)
 	RegisterServer(ctx context.Context, orgId string, name string, authURL string, tokenURL string, fetchURL string, controlEndpoint string) error
 
-	InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error)
+	InitiateLinkProcess(ctx context.Context, userID string, orgName string, serverName string, force bool) (string, error)
 	CompleteLinkProcess(ctx context.Context, state string, code string) error
-	GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error)
+	GetValidToken(ctx context.Context, userID string, orgName string, serverName string) (*Token, error)
 }
 
 // Impl is an implementation of the registar interface
@@ -99,8 +99,8 @@ func (i *Impl) ListOrganizations(ctx context.Context) ([]models.Organization, er
 	return orgs, nil
 }
 
-func (i *Impl) GetOrganization(ctx context.Context, id string) (models.Organization, error) {
-	org, err := i.organizations.Get(ctx, id)
+func (i *Impl) GetOrganization(ctx context.Context, name string) (models.Organization, error) {
+	org, err := i.organizations.Get(ctx, name)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrOrgNotFound
@@ -118,8 +118,8 @@ func (i *Impl) ListServers(ctx context.Context, query models.FileServersQuery) (
 	return fss, nil
 }
 
-func (i *Impl) GetServer(ctx context.Context, id string) (models.FileServer, error) {
-	server, err := i.fileServers.Get(ctx, id)
+func (i *Impl) GetServer(ctx context.Context, orgName string, name string) (models.FileServer, error) {
+	server, err := i.fileServers.Get(ctx, orgName, name)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrOrgNotFound
@@ -148,7 +148,7 @@ func (i *Impl) RegisterServer(
 		return fmt.Errorf("error fetching organization '%s': %w", orgName, err)
 	}
 
-	if _, err := i.fileServers.Add(ctx, serverName, org.ID(), authURL, tokenURL, fetchURL, controlEndpoint); err != nil {
+	if _, err := i.fileServers.Add(ctx, serverName, org.Name(), authURL, tokenURL, fetchURL, controlEndpoint); err != nil {
 		if errors.Is(err, repository.ErrAlreadyExists) {
 			return ErrServerAlreadyRegistered
 		}
@@ -159,12 +159,12 @@ func (i *Impl) RegisterServer(
 
 // InitiateLinkProcess sets up the initial parameters to authenticate againsta a file-server,
 // and returns a URL to redirect the user to
-func (i *Impl) InitiateLinkProcess(ctx context.Context, userID string, serverID string, force bool) (string, error) {
-	if acc, _ := i.userAccounts.Get(ctx, userID, serverID); !force && acc != nil {
+func (i *Impl) InitiateLinkProcess(ctx context.Context, userID string, orgName string, serverName string, force bool) (string, error) {
+	if acc, _ := i.userAccounts.Get(ctx, userID, orgName, serverName); !force && acc != nil {
 		return "", ErrAccountExists
 	}
 
-	server, err := i.fileServers.Get(ctx, serverID)
+	server, err := i.fileServers.Get(ctx, orgName, serverName)
 	if err != nil {
 		return "", fmt.Errorf("error fetching server from repository: %w", err)
 	}
@@ -175,11 +175,10 @@ func (i *Impl) InitiateLinkProcess(ctx context.Context, userID string, serverID 
 		return "", fmt.Errorf("error building redirect URL: %w", err)
 	}
 
-	if _, err := i.oauth2Flows.Put(ctx, userID, serverID, state); err != nil {
+	if _, err := i.oauth2Flows.Put(ctx, userID, orgName, serverName, state); err != nil {
 		return "", fmt.Errorf("error persisting oauth2 flow init parameters: %w", err)
 
 	}
-
 	return redirectURL.String(), nil
 }
 
@@ -191,21 +190,21 @@ func (i *Impl) CompleteLinkProcess(ctx context.Context, state string, code strin
 		return fmt.Errorf("error fetching pending flow from repository: %w", err)
 	}
 
-	tokenResp, err := i.exchangeCode(ctx, flow.FileServerID(), code)
+	tokenResp, err := i.exchangeCode(ctx, flow.OrganizationName(), flow.ServerName(), code)
 	if err != nil {
 		return fmt.Errorf("error exchanging code for token: %w", err)
 	}
 
-	if _, err := i.userAccounts.Add(ctx, flow.UserID(), flow.FileServerID(), tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
+	if _, err := i.userAccounts.Add(ctx, flow.UserID(), flow.OrganizationName(), flow.ServerName(), tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
 		return fmt.Errorf("error creating user account with received tokens: %w", err)
 	}
 
 	return nil
 }
 
-func (i *Impl) exchangeCode(ctx context.Context, serverID string, code string) (*tokenResponse, error) {
+func (i *Impl) exchangeCode(ctx context.Context, orgName string, serverName string, code string) (*tokenResponse, error) {
 
-	server, err := i.fileServers.Get(ctx, serverID)
+	server, err := i.fileServers.Get(ctx, orgName, serverName)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching server from repository: %w", err)
 	}
@@ -246,8 +245,8 @@ func (i *Impl) exchangeCode(ctx context.Context, serverID string, code string) (
 }
 
 // GetValidToken returns the current token if still valid or a refreshed one otherwise
-func (i *Impl) GetValidToken(ctx context.Context, userID string, serverID string) (*Token, error) {
-	acc, err := i.userAccounts.Get(ctx, userID, serverID)
+func (i *Impl) GetValidToken(ctx context.Context, userID string, orgName string, serverName string) (*Token, error) {
+	acc, err := i.userAccounts.Get(ctx, userID, orgName, serverName)
 	if err != nil {
 		return nil, fmt.Errorf("error getting account from repository: %w", err)
 	}
@@ -256,7 +255,7 @@ func (i *Impl) GetValidToken(ctx context.Context, userID string, serverID string
 		return &Token{raw: token}, nil
 	}
 
-	newAccessToken, err := i.doRefreshToken(ctx, userID, serverID, acc.RefreshToken())
+	newAccessToken, err := i.doRefreshToken(ctx, userID, orgName, serverName, acc.RefreshToken())
 	if err != nil {
 		return nil, fmt.Errorf("error refreshing token: %w", err)
 	}
@@ -264,8 +263,8 @@ func (i *Impl) GetValidToken(ctx context.Context, userID string, serverID string
 	return &Token{raw: newAccessToken}, nil
 }
 
-func (i *Impl) doRefreshToken(ctx context.Context, userID string, serverID string, refreshToken string) (string, error) {
-	server, err := i.fileServers.Get(ctx, serverID)
+func (i *Impl) doRefreshToken(ctx context.Context, userID string, orgName string, serverName string, refreshToken string) (string, error) {
+	server, err := i.fileServers.Get(ctx, orgName, serverName)
 	if err != nil {
 		return "", fmt.Errorf("error fetching server from repository: %w", err)
 	}
@@ -275,7 +274,7 @@ func (i *Impl) doRefreshToken(ctx context.Context, userID string, serverID strin
 		return "", fmt.Errorf("error making token refresh request: %w", err)
 	}
 
-	if err := i.userAccounts.UpdateTokens(ctx, userID, serverID, tokenResponse.AccessToken, tokenResponse.RefreshToken); err != nil {
+	if err := i.userAccounts.UpdateTokens(ctx, userID, orgName, serverName, tokenResponse.AccessToken, tokenResponse.RefreshToken); err != nil {
 		return "", fmt.Errorf("error storing new tokens in db: %w", err)
 	}
 
@@ -371,7 +370,5 @@ func setupTLSConfig(rootCAFN string, serverCertFN string, serverPrivateKeyFN str
 		ClientAuth:   tls.RequestClientCert,
 	}
 }
-
-
 
 var _ Interface = (*Impl)(nil)

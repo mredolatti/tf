@@ -13,12 +13,13 @@ import (
 )
 
 type ctxKeyUserID struct{}
-type ctxKeyServerID struct{}
+type ctxKeyOrgName struct{}
+type ctxKeyServerName struct{}
 
 // Interface defines the methods for a file-server links monitor
 type Interface interface {
 	NotifyServerUp(ctx context.Context, serverID string, healthy bool, uptime int64) error
-	FetchUpdates(ctx context.Context, serverID string, user models.User, checkpoint int64) ([]models.Update, error)
+	FetchUpdates(ctx context.Context, orgName string, serverName string, user models.User, checkpoint int64) ([]models.Update, error)
 }
 
 // Impl is an implementation of fslink.Interface
@@ -57,39 +58,42 @@ func New(
 // NotifyServerUp is meant to be called whenever a server announces itself
 func (i *Impl) NotifyServerUp(ctx context.Context, serverID string, healthy bool, uptime int64) error {
 
-	fs, err := i.servers.Get(ctx, serverID)
-	if err != nil {
-		return fmt.Errorf("error fetching server '%s': %w", serverID, err)
-	}
+	// TODO(mredolatti)
+	/*
+		fs, err := i.servers.Get(ctx, serverID)
+		if err != nil {
+			return fmt.Errorf("error fetching server '%s': %w", serverID, err)
+		}
 
-	_, err = i.conns.get(fs)
-	if err != nil {
-		return fmt.Errorf("error connecting to server '%s': %w", serverID, err)
-	}
+		_, err = i.conns.get(fs)
+		if err != nil {
+			return fmt.Errorf("error connecting to server '%s': %w", serverID, err)
+		}
+	*/
 
 	return nil
 }
 
 // FetchUpdates asks the server for the latest changes in file for a specific user
-func (i *Impl) FetchUpdates(ctx context.Context, serverID string, user models.User, checkpoint int64) ([]models.Update, error) {
-	fs, err := i.servers.Get(ctx, serverID)
+func (i *Impl) FetchUpdates(ctx context.Context, orgName string, serverName string, user models.User, checkpoint int64) ([]models.Update, error) {
+	fs, err := i.servers.Get(ctx, orgName, serverName)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching server '%s': %w", serverID, err)
+		return nil, fmt.Errorf("error fetching server '%s/%s': %w", orgName, serverName, err)
 	}
 
 	pack, err := i.conns.get(fs)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to server '%s': %w", serverID, err)
+		return nil, fmt.Errorf("error connecting to server '%s/%s': %w", orgName, serverName, err)
 	}
 
-	stream, err := pack.client.SyncUser(
-		context.WithValue(context.WithValue(ctx, ctxKeyUserID{}, user.ID()), ctxKeyServerID{}, serverID),
-		&is2fs.SyncUserRequest{Checkpoint: checkpoint, UserID: user.Name(), KeepAlive: false}) //TODO(mredolatti): Either implement this or remove it
-
+	// TODO(mredolatti): poner todo esto dentro de un struct en vez de wrappear 3 veces el contexto
+	ctx = context.WithValue(ctx, ctxKeyUserID{}, user.ID())
+	ctx = context.WithValue(ctx, ctxKeyOrgName{}, orgName)
+	ctx = context.WithValue(ctx, ctxKeyServerName{}, serverName)
+	stream, err := pack.client.SyncUser(ctx, &is2fs.SyncUserRequest{Checkpoint: checkpoint, UserID: user.Name(), KeepAlive: false})
 	if err != nil {
-		return nil, fmt.Errorf(
-			"error syncing available files for user '%s' in server '%s': %w",
-			user.ID(), serverID, err)
+		return nil, fmt.Errorf("error syncing available files for user '%s' in server '%s/%s': %w",
+			user.ID(), orgName, serverName, err)
 	}
 
 	var updates []models.Update
@@ -101,16 +105,15 @@ func (i *Impl) FetchUpdates(ctx context.Context, serverID string, user models.Us
 
 		if err != nil {
 			return nil, fmt.Errorf(
-				"error received when reading from stream for user '%s' in server '%s': %w",
-				user.ID(), serverID, err)
+				"error received when reading from stream for user '%s' in server '%s/%s': %w",
+				user.ID(), orgName, serverName, err)
 		}
 
 		updates = append(updates, models.Update{
-			OrganizationID: fs.OrganizationID(),
-			ServerID:       fs.ID(),
-			FileRef:        update.FileReference,
-			Checkpoint:     update.Checkpoint,
-			ChangeType:     toUpdateType(update.ChangeType),
+			FileRef:    update.FileReference,
+			Checkpoint: update.Checkpoint,
+			ChangeType: toUpdateType(update.ChangeType),
+			SizeBytes:  update.SizeBytes,
 		})
 
 	}

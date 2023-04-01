@@ -66,9 +66,9 @@ class FileCache
     ~FileCache() noexcept = default;
 
     FileCache();
-    get_res_t get(const std::string& server_id, const std::string& ref);
-    bool has(const std::string& server_id, const std::string& ref);
-    bool put(std::string server_id, std::string ref, std::string contents);
+    get_res_t get(const std::string& org_name, const std::string& server_name, const std::string& ref);
+    bool has(const std::string& org_name, const std::string& server_id, const std::string& ref);
+    bool put(const std::string& org_name, std::string server_id, std::string ref, std::string contents);
 
     private:
     using map_t = std::unordered_map<std::string, detail::CacheEntry>;

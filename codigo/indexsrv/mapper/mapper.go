@@ -91,10 +91,7 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 			wg.Add(1)
 			go func(acc models.UserAccount) {
 				defer wg.Done()
-
-				fmt.Println("pidiendo con: ", acc.FileServerID(), userID, acc.Checkpoint())
-				updates, err := i.serverLinks.FetchUpdates(ctx, acc.FileServerID(), user, acc.Checkpoint())
-				fmt.Printf("updates: %+v\n", updates)
+				updates, err := i.serverLinks.FetchUpdates(ctx, acc.OrganizationName(), acc.FileServerName(), user, acc.Checkpoint())
 				if err != nil {
 					// TODO(mredolatti): Log!
 					atomic.AddInt64(&errCount, 1)
@@ -102,7 +99,6 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 
 				err = i.handleUpdates(ctx, acc, updates)
 				if err != nil {
-					fmt.Println("EEEEE: ", err)
 					// TODO(mredolatti): Log!
 					atomic.AddInt64(&errCount, 1)
 				}
@@ -131,11 +127,11 @@ func (i *Impl) handleUpdates(ctx context.Context, account models.UserAccount, up
 		}
 	}
 
-	if err := i.mappings.HandleServerUpdates(ctx, account.UserID(), updates); err != nil {
+	if err := i.mappings.HandleServerUpdates(ctx, account.UserID(), account.OrganizationName(), account.FileServerName(), updates); err != nil {
 		return fmt.Errorf("error adding/updating valid mappings: %w", err)
 	}
 
-	if err := i.accounts.UpdateCheckpoint(ctx, account.UserID(), account.FileServerID(), newCheckpoint); err != nil {
+	if err := i.accounts.UpdateCheckpoint(ctx, account.UserID(), account.OrganizationName(), account.FileServerName(), newCheckpoint); err != nil {
 		return fmt.Errorf("error updating checkpoint: %w", err)
 	}
 

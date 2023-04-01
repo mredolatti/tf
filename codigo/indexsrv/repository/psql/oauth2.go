@@ -13,20 +13,24 @@ import (
 )
 
 const (
-	oauthPutQuery = "INSERT INTO oauth2_pending(user_id,server_id,state) VALUES ($1, $2, $3) RETURNING *"
+	oauthPutQuery = "INSERT INTO oauth2_pending(user_id,organization_name,server_name,state) VALUES ($1, $2, $3, $4) RETURNING *"
 	oauthPopQuery = "DELETE FROM oauth2_pending WHERE state = $1 RETURNING *"
 )
 
 // PendingOAuth2 represents an in-progress oauth2 flow
 type PendingOAuth2 struct {
-	FileServerIDField string `db:"server_id"`
-	UserIDField       string `db:"user_id"`
-	StateField        string `db:"state"`
+	OrganizationNameField string `db:"organization_name"`
+	FileServerNameField   string `db:"server_name"`
+	UserIDField           string `db:"user_id"`
+	StateField            string `db:"state"`
 }
 
-// FileServerID returns the if of the file server we're trying au authenticate in
-func (p *PendingOAuth2) FileServerID() string {
-	return p.FileServerIDField
+func (p *PendingOAuth2) OrganizationName() string {
+	return p.OrganizationNameField
+}
+
+func (p *PendingOAuth2) ServerName() string {
+	return p.ServerName()
 }
 
 // UserID returns the user we're trying to authenticate
@@ -50,9 +54,9 @@ func NewPendingOAuth2Repository(db *sqlx.DB) *PendingOAuth2Repository {
 }
 
 // Put starts tracking a new flow
-func (r *PendingOAuth2Repository) Put(ctx context.Context, userID string, serverID string, state string) (models.PendingOAuth2, error) {
+func (r *PendingOAuth2Repository) Put(ctx context.Context, userID string, orgName string, serverName, state string) (models.PendingOAuth2, error) {
 	var flow PendingOAuth2
-	err := r.db.QueryRowxContext(ctx, oauthPutQuery, userID, serverID, state).StructScan(&flow)
+	err := r.db.QueryRowxContext(ctx, oauthPutQuery, userID, orgName, serverName, state).StructScan(&flow)
 	if err != nil {
 		return nil, fmt.Errorf("error executing oauth2flow::put in postgres: %w", err)
 	}
@@ -73,3 +77,4 @@ func (r *PendingOAuth2Repository) Pop(ctx context.Context, state string) (models
 }
 
 var _ repository.PendingOAuth2Repository = (*PendingOAuth2Repository)(nil)
+var _ models.PendingOAuth2 = (*PendingOAuth2)(nil)

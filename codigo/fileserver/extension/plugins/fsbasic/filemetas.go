@@ -176,7 +176,7 @@ func getMetaFromStats(fn string) (*FileMetadata, error) {
 		notes:       "N/A",
 		patientID:   "N/A",
 		contentID:   stats.Name(),
-		lastUpdated: stats.ModTime().Unix(),
+		lastUpdated: stats.ModTime().UnixNano(),
 		deleted:     false,
 		ftype:       "N/A",
 	}, nil

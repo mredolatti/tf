@@ -15,14 +15,15 @@ import (
 
 // Mapping is a MongoDB-compatible struct implementing models.Mapping interface
 type Mapping struct {
-	IDField        primitive.ObjectID `bson:"_id"`
-	UserIDField    primitive.ObjectID `bson:"userId"`
-	ServerIDField  primitive.ObjectID `bson:"serverId"`
-	SizeBytesField int64              `bson:"sizeBytes"`
-	PathField      string             `bson:"path"`
-	RefField       string             `bson:"ref"`
-	DeletedField   bool               `bson:"deleted"`
-	UpdatedField   int64              `bson:"updated"`
+	IDField               primitive.ObjectID `bson:"_id"`
+	UserIDField           primitive.ObjectID `bson:"userId"`
+	OrganizationNameField string             `bson:"organizationName"`
+	FileServerNameField   string             `bson:"serverName"`
+	SizeBytesField        int64              `bson:"sizeBytes"`
+	PathField             string             `bson:"path"`
+	RefField              string             `bson:"ref"`
+	DeletedField          bool               `bson:"deleted"`
+	UpdatedField          int64              `bson:"updated"`
 }
 
 // ID returns the id of the mapping
@@ -35,9 +36,12 @@ func (m *Mapping) UserID() string {
 	return m.UserIDField.Hex()
 }
 
-// FileServerID implements models.Mapping
-func (m *Mapping) FileServerID() string {
-	return m.ServerIDField.Hex()
+func (m *Mapping) OrganizationName() string {
+	return m.OrganizationNameField
+}
+
+func (m *Mapping) ServerName() string {
+	return m.FileServerNameField
 }
 
 func (m *Mapping) SizeBytes() int64 {
@@ -65,8 +69,8 @@ func (m *Mapping) Updated() time.Time {
 }
 
 func (m *Mapping) String() string {
-	return fmt.Sprintf("{id=%s userId=%s serverId=%s path=%s sizeBytes=%d ref=%s deleted=%t updated=%d}",
-		m.ID(), m.UserID(), m.FileServerID(), m.Path(), m.SizeBytes(), m.Ref(), m.Deleted(), m.Updated().UnixNano(),
+	return fmt.Sprintf("{id=%s userId=%s org=%s server=%s path=%s sizeBytes=%d ref=%s deleted=%t updated=%d}",
+		m.ID(), m.UserID(), m.OrganizationName(), m.ServerName(), m.Path(), m.SizeBytes(), m.Ref(), m.Deleted(), m.Updated().UnixNano(),
 	)
 }
 
@@ -75,7 +79,7 @@ type MappingRepository struct {
 }
 
 // HandleServerUpdates implements repository.MappingRepository
-func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID string, updates []models.Update) error {
+func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID string, orgName string, serverName string, updates []models.Update) error {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return fmt.Errorf("error constructing objectID for mapping with id=%s: %w", userID, err)
@@ -83,23 +87,23 @@ func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID stri
 	ops := make([]mongo.WriteModel, 0, len(updates))
 	for _, update := range updates {
 
-		fsid, err := primitive.ObjectIDFromHex(update.ServerID)
-		if err != nil {
-			return fmt.Errorf("error constructing objectID for mapping with id=%s: %w", update.ServerID, err)
-		}
-
 		switch update.ChangeType {
 		case models.UpdateTypeFileAdd, models.UpdateTypeFileUpdate:
 			ops = append(ops, mongo.NewUpdateOneModel().
-				SetFilter(bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}, {Key: "ref", Value: update.FileRef}}).
+				SetFilter(bson.D{
+					{Key: "userId", Value: uid},
+					{Key: "organizationName", Value: orgName},
+					{Key: "serverName", Value: serverName},
+					{Key: "ref", Value: update.FileRef}}).
 				SetUpdate(bson.D{
 					{Key: "$setOnInsert", Value: bson.D{
 						{Key: "_id", Value: primitive.NewObjectID()},
-						{Key: "path", Value: update.UnmappedPath()},
+						{Key: "path", Value: update.UnmappedPath(orgName, serverName)},
 					}},
 					{Key: "$set", Value: bson.D{
 						{Key: "userId", Value: uid},
-						{Key: "serverId", Value: fsid},
+						{Key: "organizationName", Value: orgName},
+						{Key: "serverName", Value: serverName},
 						{Key: "ref", Value: update.FileRef},
 						{Key: "updated", Value: update.Checkpoint},
 						{Key: "sizeBytes", Value: update.SizeBytes},
@@ -108,7 +112,11 @@ func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID stri
 				SetUpsert(true))
 		case models.UpdateTypeFileDelete:
 			ops = append(ops, mongo.NewUpdateOneModel().
-				SetFilter(bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}, {Key: "ref", Value: update.FileRef}}).
+				SetFilter(bson.D{
+					{Key: "userId", Value: uid},
+					{Key: "organizationName", Value: orgName},
+					{Key: "organizationName", Value: serverName},
+					{Key: "ref", Value: update.FileRef}}).
 				SetUpdate(bson.D{{Key: "$set", Value: bson.D{
 					{Key: "updated", Value: update.Checkpoint},
 					{Key: "sizeBytes", Value: update.SizeBytes},
@@ -136,19 +144,17 @@ func (r *MappingRepository) Add(ctx context.Context, userID string, source model
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for mapping with user id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(source.FileServerID())
-	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for mapping with server id=%s: %w", source.FileServerID(), err)
-	}
+
 	u := Mapping{
-		IDField:        primitive.NewObjectID(),
-		UserIDField:    uid,
-		ServerIDField:  fsid,
-		SizeBytesField: source.SizeBytes(),
-		PathField:      source.Path(),
-		RefField:       source.Ref(),
-		DeletedField:   source.Deleted(),
-		UpdatedField:   source.Updated().UnixNano(),
+		IDField:               primitive.NewObjectID(),
+		UserIDField:           uid,
+		OrganizationNameField: source.OrganizationName(),
+		FileServerNameField:   source.ServerName(),
+		SizeBytesField:        source.SizeBytes(),
+		PathField:             source.Path(),
+		RefField:              source.Ref(),
+		DeletedField:          source.Deleted(),
+		UpdatedField:          source.Updated().UnixNano(),
 	}
 
 	res, err := r.collection.InsertOne(ctx, &u)

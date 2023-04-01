@@ -1,6 +1,8 @@
 package mappings
 
 import (
+	"strings"
+
 	"github.com/mredolatti/tf/codigo/common/dtos/jsend"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/common/refutil"
@@ -71,29 +73,29 @@ func (c *Controller) get(ctx *gin.Context) {
 		return
 	}
 
- 	mappingID := ctx.Param("mappingId")
- 	if mappingID != "" {
- 		c.logger.Error("error fetching mapping. no id supplied")
- 		ctx.AbortWithStatus(400)
- 		return
- 	}
+	mappingID := ctx.Param("mappingId")
+	if mappingID != "" {
+		c.logger.Error("error fetching mapping. no id supplied")
+		ctx.AbortWithStatus(400)
+		return
+	}
 
- 	mappings, err := c.maps.Get(ctx.Request.Context(), session.User(), false,  &models.MappingQuery{ID: refutil.Ref(mappingID)})
- 	if err != nil {
- 		c.logger.Error("error fetching mappings for user %s: %s", session.User(), err)
- 		ctx.AbortWithStatus(500)
- 		return
- 	}
+	mappings, err := c.maps.Get(ctx.Request.Context(), session.User(), false, &models.MappingQuery{ID: refutil.Ref(mappingID)})
+	if err != nil {
+		c.logger.Error("error fetching mappings for user %s: %s", session.User(), err)
+		ctx.AbortWithStatus(500)
+		return
+	}
 
- 	l := len(mappings)
- 	switch {
- 	case l < 1:
- 		ctx.AbortWithStatus(404) // no se encontro el mapeo
- 	case l > 1:
- 		ctx.AbortWithStatus(500) // mas de un mapeo con mismo id. error interno
- 	case l == 1:
- 		ctx.JSON(200, formatMapping(mappings[0])) // regio
- 	}
+	l := len(mappings)
+	switch {
+	case l < 1:
+		ctx.AbortWithStatus(404) // no se encontro el mapeo
+	case l > 1:
+		ctx.AbortWithStatus(500) // mas de un mapeo con mismo id. error interno
+	case l == 1:
+		ctx.JSON(200, formatMapping(mappings[0])) // regio
+	}
 }
 
 // func (c *Controller) create(ctx *gin.Context) {
@@ -199,11 +201,18 @@ func formatMappings(mappings []models.Mapping) []DTO {
 }
 
 func formatMapping(mapping models.Mapping) DTO {
+
+	path := mapping.Path()
+	if strings.HasPrefix(path, "unassigned") {
+		path = ""
+	}
 	return DTO{
-		UserIDField:   mapping.UserID(),
-		ServerIDField: mapping.FileServerID(),
-		PathField:     mapping.Path(),
-		RefField:      mapping.Ref(),
-		UpdatedField:  mapping.Updated().Unix(),
+		UserIDField:           mapping.UserID(),
+		OrganizationNameField: mapping.OrganizationName(),
+		ServerNameField:       mapping.ServerName(),
+		SizeBytesField:        mapping.SizeBytes(),
+		PathField:             path,
+		RefField:              mapping.Ref(),
+		UpdatedField:          mapping.Updated().Unix(),
 	}
 }

@@ -82,22 +82,24 @@ void InnerNode::print(std::size_t depth) const
 
 // ----------------------------------
 
-LeafNode::LeafNode(std::string name, std::size_t size_bytes, std::string server_id, std::string ref, bool link) :
-    Node{std::move(name)},
+LeafNode::LeafNode(std::string_view name, std::size_t size_bytes, std::string_view org, std::string_view server, std::string ref, int64_t last_updated, bool link) :
+    Node{std::string{name}},
     size_bytes_{size_bytes},
-    server_id_{std::move(server_id)},
+    org_name_{std::string{org}},
+    server_name_{std::string(server)},
     ref_{std::move(ref)},
+    last_updated_{last_updated},
     link_{link}
 {}
 
-std::unique_ptr<LeafNode> LeafNode::link(std::string name, std::string server_id, std::string ref)
+std::unique_ptr<LeafNode> LeafNode::link(std::string_view name, std::string_view org, std::string_view server, std::string_view ref)
 {
-    return std::make_unique<LeafNode>(std::move(name), 0, std::move(server_id), std::move(ref), true); 
+    return std::make_unique<LeafNode>(std::string{name}, 0, std::string{org}, std::string{server}, std::string{ref}, 0, false); 
 }
 
-std::unique_ptr<LeafNode> LeafNode::file(std::string name, std::string server_id, std::string ref, std::size_t size_bytes)
+std::unique_ptr<LeafNode> LeafNode::file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated)
 {
-    return std::make_unique<LeafNode>(std::move(name), size_bytes, std::move(server_id), std::move(ref), false);
+    return std::make_unique<LeafNode>(std::string{name}, size_bytes, std::string{org}, std::string{server}, std::string{ref}, last_updated, false);
 }
 
 bool LeafNode::insert(std::string_view path, std::unique_ptr<Node> node)
@@ -109,8 +111,8 @@ std::unique_ptr<types::FSElem> LeafNode::get() const
 {
     using rt = std::unique_ptr<types::FSElem>;
     return (link_)
-        ? rt{std::make_unique<types::FSELink>(name_, server_id_, ref_)}
-        : rt{std::make_unique<types::FSEFile>(name_, server_id_, ref_, size_bytes_)};
+        ? rt{std::make_unique<types::FSELink>(name_, org_name_, server_name_, ref_)}
+        : rt{std::make_unique<types::FSEFile>(name_, org_name_, server_name_, ref_, size_bytes_, last_updated_)};
 }
 
 std::vector<std::unique_ptr<types::FSElem>> LeafNode::children() const

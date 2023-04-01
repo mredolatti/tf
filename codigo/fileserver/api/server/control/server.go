@@ -1,6 +1,7 @@
 package control
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/mredolatti/tf/codigo/common/is2fs"
@@ -11,6 +12,10 @@ import (
 
 const (
 	defaultQueueSize = 10000
+)
+
+var (
+	ErrNoUser = errors.New("could not fetch user from incoming request")
 )
 
 // Server provides a set of RPCs to get updates on changes in files
@@ -39,10 +44,12 @@ func New(logger log.Interface, manager filemanager.Interface) (*Server, error) {
 // SyncUser implements the SycUser rpc
 func (c *Server) SyncUser(request *is2fs.SyncUserRequest, stream is2fs.FileRefSync_SyncUserServer) error {
 
-	forUser, err := c.manager.ListFileMetadata(
-		request.GetUserID(),
-		&filemanager.ListQuery{UpdatedAfter: refutil.Ref(request.GetCheckpoint())},
-	)
+	user, ok := stream.Context().Value("user").(string)
+	if !ok || user == "" {
+		return ErrNoUser
+	}
+
+	forUser, err := c.manager.ListFileMetadata(user, &filemanager.ListQuery{UpdatedAfter: refutil.Ref(request.GetCheckpoint())})
 	if err != nil {
 		return fmt.Errorf("error getting files for user %s: %w", request.GetUserID(), err)
 	}

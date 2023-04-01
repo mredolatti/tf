@@ -9,6 +9,11 @@ namespace mifs::util {
 
 namespace detail {
 
+std::string make_key(const std::string& org, const std::string& server, const std::string& ref)
+{
+	return fmt::format("{}/{}/{}", org, server, ref);
+}
+
 CacheEntry::CacheEntry(std::string file_id, std::string file_name, std::string contents, sync_time_t last_sync) :
     file_id_{std::move(file_id)},
     file_name_{std::move(file_name)},
@@ -56,10 +61,10 @@ FileCache::FileCache() :
 {}
 
 
-FileCache::get_res_t FileCache::get(const std::string& server_id, const std::string& ref)
+FileCache::get_res_t FileCache::get(const std::string& org_name, const std::string& server_id, const std::string& ref)
 {
     std::lock_guard lk{mutex_};
-    auto it{entries_.find(fmt::format("{}/{}", server_id, ref))};
+    auto it{entries_.find(detail::make_key(org_name, server_id, ref))};
     if (it == entries_.end()) {
         return util::Unexpected<Error>{Error::NotFound};
     }
@@ -68,21 +73,21 @@ FileCache::get_res_t FileCache::get(const std::string& server_id, const std::str
 
 }
 
-bool FileCache::put(std::string server_id, std::string ref, std::string contents)
+bool FileCache::put(const std::string& org_name, std::string server_id, std::string ref, std::string contents)
 {
     std::lock_guard lk{mutex_};
-    auto entry{fmt::format("{}/{}", server_id, ref)};
-    SPDLOG_LOGGER_TRACE(logger_, "storing entry {} in file cache", entry);
+    auto key{detail::make_key(org_name, server_id, ref)};
+    SPDLOG_LOGGER_TRACE(logger_, "storing entry {} in file cache", key);
     return entries_.insert({
-            entry,
-            detail::CacheEntry{std::move(server_id), entry, std::move(contents), std::chrono::system_clock::now()}
+            key,
+            detail::CacheEntry{std::move(server_id), key, std::move(contents), std::chrono::system_clock::now()}
     }).second;
 }
 
-bool FileCache::has(const std::string& server_id, const std::string& ref)
+bool FileCache::has(const std::string& org_name, const std::string& server_id, const std::string& ref)
 {
     std::lock_guard lk{mutex_};
-    auto key{fmt::format("{}/{}", server_id, ref)};
+    auto key{detail::make_key(org_name, server_id, ref)};
     return entries_.find(key) != entries_.end();
 }
 

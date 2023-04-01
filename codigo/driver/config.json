@@ -1,0 +1,16 @@
+{
+    "indexServer": {
+        "tokenSource": "env::MIFS_IS_TOKEN",
+        "url": "https://index-server:9876",
+        "rootCert": "/home/martin/Projects/tf/codigo/PKI/root/certs/ca.crt"
+    },
+    "credentials": {
+        "unicen": {
+            "file-server": {
+                "rootCertificate": "/home/martin/Projects/tf/codigo/PKI/root/certs/ca.crt",
+                "clientCertificate": "/home/martin/Projects/tf/codigo/PKI/client/certs/client.crt",
+                "clientPrivateKey": "/home/martin/Projects/tf/codigo/PKI/client/private/client.key"
+            }
+        }
+    }
+}

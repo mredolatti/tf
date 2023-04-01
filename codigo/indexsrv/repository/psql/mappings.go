@@ -18,11 +18,11 @@ const (
 	_all                    = " RETURNING *"
 	mappingListQuery        = "SELECT * FROM mappings WHERE user_id = $1"
 	mappingListByPathQuery  = "SELECT * FROM mappings WHERE user_id = $1 AND path <@ $2"
-	_mappingAddTpl          = "INSERT INTO mappings(user_id, server_id, size_bytes, path, ref, updated) VALUES ($1, $2, $3, $4, $5, $6)"
+	_mappingAddTpl          = "INSERT INTO mappings(user_id, organization_name, server_name, size_bytes, path, ref, updated) VALUES ($1, $2, $3, $4, $5, $6)"
 	mappingAddQuery         = _mappingAddTpl + _all
-	mappingAddOrUpdateQuery = ("INSERT INTO mappings(user_id, server_id, size_bytes, path, ref, updated, deleted) " +
-		"VALUES (:user_id, :server_id, :size_bytes, :path, :ref, :updated, :deleted) " +
-		"ON CONFLICT (user_id, server_id, ref) DO UPDATE SET updated=EXCLUDED.updated, size_bytes=EXCLUDED.size_bytes, deleted=EXCLUDED.deleted")
+	mappingAddOrUpdateQuery = ("INSERT INTO mappings(user_id, organization_name, server_name, size_bytes, path, ref, updated, deleted) " +
+		"VALUES (:user_id, :organization_name, :server_name, :path, :ref, :updated, :deleted) " +
+		"ON CONFLICT (user_id, organization_name, server_name, ref) DO UPDATE SET updated=EXCLUDED.updated, size_bytes=EXCLUDED.size_bytes, deleted=EXCLUDED.deleted")
 	mappingDelQuery = "DELETE FROM mappings WHERE user_id = $1 AND path = $2"
 )
 
@@ -38,13 +38,14 @@ var formatterForStorage *strings.Replacer = strings.NewReplacer(
 
 // Mapping is a postgres-compatible struct implementing models.Mapping interface
 type Mapping struct {
-	UserIDField    string `db:"user_id"`
-	ServerIDField  string `db:"server_id"`
-	SizeBytesField int64  `db:"size_bytes"`
-	PathField      string `db:"path"`
-	RefField       string `db:"ref"`
-	UpdatedField   int64  `db:"updated"`
-	DeletedField   bool   `db:"deleted"`
+	UserIDField     string `db:"user_id"`
+	OrgNameField    string `db:"organization_name"`
+	ServerNameField string `db:"server_name"`
+	SizeBytesField  int64  `db:"size_bytes"`
+	PathField       string `db:"path"`
+	RefField        string `db:"ref"`
+	UpdatedField    int64  `db:"updated"`
+	DeletedField    bool   `db:"deleted"`
 }
 
 // UserID returns the if of the user who has an mapping in a file server
@@ -52,9 +53,12 @@ func (m *Mapping) UserID() string {
 	return m.UserIDField
 }
 
-// FileServerID returns the id of the server in which the user has the mapping
-func (m *Mapping) FileServerID() string {
-	return m.ServerIDField
+func (m *Mapping) OrganizationName() string {
+	return m.OrganizationName()
+}
+
+func (m *Mapping) ServerName() string {
+	return m.ServerNameField
 }
 
 func (m *Mapping) SizeBytes() int64 {
@@ -130,7 +134,8 @@ func (r *MappingRepository) Add(ctx context.Context, userID string, mapping mode
 		ctx,
 		mappingAddQuery,
 		userID,
-		mapping.FileServerID(),
+		mapping.OrganizationName(),
+		mapping.ServerName(),
 		mapping.SizeBytes(),
 		formatterForStorage.Replace(mapping.Path()),
 		mapping.Ref(),
@@ -143,8 +148,8 @@ func (r *MappingRepository) Add(ctx context.Context, userID string, mapping mode
 }
 
 // HandleServerUpdates adds/updates mappings from an incoming set of changes from a file server
-func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID string, updates []models.Update) error {
-	if _, err := r.db.NamedExecContext(ctx, mappingAddOrUpdateQuery, mappingsFromUpdates(userID, updates)); err != nil {
+func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID string, orgName string, serverName string, updates []models.Update) error {
+	if _, err := r.db.NamedExecContext(ctx, mappingAddOrUpdateQuery, mappingsFromUpdates(userID, orgName, serverName, updates)); err != nil {
 		return fmt.Errorf("error inserting/updating mappings: %w", err)
 	}
 	return nil
@@ -165,17 +170,18 @@ func (r *MappingRepository) Remove(ctx context.Context, userID string, path stri
 	return nil
 }
 
-func mappingsFromUpdates(userID string, updates []models.Update) []Mapping {
+func mappingsFromUpdates(userID string, orgName string, serverName string, updates []models.Update) []Mapping {
 	mappings := make([]Mapping, 0, len(updates))
 	for _, update := range updates {
 		mappings = append(mappings, Mapping{
-			UserIDField:   userID,
-			ServerIDField: update.ServerID,
-			SizeBytesField: update.SizeBytes,
-			RefField:      update.FileRef,
-			DeletedField:  update.ChangeType == models.UpdateTypeFileDelete,
-			UpdatedField:  update.Checkpoint,
-			PathField:     formatterForStorage.Replace(update.UnmappedPath()),
+			UserIDField:     userID,
+			OrgNameField:    orgName,
+			ServerNameField: serverName,
+			SizeBytesField:  update.SizeBytes,
+			RefField:        update.FileRef,
+			DeletedField:    update.ChangeType == models.UpdateTypeFileDelete,
+			UpdatedField:    update.Checkpoint,
+			PathField:       formatterForStorage.Replace(update.UnmappedPath(orgName, serverName)),
 		})
 	}
 
@@ -183,3 +189,4 @@ func mappingsFromUpdates(userID string, updates []models.Update) []Mapping {
 }
 
 var _ repository.MappingRepository = (*MappingRepository)(nil)
+var _ models.Mapping = (*Mapping)(nil)

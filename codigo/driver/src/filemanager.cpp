@@ -13,9 +13,10 @@ namespace helpers {
 std::pair<std::string_view, std::string_view> parse_server_ref(std::string_view path);
 }
 
-FileManager::FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client) :
+FileManager::FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog) :
     is_client_{std::move(is_client)},
     fs_client_{std::move(fs_client)},
+    fs_catalog_{fs_catalog},
     logger_{log::get()}
 {}
 
@@ -40,29 +41,28 @@ FileManager::stat_result_t FileManager::stat(std::string_view path)
 
 void FileManager::sync()
 {
-    SPDLOG_LOGGER_TRACE(logger_, "fetching from file servers...");
-    std::string servers[]{"fs1"}; // TODO(mredolatti)
-    std::unordered_map<std::string, std::vector<models::FileMetadata>> files_by_server;
-    for (const auto& server : servers) {
-        auto res{fs_client_.get_all(server)};
-        if (res) {
-            auto&& files{(*res).data["files"]};
-            SPDLOG_LOGGER_INFO(logger_, "successfully fetched {} files from {}", files.size(), server);
-            files_by_server[server] = std::move(files);
-        } else {
-            SPDLOG_LOGGER_ERROR(logger_, "failed to fetch files from file server server {}: {}", server, res.error());
-        }
-    }
-
-    SPDLOG_LOGGER_TRACE(logger_, "fetching from index server...");
-    auto res{is_client_.get_all()};
-    if (!res) {
-        SPDLOG_LOGGER_ERROR(logger_, "failed to fetch mappings from index server: {}", res.error());
+    SPDLOG_LOGGER_TRACE(logger_, "fetching mappings...");
+    auto res_mappings{is_client_.get_mappings()};
+    if (!res_mappings) {
+        SPDLOG_LOGGER_ERROR(logger_, "failed to fetch mappings from index server: {}", res_mappings.error());
         return;
     }
 
-    auto&& mappings{(*res).data["mapping"]};
-    fs_mirror_.reset_all(std::move(mappings), std::move(files_by_server));
+    const auto& mappings{(*res_mappings).data["mapping"]};
+    fs_mirror_.reset_all(mappings);
+
+    SPDLOG_LOGGER_TRACE(logger_, "fetching file server information...");
+    auto res_servers{is_client_.get_servers()};
+    if (!res_servers) {
+        SPDLOG_LOGGER_ERROR(logger_, "failed to fetch file servers information from index server: {}", res_mappings.error());
+        return;
+    }
+
+    const auto& servers{(*res_servers).data["server"]};
+    for (const auto& server: servers) {
+        fs_catalog_->update_fetch_url(server.org_name(), server.name(), server.fetch_url());
+    }
+
 }
 
 
@@ -86,14 +86,14 @@ int FileManager::read(std::string_view path, char *buffer, std::size_t offset, s
         return -1;
     }
 
-    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for server={}, id={}", file_meta->server_id(), file_meta->ref());
+    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(), file_meta->server(), file_meta->ref());
 
-    if (!ensure_cached(file_meta->server_id(), file_meta->ref())) {
+    if (!ensure_cached(file_meta->org(), file_meta->server(), file_meta->ref())) {
         SPDLOG_LOGGER_ERROR(logger_, "file '{}' could not be fetched/cached.", path);
         return -1;
     }
 
-    auto from_cache{file_cache_.get(file_meta->server_id(), file_meta->ref())};
+    auto from_cache{file_cache_.get(file_meta->org(), file_meta->server(), file_meta->ref())};
     if (!from_cache) {
         return -1;
     }
@@ -119,20 +119,20 @@ int FileManager::read(int fd, char *buffer, std::size_t offset, std::size_t coun
     return read(std::string{of->get().name}, buffer, offset, count);
 }
 
-bool FileManager::ensure_cached(std::string server, std::string ref)
+bool FileManager::ensure_cached(const std::string& org, const std::string& server, const std::string& ref)
 {
-    if (file_cache_.has(server, ref)) {
+    if (file_cache_.has(org, server, ref)) {
         return true;
     }
 
     SPDLOG_LOGGER_TRACE(logger_, "fetching contents for file '{}' on server '{}'", ref, server);
 
-    auto result{fs_client_.contents(server, ref)};
+    auto result{fs_client_.contents(org, server, ref)};
     if (!result) {
         return false;
     }
 
-    return file_cache_.put(std::move(server), std::move(ref), std::move(*result));
+    return file_cache_.put(org, std::move(server), std::move(ref), std::move(*result));
 }
 
 namespace helpers {

@@ -35,16 +35,20 @@ class FSEFile : public FSElem
     FSEFile& operator=(FSEFile&&) = default;
     ~FSEFile() = default;
 
-    FSEFile(std::string name, std::string server_id, std::string ref, std::size_t size_bytes);
-    const std::string& server_id() const;
+    FSEFile(std::string name, std::string_view org, std::string_view server, std::string_view ref, std::size_t size_bytes, int64_t last_updated);
+    const std::string& org() const;
+    const std::string& server() const;
     const std::string& ref() const;
     std::size_t size_bytes() const override;
+    int64_t last_updated() const;
     void accept(FSElemVisitor&) const override;
 
     private:
-    std::string server_id_;
+    std::string org_;
+    std::string server_;
     std::string ref_;
     std::size_t size_bytes_;
+    int64_t last_updated_;
 
 };
 
@@ -73,14 +77,16 @@ class FSELink : public FSElem
     FSELink& operator=(FSELink&&) = default;
     ~FSELink() = default;
 
-    FSELink(std::string name, std::string server_id, std::string ref);
+    FSELink(std::string_view name, std::string_view org_name, std::string_view server_id, std::string_view ref);
     std::size_t size_bytes() const override;
     void accept(FSElemVisitor&) const override;
-    const std::string& server_id() const;
+    const std::string& org_name() const;
+    const std::string& server_name() const;
     const std::string& ref() const;
 
     private:
-    std::string server_id_;
+    std::string org_name_;
+    std::string server_name_;
     std::string ref_;
 };
 

@@ -65,9 +65,9 @@ class LeafNode : public Node
     LeafNode& operator=(LeafNode&&) = default;
     ~LeafNode() = default;
 
-    LeafNode(std::string name, std::size_t size_bytes, std::string server_id, std::string ref, bool link);
-    static std::unique_ptr<LeafNode> link(std::string name, std::string server_id, std::string ref);
-    static std::unique_ptr<LeafNode> file(std::string name, std::string server_id, std::string ref, std::size_t bytes);
+    LeafNode(std::string_view name, std::size_t size_bytes, std::string_view org, std::string_view server, std::string ref, int64_t last_updated, bool link);
+    static std::unique_ptr<LeafNode> link(std::string_view name, std::string_view org, std::string_view server, std::string_view ref);
+    static std::unique_ptr<LeafNode> file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated);
 
     bool insert(std::string_view path, std::unique_ptr<Node> node) override;
     std::unique_ptr<types::FSElem> get() const override;
@@ -77,8 +77,10 @@ class LeafNode : public Node
 
     private:
     std::size_t size_bytes_;
-    std::string server_id_;
+    std::string org_name_;
+    std::string server_name_;
     std::string ref_;
+    int64_t last_updated_;
     bool link_;
 };
 

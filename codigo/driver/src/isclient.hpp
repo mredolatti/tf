@@ -4,8 +4,12 @@
 #include "http.hpp"
 #include "httpc.hpp"
 #include "mappings.hpp"
+#include "servers.hpp"
 #include "jsend.hpp"
 #include "expected.hpp"
+#include "istokens.hpp"
+#include "config.hpp"
+
 
 #include <memory>
 #include <vector>
@@ -16,16 +20,22 @@ class IndexServerClient
 {
     public:
 
+    using token_source_ptr_t = std::unique_ptr<IndexServerTokenSource>;
+    using http_client_ptr_t = std::shared_ptr<http::Client>;
+    using mappings_response_t = jsend::Response<models::Mapping>;
+    using mappings_result_t = util::Expected<mappings_response_t, int /* TODO */>;
+    using servers_response_t = jsend::Response<models::FileServer>;
+    using servers_result_t = util::Expected<servers_response_t, int /* TODO */>;
+    using no_response_t = util::Unexpected<int /* TODO */>;
+
     struct Config
     {
         std::string url;
+        std::string root_cert_fn;
+        token_source_ptr_t token_source;
+
+        static Config from_parsed_conf(const mifs::Config& cfg);
     };
-
-    using http_client_ptr_t = std::shared_ptr<http::Client>;
-
-    using response_t = jsend::Response<models::Mapping>;
-    using response_result_t = util::Expected<response_t, int /* TODO */>;
-    using no_response_t = util::Unexpected<int /* TODO */>;
 
     IndexServerClient() = delete;
     IndexServerClient(const IndexServerClient&) = delete;
@@ -35,12 +45,14 @@ class IndexServerClient
     ~IndexServerClient() = default;
 
     explicit IndexServerClient(http_client_ptr_t http_client, Config config);
-
-    response_result_t get_all();
+    mappings_result_t get_mappings();
+    servers_result_t get_servers();
 
     private:
     http_client_ptr_t client_;
+    token_source_ptr_t token_source_;
     std::string url_;
+    std::string cacert_fn_;
 };
 
 } // namespace mifs::apiclients

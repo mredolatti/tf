@@ -15,8 +15,8 @@ import (
 // FileServer is a MongoDB-compatible struct implementing models.FileServer interface
 type FileServer struct {
 	IDField              primitive.ObjectID `bson:"_id"`
+	OrgField             string             `bson:"organizationName"`
 	NameField            string             `bson:"name"`
-	OrgField             primitive.ObjectID `bson:"orgId"`
 	AuthURLField         string             `bson:"authUrl"`
 	TokenURLField        string             `bson:"tokenUrl"`
 	FetchURLField        string             `bson:"fetchUrl"`
@@ -34,8 +34,8 @@ func (f *FileServer) Name() string {
 }
 
 // OrganizationID returns the ID of the organization this server belongs to
-func (f *FileServer) OrganizationID() string {
-	return f.OrgField.Hex()
+func (f *FileServer) OrganizationName() string {
+	return f.OrgField
 }
 
 // AuthURL returns the URL used to authorize users when linking a server to their account
@@ -66,20 +66,16 @@ type FileServerRepository struct {
 func (r *FileServerRepository) Add(
 	ctx context.Context,
 	name string,
-	orgID string,
+	orgName string,
 	authURL string,
 	tokenURL string,
 	fetchURL string,
 	controlEndpoint string,
 ) (models.FileServer, error) {
-	oid, err := primitive.ObjectIDFromHex(orgID)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for fileServer with id=%s: %w", orgID, err)
-	}
 	u := FileServer{
 		IDField:              primitive.NewObjectID(),
 		NameField:            name,
-		OrgField:             oid,
+		OrgField:             orgName,
 		AuthURLField:         authURL,
 		TokenURLField:        tokenURL,
 		FetchURLField:        fetchURL,
@@ -123,7 +119,25 @@ func (r *FileServerRepository) List(ctx context.Context, query models.FileServer
 }
 
 // Get implements repository.FileServerRepository
-func (r *FileServerRepository) Get(ctx context.Context, id string) (models.FileServer, error) {
+func (r *FileServerRepository) Get(ctx context.Context, orgName string, name string) (models.FileServer, error) {
+	res := r.collection.FindOne(ctx, bson.D{{Key: "organizationName", Value: orgName}, {Key: "name", Value: name}})
+	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error fetching fileServer from mongodb: %w", err)
+	}
+
+	var u FileServer
+	if err := res.Decode(&u); err != nil {
+		return nil, fmt.Errorf("error deserializing fileServer from mongo result: %w", err)
+	}
+
+	return &u, nil
+}
+
+// Get implements repository.FileServerRepository
+func (r *FileServerRepository) GetByID(ctx context.Context, id string) (models.FileServer, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for fileServer with id=%s: %w", id, err)
@@ -169,28 +183,13 @@ func NewFileServerRepository(db *mongo.Database) *FileServerRepository {
 }
 
 func buildListFilter(query models.FileServersQuery) (bson.D, error) {
-	var filter bson.D
-	if query.OrgID != nil {
-		oid, err := primitive.ObjectIDFromHex(*query.OrgID)
-		if err != nil {
-			return nil, fmt.Errorf("error constructing objectID for orgID with id=%s: %w", *query.OrgID, err)
-
-		}
-		filter = append(filter, bson.E{Key: "orgId", Value: oid})
+	filter := bson.D{}
+	if query.OrganizationName != nil {
+		filter = append(filter, bson.E{Key: "organizationName", Value: query.OrganizationName})
 	}
 
-	var objectIDs []primitive.ObjectID
-	for _, id := range query.IDs {
-		oid, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			return nil, fmt.Errorf("error constructing objectID for fileServer with id=%s: %w", id, err)
-
-		}
-		objectIDs = append(objectIDs, oid)
-	}
-	
-	if objectIDs != nil {
-		filter = append(filter, bson.E{Key: "_id", Value: bson.E{Key: "$in", Value: objectIDs}})
+	if query.Names != nil {
+		filter = append(filter, bson.E{Key: "name", Value: bson.E{Key: "$in", Value: query.Names}})
 	}
 
 	return filter, nil

@@ -13,15 +13,19 @@ import (
 
 // PendingOAuth2 represents an in-progress oauth2 flow
 type PendingOAuth2 struct {
-	IDField           primitive.ObjectID
-	UserIDField       primitive.ObjectID `bson:"userId"`
-	FileServerIDField primitive.ObjectID `bson:"serverId"`
-	StateField        string `bson:"state"`
+	IDField               primitive.ObjectID
+	UserIDField           primitive.ObjectID `bson:"userId"`
+	OrganizationNameField string             `bson:"organizationName"`
+	ServerNameField       string             `bson:"serverName"`
+	StateField            string             `bson:"state"`
 }
 
-// FileServerID returns the if of the file server we're trying au authenticate in
-func (p *PendingOAuth2) FileServerID() string {
-	return p.FileServerIDField.Hex()
+func (p *PendingOAuth2) OrganizationName() string {
+	return p.OrganizationNameField
+}
+
+func (p *PendingOAuth2) ServerName() string {
+	return p.ServerNameField
 }
 
 // UserID returns the user we're trying to authenticate
@@ -45,21 +49,18 @@ func NewPendingOAuth2Repository(db *mongo.Database) *PendingOAuth2Repository {
 }
 
 // Put starts tracking a new flow
-func (r *PendingOAuth2Repository) Put(ctx context.Context, userID string, serverID string, state string) (models.PendingOAuth2, error) {
+func (r *PendingOAuth2Repository) Put(ctx context.Context, userID string, orgName string, serverName string, state string) (models.PendingOAuth2, error) {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(serverID)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for server with id=%s: %w", serverID, err)
-	}
 
 	toInsert := &PendingOAuth2{
-		IDField: primitive.NewObjectID(),
-		FileServerIDField: fsid,
-		UserIDField: uid,
-		StateField: state,
+		IDField:               primitive.NewObjectID(),
+		OrganizationNameField: orgName,
+		ServerNameField:       serverName,
+		UserIDField:           uid,
+		StateField:            state,
 	}
 
 	_, err = r.collection.InsertOne(ctx, toInsert)
@@ -86,3 +87,4 @@ func (r *PendingOAuth2Repository) Pop(ctx context.Context, state string) (models
 }
 
 var _ repository.PendingOAuth2Repository = (*PendingOAuth2Repository)(nil)
+var _ models.PendingOAuth2 = (*PendingOAuth2)(nil)

@@ -1,7 +1,7 @@
 #ifndef MIFS_LOG_HPP
 #define MIFS_LOG_HPP
 
-#include "config.hpp"
+#include "buildcfg.hpp"
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 

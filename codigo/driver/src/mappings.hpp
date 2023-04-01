@@ -21,20 +21,24 @@ class Mapping
     Mapping& operator=(Mapping&&) = default;
     ~Mapping() = default;
 
-    Mapping(std::string_view name, std::size_t size_bytes, std::string_view ref, std::string_view server);
+    Mapping(std::string_view name, std::size_t size_bytes, std::string_view ref, std::string_view org, std::string_view server, int64_t last_updated);
 
     template<typename Serialized>
     static parse_result_t parse(const Serialized& data);
 
-    const std::string& name() const;
+    const std::string& path() const;
     std::size_t size_bytes() const;
     const std::string& ref() const;
+    const std::string& org() const;
     const std::string& server() const;
+    int64_t last_updated() const;
 
     private:
-    std::string name_;
+    std::string path_;
     std::string ref_;
+    std::string org_;
     std::string server_;
+    int64_t last_updated_;
     std::size_t size_bytes_;
 };
 

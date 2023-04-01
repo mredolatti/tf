@@ -1,5 +1,4 @@
 #include "log.hpp"
-#include "config.hpp"
 #include <spdlog/common.h>
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>

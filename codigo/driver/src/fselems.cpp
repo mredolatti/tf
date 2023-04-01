@@ -13,16 +13,23 @@ const std::string& FSElem::name() const
 
 // ---------------------------------------
 
-FSEFile::FSEFile(std::string name, std::string server_id, std::string ref, std::size_t size_bytes) :
+FSEFile::FSEFile(std::string name, std::string_view org, std::string_view server, std::string_view ref, std::size_t size_bytes, int64_t last_updated) :
     FSElem{std::move(name)},
-    server_id_{std::move(server_id)},
+    org_{org},
+    server_{server},
     ref_{std::move(ref)},
-    size_bytes_{size_bytes}
+    size_bytes_{size_bytes},
+    last_updated_(last_updated)
 {}
 
-const std::string& FSEFile::server_id() const
+const std::string& FSEFile::org() const
 {
-    return server_id_;
+    return org_;
+}
+
+const std::string& FSEFile::server() const
+{
+    return server_;
 }
 
 const std::string& FSEFile::ref() const
@@ -33,6 +40,10 @@ const std::string& FSEFile::ref() const
 std::size_t FSEFile::size_bytes() const
 {
     return size_bytes_;
+}
+
+int64_t FSEFile::last_updated() const {
+    return last_updated_;
 }
 
 void FSEFile::accept(FSElemVisitor& v) const
@@ -60,10 +71,11 @@ void FSEFolder::accept(FSElemVisitor& v) const
 
 // -------------------------------------------
 
-FSELink::FSELink(std::string name, std::string server_id, std::string ref) :
-    FSElem{std::move(name)},
-    server_id_{std::move(server_id)},
-    ref_{std::move(ref)}
+FSELink::FSELink(std::string_view name, std::string_view org_name, std::string_view server_name, std::string_view ref) :
+    FSElem{std::string{name}},
+    org_name_{org_name},
+    server_name_{server_name},
+    ref_{ref}
 {}
 
 std::size_t FSELink::size_bytes() const
@@ -71,9 +83,14 @@ std::size_t FSELink::size_bytes() const
     return 0;
 }
 
-const std::string& FSELink::server_id() const
+const std::string& FSELink::server_name() const
 {
-    return server_id_;
+    return server_name_;
+}
+
+const std::string& FSELink::org_name() const
+{
+    return org_name_;
 }
 
 const std::string& FSELink::ref() const

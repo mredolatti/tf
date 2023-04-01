@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mredolatti/tf/codigo/common/dtos/jsend"
 	"github.com/mredolatti/tf/codigo/common/log"
-	"github.com/mredolatti/tf/codigo/common/refutil"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/middleware"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
@@ -26,11 +26,12 @@ func New(registrar registrar.Interface, logger log.Interface) *Controller {
 
 func (c *Controller) Register(router gin.IRouter) {
 	router.GET("/organizations", c.listOrganizations)
-	router.GET("/organizations/:id", c.getOrganization)
-	router.GET("/organizations/:id/servers", c.listServersForOrg)
+	router.GET("/organizations/:name", c.getOrganization)
+	router.GET("/organizations/:name/servers", c.listServersForOrg)
+	router.GET("/organizations/:name/servers/:serverName", c.listServersForOrg)
+	router.GET("/organizations/:name/servers/:serverName/link", c.initiateLinkProcess)
 	router.GET("/servers", c.listServers)
 	router.GET("/servers/:serverId", c.getServer)
-	router.GET("/servers/:serverId/link", c.initiateLinkProcess) // hacer redirect a => GET en file server
 }
 
 func (c *Controller) listOrganizations(ctx *gin.Context) {
@@ -41,11 +42,18 @@ func (c *Controller) listOrganizations(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(200, toOrgsView(orgs))
+	resp, err := jsend.NewSuccessResponse("organization", toOrgsView(orgs), "")
+	if err != nil {
+		c.logger.Error("[organizations::listOrgaanizations] error building response: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, "error building response")
+		return
+	}
+
+	ctx.JSON(200, resp)
 }
 
 func (c *Controller) getOrganization(ctx *gin.Context) {
-	org, err := c.registrar.GetOrganization(ctx.Request.Context(), ctx.Param("id"))
+	org, err := c.registrar.GetOrganization(ctx.Request.Context(), ctx.Param("name"))
 	switch err {
 	case nil:
 	case repository.ErrNotFound:
@@ -56,36 +64,57 @@ func (c *Controller) getOrganization(ctx *gin.Context) {
 		ctx.AbortWithStatus(500)
 		return
 	}
-	ctx.JSON(200, toOrgView(org))
+
+	resp, err := jsend.NewSuccessResponse("organization", toOrgsView([]models.Organization{org}), "")
+	if err != nil {
+		c.logger.Error("[organizations::get] error building response: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, "error building response")
+		return
+	}
+
+	ctx.JSON(200, resp)
 }
 
 func (c *Controller) listServersForOrg(ctx *gin.Context) {
-	fss, err := c.registrar.ListServers(ctx.Request.Context(), models.FileServersQuery{OrgID: refutil.Ref(ctx.Param("id"))})
+	id := ctx.Param("name")
+	fss, err := c.registrar.ListServers(ctx.Request.Context(), models.FileServersQuery{OrganizationName: &id})
 	if err != nil {
-		c.logger.Error("error fetching organizations: %s", err.Error())
+		c.logger.Error("error fetching servers for organization %s: %s", id, err.Error())
 		ctx.AbortWithStatus(500)
 		return
 	}
 
-	ctx.JSON(200, toFileServersView(fss, "")) // TODO(mredolatti): pass proper name or remove
+	resp, err := jsend.NewSuccessResponse("server", toFileServersView(fss), "")
+	if err != nil {
+		c.logger.Error("[organizations::listServersForOrg] error building response: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, "error building response")
+		return
+	}
 
+	ctx.JSON(200, resp)
 }
 
 func (c *Controller) listServers(ctx *gin.Context) {
-	fss, err := c.registrar.ListServers(ctx.Request.Context(), models.FileServersQuery{IDs: ctx.QueryArray("id")})
+	fss, err := c.registrar.ListServers(ctx.Request.Context(), models.FileServersQuery{})
 	if err != nil {
-		c.logger.Error("error fetching organizations: %s", err.Error())
+		c.logger.Error("error fetching servers: %s", err.Error())
 		ctx.AbortWithStatus(500)
 		return
 	}
 
-	ctx.JSON(200, toFileServersView(fss, "")) // TODO(mredolatti): pass proper name or remove
+	resp, err := jsend.NewSuccessResponse("server", toFileServersView(fss), "")
+	if err != nil {
+		c.logger.Error("[organizations::listServers] error building response: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, "error building response")
+		return
+	}
 
+	ctx.JSON(200, resp)
 }
 
 func (c *Controller) getServer(ctx *gin.Context) {
 	// TODO(mredolatti: validate org id?
-	server, err := c.registrar.GetServer(ctx.Request.Context(), ctx.Param("serverId"))
+	server, err := c.registrar.GetServer(ctx.Request.Context(), ctx.Param("name"), ctx.Param("serverName"))
 	switch err {
 	case nil:
 	case repository.ErrNotFound:
@@ -96,8 +125,9 @@ func (c *Controller) getServer(ctx *gin.Context) {
 		ctx.AbortWithStatus(500)
 		return
 	}
-	ctx.JSON(200, toFileServerView(server, ""))
+	ctx.JSON(200, toFileServerView(server))
 }
+
 
 func (c *Controller) initiateLinkProcess(ctx *gin.Context) {
 
@@ -108,14 +138,15 @@ func (c *Controller) initiateLinkProcess(ctx *gin.Context) {
 		return
 	}
 
-	serverID := ctx.Param("serverId")
+	orgName := ctx.Param("name")
+	serverName := ctx.Param("serverName")
 	force := ctx.Query("force") == "true"
 
-	url, err := c.registrar.InitiateLinkProcess(ctx.Request.Context(), session.User(), serverID, force)
+	url, err := c.registrar.InitiateLinkProcess(ctx.Request.Context(), session.User(), orgName, serverName, force)
 	if err != nil {
 		if errors.Is(err, registrar.ErrAccountExists) {
 			ctx.JSON(400, "account already exists")
-			c.logger.Error("requested initial link with an already existing account (%s/%s)", session.User(), serverID)
+			c.logger.Error("requested initial link with an already existing account (%s/%s/%s)", session.User(), orgName, serverName)
 			return
 		}
 		ctx.JSON(500, "unable to initiate oauth2 flow")
@@ -141,10 +172,10 @@ func toOrgsView(orgs []models.Organization) []OrganizationViewDTO {
 	return res
 }
 
-func toFileServerView(fs models.FileServer, orgName string) FileServerViewDTO {
+func toFileServerView(fs models.FileServer) FileServerViewDTO {
 	return FileServerViewDTO{
 		ID:                fs.ID(),
-		OrganizationName:  orgName,
+		OrganizationName:  fs.OrganizationName(),
 		Name:              fs.Name(),
 		AuthenticationURL: fs.AuthURL(),
 		TokenURL:          fs.TokenURL(),
@@ -153,10 +184,10 @@ func toFileServerView(fs models.FileServer, orgName string) FileServerViewDTO {
 	}
 }
 
-func toFileServersView(servers []models.FileServer, orgName string) []FileServerViewDTO {
+func toFileServersView(servers []models.FileServer) []FileServerViewDTO {
 	res := make([]FileServerViewDTO, len(servers))
 	for i := range servers {
-		res[i] = toFileServerView(servers[i], orgName)
+		res[i] = toFileServerView(servers[i])
 	}
 	return res
 }

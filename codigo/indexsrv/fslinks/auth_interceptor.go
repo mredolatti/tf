@@ -62,12 +62,17 @@ func (a *authInterceptor) attachToken(ctx context.Context) (context.Context, err
 		return nil, errMissingUserID
 	}
 
-	serverID, ok := ctx.Value(ctxKeyServerID{}).(string)
+	orgName, ok := ctx.Value(ctxKeyOrgName{}).(string)
 	if !ok {
 		return nil, errMissingServerID
 	}
 
-	token, err := a.reg.GetValidToken(ctx, userID, serverID)
+	serverName, ok := ctx.Value(ctxKeyServerName{}).(string)
+	if !ok {
+		return nil, errMissingServerID
+	}
+
+	token, err := a.reg.GetValidToken(ctx, userID, orgName, serverName)
 	if err != nil {
 		return nil, fmt.Errorf("error getting token: %w", err)
 	}

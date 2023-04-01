@@ -1,11 +1,8 @@
 package fslinks
 
 import (
-	"errors"
-
 	"github.com/gin-gonic/gin"
 	"github.com/mredolatti/tf/codigo/common/log"
-	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/middleware"
 	"github.com/mredolatti/tf/codigo/indexsrv/registrar"
 )
 
@@ -25,10 +22,11 @@ func New(logger log.Interface, reg registrar.Interface) *Controller {
 
 // Register mounts the provided endpoints
 func (c *Controller) Register(router gin.IRouter) {
-	router.GET("/accounts/server/:serverId/authorize", c.initialRedirect)
+//	router.GET("/accounts/server/:serverId/authorize", c.initialRedirect)
 	router.GET("/accounts/auth_callback", c.callback)
 }
 
+/*
 func (c *Controller) initialRedirect(ctx *gin.Context) {
 
 	session, err := middleware.SessionFromContext(ctx)
@@ -55,7 +53,7 @@ func (c *Controller) initialRedirect(ctx *gin.Context) {
 
 	ctx.Redirect(301, url)
 }
-
+*/
 func (c *Controller) callback(ctx *gin.Context) {
 	state := ctx.Query("state")
 	code := ctx.Query("code")

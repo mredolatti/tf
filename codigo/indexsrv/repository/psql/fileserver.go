@@ -18,7 +18,8 @@ const (
 	fsListBase = "SELECT * FROM file_servers"
 	fsListOrgFilter = "org_id = $<IDX>"
 	fsListIDFilter = "id in ($<IDX>)"
-	fsGetQuery  = "SELECT * FROM file_servers WHERE id = $1"
+	fsGetByIDQuery  = "SELECT * FROM file_servers WHERE id = $1"
+	fsGetQuery  = "SELECT * FROM file_servers WHERE org_name = $1 AND name = $2"
 	fsAddQuery  = "INSERT INTO file_servers(name, org_id, auth_url, token_url, fetch_url, control_endpoint) " +
 		"VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
 	fsDelQuery = "DELETE FROM file_servers WHERE id = $1"
@@ -28,7 +29,7 @@ const (
 type FileServer struct {
 	IDField              string `db:"id"`
 	NameField            string `db:"name"`
-	OrgField             string `db:"org_id"`
+	OrgField             string `db:"org_name"`
 	AuthURLField         string `db:"auth_url"`
 	TokenURLField        string `db:"token_url"`
 	FetchURLField        string `db:"fetch_url"`
@@ -46,7 +47,7 @@ func (f *FileServer) Name() string {
 }
 
 // OrganizationID returns the ID of the organization this server belongs to
-func (f *FileServer) OrganizationID() string {
+func (f *FileServer) OrganizationName() string {
 	return f.OrgField
 }
 
@@ -101,9 +102,23 @@ func (r *FileServerRepository) List(ctx context.Context, query models.FileServer
 }
 
 // Get returns an file server that matches the supplied id
-func (r *FileServerRepository) Get(ctx context.Context, id string) (models.FileServer, error) {
+func (r *FileServerRepository) Get(ctx context.Context, orgName string, name string) (models.FileServer, error) {
 	var server FileServer
-	err := r.db.QueryRowxContext(ctx, fsGetQuery, id).StructScan(&server)
+	err := r.db.QueryRowxContext(ctx, fsGetQuery, orgName, name).StructScan(&server)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error executing file_servers::get in postgres: %w", err)
+	}
+
+	return &server, nil
+}
+
+// Get returns an file server that matches the supplied id
+func (r *FileServerRepository) GetByID(ctx context.Context, id string) (models.FileServer, error) {
+	var server FileServer
+	err := r.db.QueryRowxContext(ctx, fsGetByIDQuery, id).StructScan(&server)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrNotFound
@@ -145,15 +160,15 @@ func buildListQuery(query models.FileServersQuery) (preparedStmt string, values 
 
 	paramIdx := 1
 	var queryParts []string
-	if query.IDs != nil {
+	if query.Names != nil {
 		queryParts = append(queryParts, strings.ReplaceAll(fsListIDFilter, "<IDX>", strconv.Itoa(paramIdx)))
-		values = append(values, query.IDs)
+		values = append(values, query.Names)
 		paramIdx++
 	}
 		
-	if query.OrgID != nil {
+	if query.OrganizationName != nil {
 		queryParts = append(queryParts, strings.ReplaceAll(fsListOrgFilter, "<IDX>", strconv.Itoa(paramIdx)))
-		values = append(values, *query.OrgID)
+		values = append(values, *query.OrganizationName)
 		paramIdx++
 	}
 

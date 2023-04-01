@@ -5,12 +5,16 @@ Mongo y PSQL:
 - Agregar indices por nombre, mail, etc donde corresponda
 
 IndexServer
+- Agregar seguridad para admin API
 - Hacer que user.tfaSecret() sea *string
+- Arreglar organizationName en fileserver
 
 FileServer
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
+- no anda el token refresh
 
 Diver
+- Arreglar descarga (y caching) de contenido
 - Aceptar parametros (archivo yaml) al montar unidad
 - Crear utilidad CLI para crear hacer login y generar token
 

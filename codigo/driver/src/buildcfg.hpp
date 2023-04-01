@@ -1,0 +1,6 @@
+#ifndef MIFS_CONFIG_HPP
+#define MIFS_CONFIG_HPP
+
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+
+#endif

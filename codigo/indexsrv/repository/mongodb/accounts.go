@@ -13,12 +13,13 @@ import (
 
 // UserAccount is a postgres-compatible struct implementing models.UserAccount interface
 type UserAccount struct {
-	IDField           primitive.ObjectID `bson:"_id"`
-	UserIDField       primitive.ObjectID `bson:"userId"`
-	ServerIDField     primitive.ObjectID `bson:"serverId"`
-	AccessTokenField  string             `bson:"accessToken"`
-	RefreshTokenField string             `bson:"refreshToken"`
-	CheckpointField   int64              `bson:"checkpoint"`
+	IDField               primitive.ObjectID `bson:"_id"`
+	UserIDField           primitive.ObjectID `bson:"userId"`
+	OrganizationNameField string             `bson:"organizationName"`
+	ServerNameField       string             `bson:"serverName"`
+	AccessTokenField      string             `bson:"accessToken"`
+	RefreshTokenField     string             `bson:"refreshToken"`
+	CheckpointField       int64              `bson:"checkpoint"`
 }
 
 // UserID returns the if of the user who has an account in a file server
@@ -26,9 +27,13 @@ func (u *UserAccount) UserID() string {
 	return u.UserIDField.Hex()
 }
 
+func (u *UserAccount) OrganizationName() string {
+	return u.OrganizationNameField
+}
+
 // FileServerID returns the id of the server in which the user has the account
-func (u *UserAccount) FileServerID() string {
-	return u.ServerIDField.Hex()
+func (u *UserAccount) FileServerName() string {
+	return u.ServerNameField
 }
 
 // Token returns the token used to make request on behalf of this user to the server
@@ -58,22 +63,25 @@ func NewUserAccountRepository(db *mongo.Database) *UserAccountRepository {
 }
 
 // Add implements repository.UserAccountRepository
-func (r *UserAccountRepository) Add(ctx context.Context, userID string, serverID string, accessToken string, refreshToken string) (models.UserAccount, error) {
+func (r *UserAccountRepository) Add(
+	ctx context.Context,
+	userID string,
+	organizationName string,
+	serverName string,
+	accessToken string,
+	refreshToken string,
+) (models.UserAccount, error) {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(serverID)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for server with id=%s: %w", serverID, err)
-	}
-
 	a := UserAccount{
-		IDField:           primitive.NewObjectID(),
-		UserIDField:       uid,
-		ServerIDField:     fsid,
-		AccessTokenField:  accessToken,
-		RefreshTokenField: refreshToken,
+		IDField:               primitive.NewObjectID(),
+		UserIDField:           uid,
+		OrganizationNameField: organizationName,
+		ServerNameField:       serverName,
+		AccessTokenField:      accessToken,
+		RefreshTokenField:     refreshToken,
 	}
 
 	res, err := r.collection.InsertOne(ctx, &a)
@@ -86,17 +94,16 @@ func (r *UserAccountRepository) Add(ctx context.Context, userID string, serverID
 }
 
 // Get implements repository.UserAccountRepository
-func (r *UserAccountRepository) Get(ctx context.Context, userID string, serverID string) (models.UserAccount, error) {
+func (r *UserAccountRepository) Get(ctx context.Context, userID string, organizationName string, serverName string) (models.UserAccount, error) {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(serverID)
-	if err != nil {
-		return nil, fmt.Errorf("error constructing objectID for server wth id=%s: %w", serverID, err)
-	}
-
-	res := r.collection.FindOne(ctx, bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}})
+	res := r.collection.FindOne(ctx, bson.D{
+		{Key: "userId", Value: uid},
+		{Key: "organizationName", Value: organizationName},
+		{Key: "serverName", Value: serverName},
+	})
 	if err := res.Err(); err != nil {
 		return nil, fmt.Errorf("error querying mongo: %w", err)
 	}
@@ -135,17 +142,17 @@ func (r *UserAccountRepository) List(ctx context.Context, userID string) ([]mode
 }
 
 // Remove implements repository.UserAccountRepository
-func (r *UserAccountRepository) Remove(ctx context.Context, userID string, serverID string) error {
+func (r *UserAccountRepository) Remove(ctx context.Context, userID string, orgName string, serverName string) error {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(serverID)
-	if err != nil {
-		return fmt.Errorf("error constructing objectID for server wth id=%s: %w", serverID, err)
-	}
 
-	res, err := r.collection.DeleteOne(ctx, bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}})
+	res, err := r.collection.DeleteOne(ctx, bson.D{
+		{Key: "userId", Value: uid},
+		{Key: "organizationName", Value: orgName},
+		{Key: "serverName", Value: serverName},
+	})
 	if err != nil {
 		return fmt.Errorf("error executing mongo operation: %w", err)
 	}
@@ -158,19 +165,19 @@ func (r *UserAccountRepository) Remove(ctx context.Context, userID string, serve
 }
 
 // UpdateCheckpoint implements repository.UserAccountRepository
-func (r *UserAccountRepository) UpdateCheckpoint(ctx context.Context, userID string, serverID string, newCheckpoint int64) error {
+func (r *UserAccountRepository) UpdateCheckpoint(ctx context.Context, userID string, orgName string, serverName string, newCheckpoint int64) error {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(serverID)
-	if err != nil {
-		return fmt.Errorf("error constructing objectID for server wth id=%s: %w", serverID, err)
-	}
 
 	res, err := r.collection.UpdateOne(
 		ctx,
-		bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}},
+		bson.D{
+			{Key: "userId", Value: uid},
+			{Key: "organizationName", Value: orgName},
+			{Key: "serverName", Value: serverName},
+		},
 		bson.D{{Key: "$set", Value: bson.D{{Key: "checkpoint", Value: newCheckpoint}}}},
 	)
 	if err != nil {
@@ -185,19 +192,19 @@ func (r *UserAccountRepository) UpdateCheckpoint(ctx context.Context, userID str
 }
 
 // UpdateTokens implements repository.UserAccountRepository
-func (r *UserAccountRepository) UpdateTokens(ctx context.Context, userID string, serverID string, accessToken string, refreshToken string) error {
+func (r *UserAccountRepository) UpdateTokens(ctx context.Context, userID string, orgName string, serverName string,accessToken string, refreshToken string) error {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
-	fsid, err := primitive.ObjectIDFromHex(serverID)
-	if err != nil {
-		return fmt.Errorf("error constructing objectID for server wth id=%s: %w", serverID, err)
-	}
 
 	res, err := r.collection.UpdateOne(
 		ctx,
-		bson.D{{Key: "userId", Value: uid}, {Key: "serverId", Value: fsid}},
+		bson.D{
+			{Key: "userId", Value: uid},
+			{Key: "organizationName", Value: orgName},
+			{Key: "serverName", Value: serverName},
+		},
 		bson.D{{Key: "$set", Value: bson.D{
 			{Key: "accessToken", Value: accessToken},
 			{Key: "refreshToken", Value: refreshToken},

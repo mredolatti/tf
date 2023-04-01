@@ -49,7 +49,7 @@ function is_login() {
     local usage="usage: is_login -e <email> -p <password> [-f <2fa_passcode>]"
     local verbose=""
     local OPTIND
-    while getopts "he:p:f:" options; do
+    while getopts "he:p:f:v" options; do
         case ${options} in
             e) local email=${OPTARG} ;;
             p) local password=${OPTARG} ;;
@@ -158,13 +158,13 @@ function is_list_orgs() {
 }
 
 function is_list_servers_for_org() {
-    local usage="usage: is_list_orgs -t <session_token> -o <oid>"
+    local usage="usage: is_list_orgs -t <session_token> -o <org_name>"
     local verbose=""
     local OPTIND
     while getopts "hvt:o:" options; do
         case ${options} in
             t) local token=${OPTARG} ;;
-	    o) local org_id=${OPTARG} ;;
+	    o) local org=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
 	    v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
@@ -172,6 +172,7 @@ function is_list_servers_for_org() {
     done
  
     [ -z ${token+x} ] && echo ${usage} && return 1
+    [ -z ${org+x} ] && echo ${usage} && return 1
  
     curl \
         ${verbose} \
@@ -180,7 +181,7 @@ function is_list_servers_for_org() {
         --cacert ${USER_FS_CACERT} \
         -H'Content-Type: application/json' \
         -H"X-MIFS-IS-Session-Token: ${token}" \
-        "${BASE_CLIENTS_URL}/organizations/${org_id}/servers"
+        "${BASE_CLIENTS_URL}/organizations/${org}/servers"
 }
 
 function is_list_servers() {
@@ -209,12 +210,13 @@ function is_list_servers() {
 }
 
 function is_link_fs() {
-    local usage="usage: idx_link_fs -s <server_id> -t <token>"
+    local usage="usage: idx_link_fs -o <org_name> -s <server_name> -t <token>"
     local verbose=""
     local OPTIND
-    while getopts "hvt:" options; do
+    while getopts "hvt:o:s:" options; do
         case ${options} in
-            s) local sid=${OPTARG} ;;
+            s) local server=${OPTARG} ;;
+            o) local org=${OPTARG} ;;
 	    t) local token=${OPTARG} ;;
  	    v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
@@ -223,7 +225,8 @@ function is_link_fs() {
     done
  
     [ -z ${token+x} ] && echo ${usage} && return 1
-    [ -z ${sid+x} ] && echo ${usage} && return 1
+    [ -z ${org+x} ] && echo ${usage} && return 1
+    [ -z ${server+x} ] && echo ${usage} && return 1
  
     curl \
         ${verbose} \
@@ -233,7 +236,7 @@ function is_link_fs() {
         --cert ${USER_FS_CERT} \
         --key ${USER_FS_KEY} \
         -H"X-MIFS-IS-Session-Token: ${token}" \
-        "${BASE_CLIENTS_URL}/servers/${sid}/link"
+        "${BASE_CLIENTS_URL}/organizations/${org}/servers/${server}/link"
 }
 
 function is_logout() {

@@ -26,6 +26,11 @@ target_sources(mifs
     PRIVATE fstree.cpp
     PRIVATE filecache.cpp
     PRIVATE openfiles.cpp
+    PRIVATE servers.cpp
+    PRIVATE istokens.cpp
+    PRIVATE config.cpp
+    PRIVATE fuseopts.cpp
+    PRIVATE fscatalog.cpp
 )
 
 target_link_libraries(mifs

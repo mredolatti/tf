@@ -37,9 +37,9 @@ void EntryInfo::visit_folder(const mifs::types::FSEFolder&) { type_ = Type::Fold
 __mode_t EntryInfo::st_mode() const
 {
     switch (type_) {
-        case Type::File:    return S_IFREG;
-        case Type::Folder:  return S_IFDIR;
-        case Type::Link:    return S_IFLNK;
+        case Type::File:    return S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+        case Type::Folder:  return S_IFDIR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+        case Type::Link:    return S_IFLNK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
     }
     assert(false); // shold never get here
 }
@@ -85,19 +85,14 @@ static int mifs_getattr(const char* path, struct stat* stbuf, struct fuse_file_i
     stbuf->st_mode = v.st_mode();
     stbuf->st_nlink = v.st_nlink();
     stbuf->st_size = de->size_bytes();
-    return 0;
+    stbuf->st_uid = getuid();
+    stbuf->st_gid = getgid();
 
-    // TODO(mredolatti): llenar stbuf con las propiedades necesarias
-    // - st_dev ?
-    // - st_ino ?
-    // - st_mode: S_IFREG o S_IFDIR, dependiendo de si es un prefix (folder) o file
-    // - st_uid y st_gid leidos de config
-    // - n_link: 1?
-    // - st_rdev 0
-    // - st_size: deberia venir del server
-    // - st_blksize ?
-    // - st_blocks ?
-    // - st_atim = st_mtim = st_ctm = timestamp de ultima modificacion (del server)
+    if (const auto* as_file{dynamic_cast<mifs::types::FSEFile*>(de.get())}) {
+        stbuf->st_mtim.tv_sec = as_file->last_updated();
+    }
+
+    return 0;
 }
 
 static int mifs_access(const char *path, int mask)
@@ -138,6 +133,11 @@ static int mifs_readdir(
         memset(&st, 0, sizeof(st));
         st.st_ino = 0;
         st.st_mode = v.st_mode();
+
+	if (const auto* as_file{dynamic_cast<mifs::types::FSEFile*>(de.get())}) {
+		st.st_mtim.tv_sec = as_file->last_updated();
+	}
+
         if (filler(buf, de->name().c_str(), &st, 0, static_cast<enum fuse_fill_dir_flags>(0))) {
             break;
         }
@@ -235,7 +235,7 @@ static int mifs_readlink(const char* path, char* buffer, size_t buffer_size)
     const auto* as_link{dynamic_cast<const mifs::types::FSELink*>((*res).get())};
     assert(as_link);
 
-    auto resolved{fmt::format("{}/servers/{}/{}", ctx->mount_point(), as_link->server_id(), as_link->ref())};
+    auto resolved{fmt::format("{}/servers/{}/{}/{}", ctx->mount_point(), as_link->org_name(), as_link->server_name(), as_link->ref())};
     std::size_t idx{};
     while (buffer_size > 1 && idx < resolved.size()) {
         buffer[idx] = resolved[idx];
@@ -353,6 +353,9 @@ static const struct fuse_operations mifs_oper = {
     .access     = mifs_access,
     .create     = mifs_create,
 };
+
+
+// --------------------------------------------------
 
 int init_fuse(int argc, char *argv[], ContextData& ctx)
 {
