@@ -7,9 +7,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <filesystem>
 
 
-namespace mifs::filesystem {
+namespace mifs::fstree {
 
 class Node
 {
@@ -22,14 +23,15 @@ class Node
     Node& operator=(Node&&) = default;
     ~Node() = default;
 
+    using path_t = std::filesystem::path;
     using node_ptr_t = std::unique_ptr<Node>;
 
     Node(std::string name);
     const std::string& name() const;
-    virtual bool insert(std::string_view path, node_ptr_t node) = 0;
+    virtual bool insert(path_t path, node_ptr_t node) = 0;
     virtual std::unique_ptr<types::FSElem> get() const = 0;
     virtual std::vector<std::unique_ptr<types::FSElem>> children() const = 0;
-    virtual const Node* follow_path(std::string_view path) const = 0;
+    virtual const Node* follow_path(path_t path) const = 0;
     virtual void print(std::size_t depth = 1) const = 0;
 
     protected:
@@ -47,10 +49,10 @@ class InnerNode : public Node
     ~InnerNode() = default;
 
     InnerNode(std::string path);
-    bool insert(std::string_view path, node_ptr_t node) override;
+    bool insert(path_t path, node_ptr_t node) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
-    const Node* follow_path(std::string_view path) const override;
+    const Node* follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
     private:
@@ -74,10 +76,10 @@ class LeafNode : public Node
     static leaf_ptr_t link(std::string_view name, std::string_view org, std::string_view server, std::string_view ref);
     static leaf_ptr_t file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated);
 
-    bool insert(std::string_view path, std::unique_ptr<Node> node) override;
+    bool insert(path_t path, std::unique_ptr<Node> node) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
-    const Node* follow_path(std::string_view path) const override;
+    const Node* follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
     private:
@@ -89,5 +91,5 @@ class LeafNode : public Node
     bool link_;
 };
 
-} // namespace mifs::filesystem
+} // namespace mifs::fstree
 #endif // MIFS_FILESYSTEM_TREE_HPP
