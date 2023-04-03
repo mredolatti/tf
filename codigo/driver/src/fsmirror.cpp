@@ -41,7 +41,7 @@ FSMirror::Error FSMirror::add_file(std::string_view org, std::string_view server
         : Error::AlreadyExists;
 }
 
-FSMirror::Error FSMirror::link_file(std::string_view org, std::string_view server, std::string_view ref, std::string path)
+FSMirror::Error FSMirror::link_file(std::string_view org, std::string_view server, std::string_view ref, std::string_view path)
 {
     // TODO(mredolatti): check path doesn't belong to a server
     auto [folder, fname]{helpers::pop_fname(path)};

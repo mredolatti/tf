@@ -13,6 +13,7 @@ struct OpenFile
     int fd;
     std::string name;
     std::size_t offset;
+    int mode;
 };
 
 class OpenFileTracker
@@ -25,7 +26,7 @@ class OpenFileTracker
     OpenFileTracker& operator=(OpenFileTracker&&) noexcept = delete;
     ~OpenFileTracker() noexcept = default;
 
-    int open(std::string_view path);
+    int open(std::string_view path, int mode);
     std::optional<std::reference_wrapper<OpenFile>> get(int fd);
     void close(int fd);
 

@@ -94,7 +94,7 @@ LeafNode::LeafNode(std::string_view name, std::size_t size_bytes, std::string_vi
 
 std::unique_ptr<LeafNode> LeafNode::link(std::string_view name, std::string_view org, std::string_view server, std::string_view ref)
 {
-    return std::make_unique<LeafNode>(std::string{name}, 0, std::string{org}, std::string{server}, std::string{ref}, 0, false); 
+    return std::make_unique<LeafNode>(std::string{name}, 0, std::string{org}, std::string{server}, std::string{ref}, 0, true); 
 }
 
 std::unique_ptr<LeafNode> LeafNode::file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated)

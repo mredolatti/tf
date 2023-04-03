@@ -31,7 +31,7 @@ const std::string& CacheEntry::file_name() const
     return file_name_;
 }
 
-const std::string& CacheEntry::contents() const
+std::string& CacheEntry::contents()
 {
     return contents_;
 }
@@ -51,6 +51,19 @@ void CacheEntry::update(std::string contents, sync_time_t last_sync)
     contents_ = std::move(contents);
     last_sync_ = last_sync;
 }
+
+int CacheEntry::write(std::string_view buffer, std::size_t size, off_t offset)
+{
+    contents_.resize(offset+size);
+    for (std::size_t i{0}; i < size; i++) {
+        contents_[offset + i] = buffer[i];
+    }
+
+    last_sync_ = std::chrono::system_clock::now();
+    dirty_ = true;
+    return size;
+}
+
 
 } // namespace detail
 
@@ -89,6 +102,17 @@ bool FileCache::has(const std::string& org_name, const std::string& server_id, c
     std::lock_guard lk{mutex_};
     auto key{detail::make_key(org_name, server_id, ref)};
     return entries_.find(key) != entries_.end();
+}
+
+bool FileCache::drop(const std::string& org_name, const std::string& server_id, const std::string& ref)
+{
+    std::lock_guard lk{mutex_};
+    auto key{detail::make_key(org_name, server_id, ref)};
+    if (auto it{entries_.find(key)}; it != entries_.end()) {
+        entries_.erase(it);
+        return true;
+    }
+    return false;
 }
 
 

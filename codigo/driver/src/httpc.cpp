@@ -154,6 +154,17 @@ MaybeResponse Client::execute(const Request& request)
     }
     curl_easy_setopt(*handle, CURLOPT_HTTPHEADER, *headers);
 
+    if (!request.body().empty()) {
+        curl_easy_setopt(*handle, CURLOPT_POSTFIELDS, request.body().c_str());
+    }
+
+    switch (request.method()) {
+        case Method::PATCH: curl_easy_setopt(*handle, CURLOPT_CUSTOMREQUEST, "PATCH"); break;
+        case Method::PUT:   curl_easy_setopt(*handle, CURLOPT_CUSTOMREQUEST, "PUT");   break;
+        case Method::POST:  curl_easy_setopt(*handle, CURLOPT_CUSTOMREQUEST, "POST");  break;
+        default: ;
+    }
+
     // contexto
     detail::Context context{.request = request};
     curl_easy_setopt(*handle, CURLOPT_PRIVATE, &context);

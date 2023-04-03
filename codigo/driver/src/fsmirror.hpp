@@ -42,7 +42,7 @@ class FSMirror
 
     Error mkdir(std::string_view path);
     Error add_file(std::string_view name, std::string_view server, std::string_view ref, std::size_t size_bytes, int64_t last_updated);
-    Error link_file(std::string_view org, std::string_view server, std::string_view ref, std::string path);
+    Error link_file(std::string_view org, std::string_view server, std::string_view ref, std::string_view path);
     list_result_t ls(std::string_view path);
     info_result_t info(std::string_view path);
 

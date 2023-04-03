@@ -70,4 +70,33 @@ FileServerClient::contents_response_result_t FileServerClient::contents(const st
     return contents_response_result_t{(*result).body()};
 }
 
+bool FileServerClient::update_contents(std::string_view org, std::string_view server, std::string_view ref, std::string_view contents)
+{
+    auto server_data{fs_catalog->get(org, server)};
+    if (!server_data) {
+        return false;
+    }
+
+    auto request{http::Request::Builder{}
+        .method(http::Method::PUT)
+        .uri(fmt::format("{}/{}/contents", server_data->files_url(), ref))
+        .tls(server_data->tls_config())
+        .body(std::string{contents})
+        .build()};
+
+    auto result{client_->execute(request)};
+    if (!result) {
+        return false;
+    }
+
+    auto code{(*result).code()};
+    if (code != 200) {
+        std::cout << "code: " << code << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+
 } // namespace mifs::apiclients

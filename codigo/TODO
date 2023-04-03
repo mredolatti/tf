@@ -12,12 +12,13 @@ IndexServer
 FileServer
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
 - no anda el token refresh
+- hacer que un update al contents triggeree un update al meta por el size
 
 Diver
-- Arreglar descarga (y caching) de contenido
-- Aceptar parametros (archivo yaml) al montar unidad
 - Crear utilidad CLI para crear hacer login y generar token
-
+- Migrar de std::string_view a std::filesystem::path
+- permitir crear nuevos links (siempre y cuando el mapeo tenga path vacio)
+- permitir mover links
 
 
 
