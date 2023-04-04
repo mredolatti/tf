@@ -44,6 +44,33 @@ bool InnerNode::insert(path_t path, node_ptr_t node)
     return it->second->insert(tail, std::move(node));
 }
 
+bool InnerNode::drop(path_t path, int flags)
+{
+    using vt = map_t::value_type;
+    if (path.empty() || path == ".") {
+        return (flags & static_cast<int>(DropFlags::IF_DIR)) != 0;
+    }
+
+    auto [head, tail]{helpers::strip_first(path)};
+    if (tail.empty() || tail == ".") { // we're staing at the folder that has the item to be deleted,
+                                       // ask the item if it's ok to delete it, and if so do it
+        auto it{children_.find(head)}; 
+        if (it != children_.end() && it->second->drop(tail, flags)) {
+            this->children_.erase(it);
+            return true;
+        }
+        return false;
+    }
+
+    auto it{children_.find(head)}; 
+    if (it == children_.end()) {
+        it = children_.insert(vt{head, std::make_unique<InnerNode>(head)}).first;
+    }
+    return it->second->drop(tail, flags);
+
+
+}
+
 std::unique_ptr<types::FSElem> InnerNode::get() const
 {
     return std::make_unique<types::FSEFolder>(name_);
@@ -106,6 +133,21 @@ std::unique_ptr<LeafNode> LeafNode::file(std::string_view name, std::string_view
 bool LeafNode::insert(path_t path, std::unique_ptr<Node> node)
 {
     return false;
+}
+
+bool LeafNode::drop(path_t path, int flags)
+{
+
+    if ((flags & static_cast<int>(DropFlags::RECURSIVE)) != 0) {
+        return true;
+    }
+
+    if (link_ && (flags & static_cast<int>(DropFlags::IF_FILE))) {
+        return true;
+    }
+
+    return false;
+
 }
 
 std::unique_ptr<types::FSElem> LeafNode::get() const

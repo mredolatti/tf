@@ -146,29 +146,26 @@ static int mifs_readdir(
 
 static int mifs_mkdir(const char *path, mode_t mode)
 {
-    // TODO(mredolatti): ver como manejar esto correctamente:
-    // - creacion de dirs solo en memoria ?
-    // - no hacer nada ?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().mkdir(path+1); // +1 to skip leading '/'
 }
 
 static int mifs_unlink(const char *path)
 {
-    // TODO(mredolatti): que hacer aca? volver a mover el archivo a su ubicacion original /<server>/file_Ref?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().remove(path+1); // +1 to skip leading '/'
 }
 
 static int mifs_rmdir(const char *path)
 {
-    // TODO(mredolatti): borrado logico en memoria?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().rmdir(path+1); // +1 to skip leading '/'
 }
 
 static int mifs_symlink(const char *from, const char *to)
 {
     auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
-    ctx->file_manager().link(from, to);
-    return 0;
+    return !ctx->file_manager().link(from, to+1); // +1 to skip leading '/'
 }
 
 static int mifs_rename(const char *from, const char *to, unsigned int flags)

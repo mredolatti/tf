@@ -43,6 +43,9 @@ class FileManager
     bool flush(std::string_view path);
     bool link(std::string_view from, std::string_view to);
     bool mkdir(std::string_view path);
+    bool rmdir(std::string_view path);
+    bool remove(std::string_view path);
+    bool rename(std::string_view from, std::string_view to);
 
     void sync();
 

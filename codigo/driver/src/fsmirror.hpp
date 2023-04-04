@@ -27,7 +27,7 @@ class FSMirror
         CannotAddInLinkedFolder = 3,
         NotFound = 4,
         ErrorAddingMappings = 5,
-        ErrorAddingFiles = 6
+        ErrorAddingFiles = 6,
     };
 
     using path_t = std::filesystem::path;
@@ -42,10 +42,12 @@ class FSMirror
     ~FSMirror() = default;
 
     Error mkdir(std::filesystem::path path);
+    Error rmdir(std::filesystem::path path);
     Error add_file(std::string_view org, std::string_view server, std::string_view ref, std::size_t size_bytes, int64_t last_updated);
     Error link_file(std::string_view org, std::string_view server, std::string_view ref, std::filesystem::path);
     list_result_t ls(std::filesystem::path path);
     info_result_t info(std::filesystem::path path);
+    Error remove(std::filesystem::path path);
 
     Error reset_all(const std::vector<models::Mapping>& mappings);
 

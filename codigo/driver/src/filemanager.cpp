@@ -1,10 +1,12 @@
 #include "filemanager.hpp"
+
 #include "expected.hpp"
 #include "filemeta.hpp"
 #include "fselems.hpp"
 #include "isclient.hpp"
 #include "log.hpp"
 #include "mappings.hpp"
+
 #include <algorithm>
 #include <filesystem>
 
@@ -64,7 +66,6 @@ void FileManager::sync()
     for (const auto& server: servers) {
         fs_catalog_->update_fetch_url(server.org_name(), server.name(), server.fetch_url());
     }
-
 }
 
 
@@ -212,7 +213,24 @@ bool FileManager::flush(std::string_view path)
     return res;
 }
 
+bool FileManager::mkdir(std::string_view path)
+{
+    return fs_mirror_.mkdir(std::filesystem::path{path}) == util::FSMirror::Error::Ok;
+}
 
+bool FileManager::rmdir(std::string_view path)
+{
+    return fs_mirror_.rmdir(std::filesystem::path{path}) == util::FSMirror::Error::Ok;
+}
+
+bool FileManager::remove(std::string_view path)
+{
+    return fs_mirror_.remove(std::filesystem::path{path}) == util::FSMirror::Error::Ok;
+}
+
+bool FileManager::rename(std::string_view from, std::string_view to)
+{
+}
 
 
 namespace helpers {
@@ -224,15 +242,6 @@ std::tuple<std::string, std::string, std::string> parse_server_ref(std::string_v
     auto server{p.parent_path().filename()};
     auto org{p.parent_path().parent_path().filename()};
     return std::make_tuple(org.c_str(), server.c_str(), ref.c_str());
-    /*
-    if (path.size() < 10 || path.substr(0, 9) != "/servers/") {
-        return {};
-    }
-
-    path = path.substr(9);
-    auto first_slash{path.find_first_of('/')};
-    return {path.substr(0, first_slash), path.substr(first_slash+1)};
-    */
 }
 
 int write(std::string& document, const char* buffer, std::size_t size, off_t offset)

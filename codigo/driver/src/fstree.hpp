@@ -12,6 +12,13 @@
 
 namespace mifs::fstree {
 
+enum class DropFlags : int
+{
+    IF_FILE = (1 << 0),
+    IF_DIR  = (1 << 1),
+    RECURSIVE = (1 << 2),
+};
+
 class Node
 {
     public:
@@ -29,6 +36,7 @@ class Node
     Node(std::string name);
     const std::string& name() const;
     virtual bool insert(path_t path, node_ptr_t node) = 0;
+    virtual bool drop(path_t path, int flags) = 0;
     virtual std::unique_ptr<types::FSElem> get() const = 0;
     virtual std::vector<std::unique_ptr<types::FSElem>> children() const = 0;
     virtual const Node* follow_path(path_t path) const = 0;
@@ -50,6 +58,7 @@ class InnerNode : public Node
 
     InnerNode(std::string path);
     bool insert(path_t path, node_ptr_t node) override;
+    bool drop(path_t path, int flags) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
     const Node* follow_path(path_t path) const override;
@@ -77,6 +86,7 @@ class LeafNode : public Node
     static leaf_ptr_t file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated);
 
     bool insert(path_t path, std::unique_ptr<Node> node) override;
+    bool drop(path_t path, int flags) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
     const Node* follow_path(path_t path) const override;

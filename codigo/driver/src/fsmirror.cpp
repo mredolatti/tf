@@ -27,6 +27,13 @@ FSMirror::Error FSMirror::mkdir(path_t path)
         : Error::AlreadyExists;
 }
 
+FSMirror::Error FSMirror::rmdir(std::filesystem::path path)
+{
+    return root_.drop(path, static_cast<int>(fstree::DropFlags::IF_DIR))
+        ? Error::Ok
+        : Error::NotFound; // TODO: use a proper codehere
+}
+
 FSMirror::Error FSMirror::add_file(std::string_view org, std::string_view server, std::string_view ref, std::size_t size_bytes, int64_t last_updated)
 {
     return root_.insert(
@@ -80,5 +87,13 @@ FSMirror::info_result_t FSMirror::info(path_t path)
     }
     return FSMirror::info_result_t{node->get()};
 }
+
+FSMirror::Error FSMirror::remove(std::filesystem::path path)
+{
+    return root_.drop(path, static_cast<int>(fstree::DropFlags::IF_FILE))
+        ? Error::Ok
+        : Error::NotFound; // TODO: use a proper codehere
+}
+
 
 } // namespace mifs::util
