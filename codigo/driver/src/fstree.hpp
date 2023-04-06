@@ -3,26 +3,24 @@
 
 #include "fselems.hpp"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <filesystem>
 
-
-namespace mifs::fstree {
-
-enum class DropFlags : int
+namespace mifs::fstree
 {
+
+enum class DropFlags : int {
     IF_FILE = (1 << 0),
-    IF_DIR  = (1 << 1),
+    IF_DIR = (1 << 1),
     RECURSIVE = (1 << 2),
 };
 
 class Node
 {
-    public:
-
+  public:
     Node() = delete;
     Node(const Node&) = default;
     Node(Node&&) = default;
@@ -39,16 +37,16 @@ class Node
     virtual bool drop(path_t path, int flags) = 0;
     virtual std::unique_ptr<types::FSElem> get() const = 0;
     virtual std::vector<std::unique_ptr<types::FSElem>> children() const = 0;
-    virtual const Node* follow_path(path_t path) const = 0;
+    virtual const Node *follow_path(path_t path) const = 0;
     virtual void print(std::size_t depth = 1) const = 0;
 
-    protected:
+  protected:
     std::string name_;
 };
 
 class InnerNode : public Node
 {
-    public:
+  public:
     InnerNode() = delete;
     InnerNode(const InnerNode&) = default;
     InnerNode(InnerNode&&) = default;
@@ -61,17 +59,17 @@ class InnerNode : public Node
     bool drop(path_t path, int flags) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
-    const Node* follow_path(path_t path) const override;
+    const Node *follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
-    private:
+  private:
     using map_t = std::unordered_map<std::string, node_ptr_t>;
     map_t children_;
 };
 
 class LeafNode : public Node
 {
-    public:
+  public:
     LeafNode() = delete;
     LeafNode(const LeafNode&) = default;
     LeafNode(LeafNode&&) = default;
@@ -81,22 +79,28 @@ class LeafNode : public Node
 
     using leaf_ptr_t = std::unique_ptr<LeafNode>;
 
-    LeafNode(std::string_view name, std::size_t size_bytes, std::string_view org, std::string_view server, std::string ref, int64_t last_updated, bool link);
-    static leaf_ptr_t link(std::string_view name, std::string_view org, std::string_view server, std::string_view ref);
-    static leaf_ptr_t file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated);
+    LeafNode(std::string_view id, std::string_view name, std::size_t size_bytes, std::string_view org,
+             std::string_view server, std::string_view ref, int64_t last_updated, bool link);
+
+    static leaf_ptr_t link(std::string_view id, std::string_view name, std::string_view org,
+                           std::string_view server, std::string_view ref);
+
+    static leaf_ptr_t file(std::string_view name, std::string_view org, std::string_view server,
+                           std::string ref, std::size_t size_bytes, int64_t last_updated);
 
     bool insert(path_t path, std::unique_ptr<Node> node) override;
     bool drop(path_t path, int flags) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
-    const Node* follow_path(path_t path) const override;
+    const Node *follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
-    private:
-    std::size_t size_bytes_;
+  private:
+    std::string mapping_id;
     std::string org_name_;
     std::string server_name_;
     std::string ref_;
+    std::size_t size_bytes_;
     int64_t last_updated_;
     bool link_;
 };

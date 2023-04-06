@@ -170,12 +170,9 @@ static int mifs_symlink(const char *from, const char *to)
 
 static int mifs_rename(const char *from, const char *to, unsigned int flags)
 {
-    if (flags) {
-        return -EINVAL;
-    }
-
-    // TODO(mredolatti): hacer un rename del mapping en index-server
-    return 0;
+    (void)flags;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().rename(from+1, to+1); // +1 to skip leading '/'
 }
 
 static int mifs_link(const char *from, const char *to)
@@ -202,12 +199,7 @@ static int mifs_truncate(const char *path, off_t size,
 
 static int mifs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-    auto res{open(path, fi->flags, mode)};
-    if (res == -1) {
-        return -errno;
-    }
-
-    fi->fh = res;
+    // TODO(mredolatti): implementar?
     return 0;
 }
 
@@ -270,11 +262,6 @@ static int mifs_write(const char *path, const char *buf, size_t size, off_t offs
 
 static int mifs_statfs(const char *path, struct statvfs *stbuf)
 {
-    auto res{statvfs(path, stbuf)};
-    if (res == -1) {
-        return -errno;
-    }
-
     return 0;
 }
 

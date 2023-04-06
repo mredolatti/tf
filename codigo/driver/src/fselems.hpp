@@ -77,14 +77,16 @@ class FSELink : public FSElem
     FSELink& operator=(FSELink&&) = default;
     ~FSELink() = default;
 
-    FSELink(std::string_view name, std::string_view org_name, std::string_view server_id, std::string_view ref);
+    FSELink(std::string_view id, std::string_view name, std::string_view org_name, std::string_view server_id, std::string_view ref);
     std::size_t size_bytes() const override;
     void accept(FSElemVisitor&) const override;
+    const std::string& id() const;
     const std::string& org_name() const;
     const std::string& server_name() const;
     const std::string& ref() const;
 
     private:
+    std::string mapping_id_;
     std::string org_name_;
     std::string server_name_;
     std::string ref_;

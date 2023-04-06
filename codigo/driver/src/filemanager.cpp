@@ -10,19 +10,23 @@
 #include <algorithm>
 #include <filesystem>
 
-namespace mifs {
+namespace mifs
+{
 
-namespace helpers {
+namespace helpers
+{
 std::tuple<std::string, std::string, std::string> parse_server_ref(std::string_view path);
-int write(std::string& document, const char* buffer, std::size_t size, off_t offset);
-}
+int write(std::string& document, const char *buffer, std::size_t size, off_t offset);
+} // namespace helpers
 
-FileManager::FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog) :
-    is_client_{std::move(is_client)},
-    fs_client_{std::move(fs_client)},
-    fs_catalog_{fs_catalog},
-    logger_{log::get()}
-{}
+FileManager::FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client,
+                         util::FileServerCatalog::ptr_t fs_catalog)
+    : is_client_{std::move(is_client)},
+      fs_client_{std::move(fs_client)},
+      fs_catalog_{fs_catalog},
+      logger_{log::get()}
+{
+}
 
 FileManager::list_result_t FileManager::list(std::string_view path)
 {
@@ -58,21 +62,18 @@ void FileManager::sync()
     SPDLOG_LOGGER_TRACE(logger_, "fetching file server information...");
     auto res_servers{is_client_.get_servers()};
     if (!res_servers) {
-        SPDLOG_LOGGER_ERROR(logger_, "failed to fetch file servers information from index server: {}", res_mappings.error());
+        SPDLOG_LOGGER_ERROR(logger_, "failed to fetch file servers information from index server: {}",
+                            res_mappings.error());
         return;
     }
 
     const auto& servers{(*res_servers).data["server"]};
-    for (const auto& server: servers) {
+    for (const auto& server : servers) {
         fs_catalog_->update_fetch_url(server.org_name(), server.name(), server.fetch_url());
     }
 }
 
-
-int FileManager::open(std::string_view path, int mode)
-{
-    return open_files_.open(path, mode);
-}
+int FileManager::open(std::string_view path, int mode) { return open_files_.open(path, mode); }
 
 int FileManager::read(std::string_view path, char *buffer, std::size_t offset, std::size_t count)
 {
@@ -82,13 +83,14 @@ int FileManager::read(std::string_view path, char *buffer, std::size_t offset, s
         return -1;
     }
 
-    const auto* file_meta{dynamic_cast<types::FSEFile*>((*gen_info).get())};
+    const auto *file_meta{dynamic_cast<types::FSEFile *>((*gen_info).get())};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
     }
 
-    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(), file_meta->server(), file_meta->ref());
+    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(),
+                        file_meta->server(), file_meta->ref());
 
     if (!ensure_cached(file_meta->org(), file_meta->server(), file_meta->ref())) {
         SPDLOG_LOGGER_ERROR(logger_, "file '{}' could not be fetched/cached.", path);
@@ -121,7 +123,6 @@ int FileManager::read(int fd, char *buffer, off_t offset, std::size_t count)
     return read(std::string{of->get().name}, buffer, offset, count);
 }
 
-
 int FileManager::write(std::string_view path, const char *buf, size_t size, off_t offset)
 {
     auto gen_info{fs_mirror_.info((path.size() > 0 && path[0] == '/') ? path.substr(1) : path)};
@@ -130,13 +131,14 @@ int FileManager::write(std::string_view path, const char *buf, size_t size, off_
         return -1;
     }
 
-    const auto* file_meta{dynamic_cast<types::FSEFile*>((*gen_info).get())};
+    const auto *file_meta{dynamic_cast<types::FSEFile *>((*gen_info).get())};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
     }
 
-    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(), file_meta->server(), file_meta->ref());
+    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(),
+                        file_meta->server(), file_meta->ref());
 
     if (!ensure_cached(file_meta->org(), file_meta->server(), file_meta->ref())) {
         SPDLOG_LOGGER_ERROR(logger_, "file '{}' could not be fetched/cached.", path);
@@ -175,7 +177,6 @@ bool FileManager::link(std::string_view from, std::string_view to)
     return false;
 }
 
-
 bool FileManager::flush(std::string_view path)
 {
     auto gen_info{fs_mirror_.info((path.size() > 0 && path[0] == '/') ? path.substr(1) : path)};
@@ -184,28 +185,31 @@ bool FileManager::flush(std::string_view path)
         return -1;
     }
 
-    const auto* file_meta{dynamic_cast<types::FSEFile*>((*gen_info).get())};
+    const auto *file_meta{dynamic_cast<types::FSEFile *>((*gen_info).get())};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
     }
 
     auto cache_entry_res{file_cache_.get(file_meta->org(), file_meta->server(), file_meta->ref())};
-    if (!cache_entry_res){
-        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' not present on cache. Nothing to do.", file_meta->ref(), file_meta->org(), file_meta->server());
+    if (!cache_entry_res) {
+        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' not present on cache. Nothing to do.", file_meta->ref(),
+                            file_meta->org(), file_meta->server());
         return true;
     }
 
     auto& cache_entry{*cache_entry_res};
     if (!cache_entry.get().dirty()) {
-        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' is not dirty. Nothing to do.", file_meta->ref(), file_meta->org(), file_meta->server());
+        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' is not dirty. Nothing to do.", file_meta->ref(),
+                            file_meta->org(), file_meta->server());
         return true;
     }
 
-    auto res{fs_client_.update_contents(file_meta->org(), file_meta->server(), file_meta->ref(), cache_entry.get().contents())};
+    auto res{fs_client_.update_contents(file_meta->org(), file_meta->server(), file_meta->ref(),
+                                        cache_entry.get().contents())};
     if (!res) {
-        SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' was not properly flushed", file_meta->ref(), file_meta->org(), file_meta->server());
-
+        SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' was not properly flushed", file_meta->ref(),
+                            file_meta->org(), file_meta->server());
     }
 
     file_cache_.drop(file_meta->org(), file_meta->server(), file_meta->ref());
@@ -230,10 +234,29 @@ bool FileManager::remove(std::string_view path)
 
 bool FileManager::rename(std::string_view from, std::string_view to)
 {
+    auto current_res{fs_mirror_.info(std::filesystem::path{from})};
+    if (!current_res) {
+        return false;
+    }
+
+    const auto& current{*current_res};
+    const auto *as_link{dynamic_cast<types::FSELink *>(current.get())};
+    if (!as_link) { // it's not a link. cannot rename server files
+        return false;
+    }
+
+    // TODO: validate `to` is not in servers folder
+
+    if (fs_mirror_.remove(from) != util::FSMirror::Error::Ok) {
+        return false;
+    }
+
+    return fs_mirror_.link_file(as_link->org_name(), as_link->server_name(), as_link->ref(), to) ==
+           util::FSMirror::Error::Ok;
 }
 
-
-namespace helpers {
+namespace helpers
+{
 
 std::tuple<std::string, std::string, std::string> parse_server_ref(std::string_view path)
 {
@@ -244,7 +267,7 @@ std::tuple<std::string, std::string, std::string> parse_server_ref(std::string_v
     return std::make_tuple(org.c_str(), server.c_str(), ref.c_str());
 }
 
-int write(std::string& document, const char* buffer, std::size_t size, off_t offset)
+int write(std::string& document, const char *buffer, std::size_t size, off_t offset)
 {
     if (auto newSize{offset + size}; newSize > document.size()) {
         document.reserve(size);

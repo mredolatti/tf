@@ -1,32 +1,34 @@
 #ifndef MIFS_FILEMANAGER_HPP
 #define MIFS_FILEMANAGER_HPP
 
-#include <vector>
 #include <string_view>
+#include <vector>
 
+#include "expected.hpp"
 #include "filecache.hpp"
 #include "fsclient.hpp"
 #include "fselems.hpp"
-#include "fsmirror.hpp"
-#include "expected.hpp"
-#include "isclient.hpp"
 #include "fservers.hpp"
+#include "fsmirror.hpp"
+#include "isclient.hpp"
 
 #include "log.hpp"
 #include "openfiles.hpp"
 
-namespace mifs {
+namespace mifs
+{
 
-//class DirentryStub;
+// class DirentryStub;
 
 class FileManager
 {
-    public:
+  public:
     using list_result_t = util::Expected<std::vector<std::unique_ptr<types::FSElem>>, int>;
     using stat_result_t = util::Expected<std::unique_ptr<types::FSElem>, int>;
     using http_client_ptr_t = std::shared_ptr<http::Client>;
 
-    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog);
+    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client,
+                         util::FileServerCatalog::ptr_t fs_catalog);
     FileManager() = delete;
     FileManager(const FileManager&) = delete;
     FileManager(FileManager&&) = delete;
@@ -49,7 +51,7 @@ class FileManager
 
     void sync();
 
-    private:
+  private:
     util::FSMirror fs_mirror_;
     util::FileCache file_cache_;
     util::OpenFileTracker open_files_;
