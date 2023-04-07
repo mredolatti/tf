@@ -42,5 +42,5 @@ target_link_libraries(mifs
 )
 
 set_target_properties(mifs PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
 )

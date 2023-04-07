@@ -43,7 +43,9 @@ type OrganizationRepository interface {
 type MappingRepository interface {
 	List(ctx context.Context, userID string, query models.MappingQuery) ([]models.Mapping, error)
 	Add(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error)
-	Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error)
+	AddPath(ctx context.Context, userID string, org string, server string, ref string, newPath string) (models.Mapping, error)
+    UpdatePathByID(ctx context.Context, userID string, id string, newPath string) (models.Mapping, error)
+    RemovePathByID(ctx context.Context, userID string, id string) error
 	Remove(ctx context.Context, userID string, mappingID string) error
 	HandleServerUpdates(ctx context.Context, userID string, orgName string, serverName string, updates []models.Update) error
 }

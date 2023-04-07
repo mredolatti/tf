@@ -105,8 +105,8 @@ function is_setup_2fa() {
         --output "${qr_output}"
 }
 
-function is_list() {
-    local usage="usage: is_list -t <session_token>"
+function is_mapping_list() {
+    local usage="usage: is_mapping_list -t <session_token>"
     local verbose=""
     local OPTIND
     while getopts "hvt:" options; do
@@ -129,6 +129,92 @@ function is_list() {
         --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/mappings"
+}
+
+function is_mapping_rename() {
+    local usage="usage: is_mapping_update -t <session_token> -i <mapping_id> -n <new_path>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:i:n:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            i) local id=${OPTARG} ;;
+            n) local new=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XPUT \
+        --cacert ${USER_FS_CACERT} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        -H"Content-Type: application/json" \
+        -d"{\"path\": \"${new}\"}" \
+        "${BASE_CLIENTS_URL}/mappings/${id}"
+}
+
+function is_mapping_delete() {
+    local usage="usage: is_mapping_delete -t <session_token> -i <mapping_id>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:i:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            i) local id=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+	    v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XDELETE \
+        --cacert ${USER_FS_CACERT} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        "${BASE_CLIENTS_URL}/mappings/${id}"
+}
+
+function is_mapping_create() {
+    local usage="usage: is_mapping_create -t <session_token> -o <org> -s <server> -r <ref> -p <path>"
+    local verbose=""
+    local OPTIND
+    while getopts "hvt:o:s:r:p:" options; do
+        case ${options} in
+            t) local token=${OPTARG} ;;
+            o) local org=${OPTARG} ;;
+            s) local server=${OPTARG} ;;
+            r) local ref=${OPTARG} ;;
+            p) local path=${OPTARG} ;;
+            h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
+            *) echo ${usage} && return 1 ;;
+        esac
+    done
+ 
+    [ -z ${token+x} ] && echo ${usage} && return 1
+ 
+    curl \
+        ${verbose} \
+        -L \
+        -XPOST \
+        --cacert ${USER_FS_CACERT} \
+        -H'Content-Type: application/json' \
+        -H"X-MIFS-IS-Session-Token: ${token}" \
+        -H"Content-Type: application/json" \
+        -d"{\"organizationName\": \"${org}\", \"serverName\": \"${server}\", \"ref\": \"${ref}\", \"path\": \"${path}\"}" \
         "${BASE_CLIENTS_URL}/mappings"
 }
 

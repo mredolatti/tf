@@ -28,12 +28,13 @@ class CacheEntry
 
     const std::string& file_id() const;
     const std::string& file_name() const;
-    const std::string& contents() const;
+    std::string& contents();
     std::chrono::system_clock::time_point last_sync() const;
     bool dirty() const;
 
     CacheEntry(std::string file_id, std::string file_name, std::string contents, sync_time_t last_sync);
     void update(std::string contents, sync_time_t last_sync);
+    int write(std::string_view contents, std::size_t size, off_t offset);
 
     private:
     std::string file_id_;
@@ -69,6 +70,7 @@ class FileCache
     get_res_t get(const std::string& org_name, const std::string& server_name, const std::string& ref);
     bool has(const std::string& org_name, const std::string& server_id, const std::string& ref);
     bool put(const std::string& org_name, std::string server_id, std::string ref, std::string contents);
+    bool drop(const std::string& org_name, const std::string& server_id, const std::string& ref);
 
     private:
     using map_t = std::unordered_map<std::string, detail::CacheEntry>;

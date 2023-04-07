@@ -10,11 +10,11 @@ OpenFileTracker::OpenFileTracker() :
 {}
 
 
-int OpenFileTracker::open(std::string_view path)
+int OpenFileTracker::open(std::string_view path, int mode)
 {
     std::lock_guard<std::mutex> lk{mutex_};
     auto curr = last_fd_++;
-    open_files_[curr] = OpenFile{.fd = curr, .name = std::string{path}, .offset = 0};
+    open_files_[curr] = OpenFile{.fd = curr, .name = std::string{path}, .offset = 0, .mode=mode};
     return curr;
 }
 

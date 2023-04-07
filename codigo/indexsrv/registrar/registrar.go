@@ -33,6 +33,8 @@ var (
 	ErrAccountExists = errors.New("account already exists")
 	ErrInvalidToken  = errors.New("error parsing raw token")
 	ErrInvalidClaims = errors.New("unknown claims in jwt")
+
+    ErrInvalidResponse = errors.New("access and/or refresh tokens returned from server are empty")
 )
 
 // Interface defines the set of methods for managing user <-> server links
@@ -255,6 +257,7 @@ func (i *Impl) GetValidToken(ctx context.Context, userID string, orgName string,
 		return &Token{raw: token}, nil
 	}
 
+
 	newAccessToken, err := i.doRefreshToken(ctx, userID, orgName, serverName, acc.RefreshToken())
 	if err != nil {
 		return nil, fmt.Errorf("error refreshing token: %w", err)
@@ -299,6 +302,7 @@ func (i *Impl) makeTokenRefreshRequest(tokenURL string, refreshToken string) (*t
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
+    defer resp.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
@@ -310,6 +314,10 @@ func (i *Impl) makeTokenRefreshRequest(tokenURL string, refreshToken string) (*t
 		return nil, fmt.Errorf("error parsing response json: %w", err)
 
 	}
+
+    if tokenResponse.AccessToken == "" || tokenResponse.RefreshToken == "" {
+        return nil, ErrInvalidResponse
+    }
 
 	return &tokenResponse, nil
 }

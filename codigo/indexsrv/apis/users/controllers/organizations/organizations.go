@@ -19,7 +19,7 @@ type Controller struct {
 
 func New(registrar registrar.Interface, logger log.Interface) *Controller {
 	return &Controller{
-		logger: logger,
+		logger:    logger,
 		registrar: registrar,
 	}
 }
@@ -42,14 +42,7 @@ func (c *Controller) listOrganizations(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := jsend.NewSuccessResponse("organization", toOrgsView(orgs), "")
-	if err != nil {
-		c.logger.Error("[organizations::listOrgaanizations] error building response: %s", err.Error())
-		ctx.AbortWithStatusJSON(500, "error building response")
-		return
-	}
-
-	ctx.JSON(200, resp)
+	ctx.JSON(200, jsend.NewSuccessResponse("organizations", toOrgsView(orgs), ""))
 }
 
 func (c *Controller) getOrganization(ctx *gin.Context) {
@@ -65,14 +58,7 @@ func (c *Controller) getOrganization(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := jsend.NewSuccessResponse("organization", toOrgsView([]models.Organization{org}), "")
-	if err != nil {
-		c.logger.Error("[organizations::get] error building response: %s", err.Error())
-		ctx.AbortWithStatusJSON(500, "error building response")
-		return
-	}
-
-	ctx.JSON(200, resp)
+	ctx.JSON(200, jsend.NewSuccessResponse("organization", toOrgView(org), ""))
 }
 
 func (c *Controller) listServersForOrg(ctx *gin.Context) {
@@ -84,14 +70,7 @@ func (c *Controller) listServersForOrg(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := jsend.NewSuccessResponse("server", toFileServersView(fss), "")
-	if err != nil {
-		c.logger.Error("[organizations::listServersForOrg] error building response: %s", err.Error())
-		ctx.AbortWithStatusJSON(500, "error building response")
-		return
-	}
-
-	ctx.JSON(200, resp)
+	ctx.JSON(200, jsend.NewSuccessResponse("servers", toFileServersView(fss), ""))
 }
 
 func (c *Controller) listServers(ctx *gin.Context) {
@@ -102,14 +81,7 @@ func (c *Controller) listServers(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := jsend.NewSuccessResponse("server", toFileServersView(fss), "")
-	if err != nil {
-		c.logger.Error("[organizations::listServers] error building response: %s", err.Error())
-		ctx.AbortWithStatusJSON(500, "error building response")
-		return
-	}
-
-	ctx.JSON(200, resp)
+	ctx.JSON(200, jsend.NewSuccessResponse("servers", toFileServersView(fss), ""))
 }
 
 func (c *Controller) getServer(ctx *gin.Context) {
@@ -125,9 +97,8 @@ func (c *Controller) getServer(ctx *gin.Context) {
 		ctx.AbortWithStatus(500)
 		return
 	}
-	ctx.JSON(200, toFileServerView(server))
+    ctx.JSON(200, jsend.NewSuccessResponse("server", toFileServerView(server), ""))
 }
-
 
 func (c *Controller) initiateLinkProcess(ctx *gin.Context) {
 

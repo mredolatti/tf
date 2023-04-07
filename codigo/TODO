@@ -8,18 +8,18 @@ IndexServer
 - Agregar seguridad para admin API
 - Hacer que user.tfaSecret() sea *string
 - Arreglar organizationName en fileserver
+- Arreglar PSQL y UTs
+- Revisar compliance jsend
 
 FileServer
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
-- no anda el token refresh
+- token refresh anda debuggeando step-by-step. falla cuando se hace todo automatico. ?
+- hacer que un update al contents triggeree un update al meta por el size
 
 Diver
-- Arreglar descarga (y caching) de contenido
-- Aceptar parametros (archivo yaml) al montar unidad
-- Crear utilidad CLI para crear hacer login y generar token
-
-
-
+- Crear utilidad CLI para hacer login y generar token
+- mejorar logging
+- validaciones
 
 ------------------------------------------------------
 

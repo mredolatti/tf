@@ -76,7 +76,7 @@ static int mifs_getattr(const char* path, struct stat* stbuf, struct fuse_file_i
     auto res{ctx->file_manager().stat(path)};
     if (!res) {
         SPDLOG_LOGGER_ERROR(ctx->logger(), "failed to stat '{}': {}", path, res.error());
-        return 1;
+        return -ENOENT;
     }
 
     auto& de{(*res)};
@@ -97,7 +97,6 @@ static int mifs_getattr(const char* path, struct stat* stbuf, struct fuse_file_i
 
 static int mifs_access(const char *path, int mask)
 {
-    // TODO(mredolatti) Ver si en algun caso corresponde denegar acceso a un archivo/path
     return 0;
 }
 
@@ -147,62 +146,48 @@ static int mifs_readdir(
 
 static int mifs_mkdir(const char *path, mode_t mode)
 {
-    // TODO(mredolatti): ver como manejar esto correctamente:
-    // - creacion de dirs solo en memoria ?
-    // - no hacer nada ?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().mkdir(path+1); // +1 to skip leading '/'
 }
 
 static int mifs_unlink(const char *path)
 {
-    // TODO(mredolatti): que hacer aca? volver a mover el archivo a su ubicacion original /<server>/file_Ref?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().remove(path+1); // +1 to skip leading '/'
 }
 
 static int mifs_rmdir(const char *path)
 {
-    // TODO(mredolatti): borrado logico en memoria?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().rmdir(path+1); // +1 to skip leading '/'
 }
 
 static int mifs_symlink(const char *from, const char *to)
 {
-    // TODO(mredolatti): volar esto?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().link(from, to+1); // +1 to skip leading '/'
 }
 
 static int mifs_rename(const char *from, const char *to, unsigned int flags)
 {
-    if (flags) {
-        return -EINVAL;
-    }
-
-    // TODO(mredolatti): hacer un rename del mapping en index-server
-    return 0;
+    (void)flags;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    return !ctx->file_manager().rename(from+1, to+1); // +1 to skip leading '/'
 }
 
 static int mifs_link(const char *from, const char *to)
 {
-    auto res{link(from, to)};
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
+    return EACCES; // nohard links allowed
 }
 
 static int mifs_chmod(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-    (void) fi;
-    // TODO(mredolatti): volar esto?
-    return 0;
+    return EACCES;
 }
 
 static int mifs_chown(const char *path, uid_t uid, gid_t gid, struct fuse_file_info *fi)
 {
-    (void) fi;
-    // TODO(mredolatti): volar esto?
-    return 0;
+    return EACCES;
 }
 
 static int mifs_truncate(const char *path, off_t size,
@@ -214,12 +199,7 @@ static int mifs_truncate(const char *path, off_t size,
 
 static int mifs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-    auto res{open(path, fi->flags, mode)};
-    if (res == -1) {
-        return -errno;
-    }
-
-    fi->fh = res;
+    // TODO(mredolatti): implementar?
     return 0;
 }
 
@@ -270,48 +250,18 @@ static int mifs_read(const char *path, char *buf, size_t size, off_t offset, str
         read_bytes = ctx->file_manager().read(fi->fh, buf, offset, size);
     }
     return read_bytes;
-
-    /*
-    auto fd{(fi == nullptr) ? 123456 : fi->fh};
-    SPDLOG_LOGGER_INFO(ctx->logger(), "fd: {}", fd);
-    strcpy(buf, "hola\n");
-    return 5;
-    */
 }
 
 static int mifs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    auto fd{(fi == nullptr) ? open(path, O_WRONLY) : fi->fh};
-    if (fd == -1) {
-        return -errno;
-    }
 
-    auto res{pwrite(fd, buf, size, offset)};
-    if (res == -1) {
-        res = -errno;
-    }
-
-    if(fi == nullptr) {
-        close(fd);
-    }
-
-    return res;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    SPDLOG_LOGGER_INFO(ctx->logger(), "writing to file: {}", path);
+    return ctx->file_manager().write(path, buf, size, offset);
 }
 
 static int mifs_statfs(const char *path, struct statvfs *stbuf)
 {
-    auto res{statvfs(path, stbuf)};
-    if (res == -1) {
-        return -errno;
-    }
-
-    return 0;
-}
-
-static int mifs_release(const char *path, struct fuse_file_info *fi)
-{
-    (void) path;
-    close(fi->fh);
     return 0;
 }
 
@@ -324,11 +274,27 @@ static int mifs_fsync(const char *path, int isdatasync,
     return 0;
 }
 
-static int mifs_opendir(const char *dir, struct fuse_file_info *info)
+static int mifs_opendir(const char *dir, struct fuse_file_info* fi)
 {
-    (void)info;
+    (void)fi;
     return 0;
 }
+
+static int mifs_flush(const char* path, struct fuse_file_info* fi)
+{
+    (void)fi;
+    auto ctx{reinterpret_cast<ContextData*>(fuse_get_context()->private_data)};
+    ctx->file_manager().flush(path);
+    return 0;
+}
+
+static int mifs_release(const char *path, struct fuse_file_info* fi)
+{
+    (void) path;
+    close(fi->fh);
+    return 0;
+}
+
 
 static const struct fuse_operations mifs_oper = {
     .getattr    = mifs_getattr,
@@ -336,6 +302,7 @@ static const struct fuse_operations mifs_oper = {
     .mkdir      = mifs_mkdir,
     .unlink     = mifs_unlink,
     .rmdir      = mifs_rmdir,
+    .symlink    = mifs_symlink,
     .rename     = mifs_rename,
     .link       = mifs_link,
     .chmod      = mifs_chmod,
@@ -345,6 +312,7 @@ static const struct fuse_operations mifs_oper = {
     .read       = mifs_read,
     .write      = mifs_write,
     .statfs     = mifs_statfs,
+    .flush      = mifs_flush,
     .release    = mifs_release,
     .fsync      = mifs_fsync,
     .opendir    = mifs_opendir,

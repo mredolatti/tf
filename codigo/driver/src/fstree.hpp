@@ -3,17 +3,24 @@
 
 #include "fselems.hpp"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+namespace mifs::fstree
+{
 
-namespace mifs::filesystem {
+enum class DropFlags : int {
+    IF_FILE = (1 << 0),
+    IF_DIR = (1 << 1),
+    RECURSIVE = (1 << 2),
+};
 
 class Node
 {
-    public:
+  public:
     Node() = delete;
     Node(const Node&) = default;
     Node(Node&&) = default;
@@ -21,21 +28,25 @@ class Node
     Node& operator=(Node&&) = default;
     ~Node() = default;
 
+    using path_t = std::filesystem::path;
+    using node_ptr_t = std::unique_ptr<Node>;
+
     Node(std::string name);
     const std::string& name() const;
-    virtual bool insert(std::string_view path, std::unique_ptr<Node> node) = 0;
+    virtual bool insert(path_t path, node_ptr_t node) = 0;
+    virtual bool drop(path_t path, int flags) = 0;
     virtual std::unique_ptr<types::FSElem> get() const = 0;
     virtual std::vector<std::unique_ptr<types::FSElem>> children() const = 0;
-    virtual const Node* follow_path(std::string_view path) const = 0;
+    virtual const Node *follow_path(path_t path) const = 0;
     virtual void print(std::size_t depth = 1) const = 0;
 
-    protected:
+  protected:
     std::string name_;
 };
 
 class InnerNode : public Node
 {
-    public:
+  public:
     InnerNode() = delete;
     InnerNode(const InnerNode&) = default;
     InnerNode(InnerNode&&) = default;
@@ -44,20 +55,21 @@ class InnerNode : public Node
     ~InnerNode() = default;
 
     InnerNode(std::string path);
-    bool insert(std::string_view path, std::unique_ptr<Node> node) override;
+    bool insert(path_t path, node_ptr_t node) override;
+    bool drop(path_t path, int flags) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
-    const Node* follow_path(std::string_view path) const override;
+    const Node *follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
-    private:
-    using map_t = std::unordered_map<std::string, std::unique_ptr<Node>>;
+  private:
+    using map_t = std::unordered_map<std::string, node_ptr_t>;
     map_t children_;
 };
 
 class LeafNode : public Node
 {
-    public:
+  public:
     LeafNode() = delete;
     LeafNode(const LeafNode&) = default;
     LeafNode(LeafNode&&) = default;
@@ -65,24 +77,33 @@ class LeafNode : public Node
     LeafNode& operator=(LeafNode&&) = default;
     ~LeafNode() = default;
 
-    LeafNode(std::string_view name, std::size_t size_bytes, std::string_view org, std::string_view server, std::string ref, int64_t last_updated, bool link);
-    static std::unique_ptr<LeafNode> link(std::string_view name, std::string_view org, std::string_view server, std::string_view ref);
-    static std::unique_ptr<LeafNode> file(std::string_view name, std::string_view org, std::string_view server, std::string ref, std::size_t size_bytes, int64_t last_updated);
+    using leaf_ptr_t = std::unique_ptr<LeafNode>;
 
-    bool insert(std::string_view path, std::unique_ptr<Node> node) override;
+    LeafNode(std::string_view id, std::string_view name, std::size_t size_bytes, std::string_view org,
+             std::string_view server, std::string_view ref, int64_t last_updated, bool link);
+
+    static leaf_ptr_t link(std::string_view id, std::string_view name, std::string_view org,
+                           std::string_view server, std::string_view ref);
+
+    static leaf_ptr_t file(std::string_view name, std::string_view org, std::string_view server,
+                           std::string ref, std::size_t size_bytes, int64_t last_updated);
+
+    bool insert(path_t path, std::unique_ptr<Node> node) override;
+    bool drop(path_t path, int flags) override;
     std::unique_ptr<types::FSElem> get() const override;
     std::vector<std::unique_ptr<types::FSElem>> children() const override;
-    const Node* follow_path(std::string_view path) const override;
+    const Node *follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
-    private:
-    std::size_t size_bytes_;
+  private:
+    std::string mapping_id_;
     std::string org_name_;
     std::string server_name_;
     std::string ref_;
+    std::size_t size_bytes_;
     int64_t last_updated_;
     bool link_;
 };
 
-} // namespace mifs::filesystem
+} // namespace mifs::fstree
 #endif // MIFS_FILESYSTEM_TREE_HPP

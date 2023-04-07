@@ -1,32 +1,34 @@
 #ifndef MIFS_FILEMANAGER_HPP
 #define MIFS_FILEMANAGER_HPP
 
-#include <vector>
 #include <string_view>
+#include <vector>
 
+#include "expected.hpp"
 #include "filecache.hpp"
 #include "fsclient.hpp"
 #include "fselems.hpp"
-#include "fsmirror.hpp"
-#include "expected.hpp"
-#include "isclient.hpp"
 #include "fservers.hpp"
+#include "fsmirror.hpp"
+#include "isclient.hpp"
 
 #include "log.hpp"
 #include "openfiles.hpp"
 
-namespace mifs {
+namespace mifs
+{
 
-//class DirentryStub;
+// class DirentryStub;
 
 class FileManager
 {
-    public:
+  public:
     using list_result_t = util::Expected<std::vector<std::unique_ptr<types::FSElem>>, int>;
     using stat_result_t = util::Expected<std::unique_ptr<types::FSElem>, int>;
     using http_client_ptr_t = std::shared_ptr<http::Client>;
 
-    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog);
+    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client,
+                         util::FileServerCatalog::ptr_t fs_catalog);
     FileManager() = delete;
     FileManager(const FileManager&) = delete;
     FileManager(FileManager&&) = delete;
@@ -38,11 +40,20 @@ class FileManager
     stat_result_t stat(std::string_view path);
     int open(std::string_view path, int mode);
     int read(std::string_view path, char *buffer, std::size_t offset, std::size_t count);
-    int read(int fd, char *buffer, std::size_t offset, std::size_t count);
+    int read(int fd, char *buffer, off_t offset, std::size_t count);
+    int write(std::string_view path, const char *buf, size_t size, off_t offset);
+    bool flush(std::string_view path);
+
+    bool mkdir(std::string_view path);
+    bool rmdir(std::string_view path);
+
+    bool remove(std::string_view path);
+    bool rename(std::string_view from, std::string_view to);
+    bool link(std::string_view from, std::string_view to);
 
     void sync();
 
-    private:
+  private:
     util::FSMirror fs_mirror_;
     util::FileCache file_cache_;
     util::OpenFileTracker open_files_;
@@ -53,29 +64,6 @@ class FileManager
 
     bool ensure_cached(const std::string& org, const std::string& server, const std::string& ref);
 };
-
-//class DirentryStub
-//{
-//    public:
-//    DirentryStub(std::string name, size_t size, bool is_directory);
-//    DirentryStub() = delete;
-//    DirentryStub(const DirentryStub&) = default;
-//    DirentryStub(DirentryStub&&) = default;
-//    DirentryStub& operator=(const DirentryStub&) = default;
-//    DirentryStub& operator=(DirentryStub&) = default;
-//    ~DirentryStub() = default;
-//
-//    static DirentryStub from_fsmeta(const util::detail::FSElem& fselem);
-//
-//    const std::string& name() const;
-//    size_t size() const;
-//    bool is_directory() const;
-//
-//    private:
-//    std::string name_;
-//    size_t size_;
-//    bool is_directory_;
-//};
 
 } // namespace mifs
 

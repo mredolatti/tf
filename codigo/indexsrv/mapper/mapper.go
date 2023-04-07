@@ -28,7 +28,9 @@ type Config struct {
 // Interface defines the set of methods exposed by a Mapper
 type Interface interface {
 	Get(ctx context.Context, userID string, forceUpdate bool, query *models.MappingQuery) ([]models.Mapping, error)
-	Update(ctx context.Context, userID string, mapping models.Mapping) (models.Mapping, error)
+	AddPath(ctx context.Context, userID, org, server, ref, newPath string) (models.Mapping, error)
+	UpdatePathByID(ctx context.Context, userID, id, newPath string) (models.Mapping, error)
+    ResetPathByID(ctx context.Context, userID, id string) error
 }
 
 // Impl implements the Mapper interface
@@ -63,9 +65,16 @@ func (i *Impl) Get(ctx context.Context, userID string, forceUpdate bool, query *
 	return i.mappings.List(ctx, userID, *query)
 }
 
-// Update updates a mapping
-func (i *Impl) Update(ctx context.Context, userName string, mapping models.Mapping) (models.Mapping, error) {
-	return nil, nil
+func (i *Impl) AddPath(ctx context.Context, userID, org, server, ref, newPath string) (models.Mapping, error) {
+    return i.mappings.AddPath(ctx, userID, org, server, ref, newPath)
+}
+
+func (i *Impl) UpdatePathByID(ctx context.Context, userID, id, newPath string) (models.Mapping, error) {
+    return i.mappings.UpdatePathByID(ctx, userID, id, newPath)
+}
+
+func (i *Impl) ResetPathByID(ctx context.Context, userID, id string) error {
+    return i.mappings.RemovePathByID(ctx, userID, id)
 }
 
 func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) error {

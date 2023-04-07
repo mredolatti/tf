@@ -57,12 +57,7 @@ func (c *Controller) list(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := jsend.NewSuccessResponse[dtos.FileMetadata]("files", toFileMetaDTOs(metas), "")
-	if err != nil {
-		c.logger.Error("[files::list] error building response: %s", err.Error())
-		ctx.JSON(500, "error building response")
-	}
-	ctx.JSON(200, resp)
+	ctx.JSON(200, jsend.NewSuccessResponse("files", toFileMetaDTOs(metas), ""))
 
 	//ctx.JSON(200, gin.H{"objects": toFileMetaDTOs(metas)})
 }
