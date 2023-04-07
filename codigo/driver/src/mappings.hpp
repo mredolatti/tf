@@ -21,8 +21,8 @@ class Mapping
     Mapping& operator=(Mapping&&) = default;
     ~Mapping() = default;
 
-    Mapping(std::string_view id, std::string_view path, std::size_t size_bytes, std::string_view org,
-            std::string_view server, std::string_view ref, int64_t last_updated);
+    Mapping(std::string_view id, std::string_view path, std::string_view org, std::string_view server,
+            std::string_view ref, std::size_t size_bytes, int64_t last_updated);
 
     template <typename Serialized> static parse_result_t parse(const Serialized& data);
     template <typename Serializer> int serialize(Serializer& doc, bool ignore_empty) const;

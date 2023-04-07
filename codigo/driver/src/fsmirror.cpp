@@ -43,10 +43,10 @@ FSMirror::Error FSMirror::add_file(std::string_view org, std::string_view server
         : Error::AlreadyExists;
 }
 
-FSMirror::Error FSMirror::link_file(std::string_view org, std::string_view server, std::string_view ref, path_t path)
+FSMirror::Error FSMirror::link_file(std::string_view id, std::string_view org, std::string_view server, std::string_view ref, path_t path)
 {
     // TODO(mredolatti): check path doesn't belong to a server
-    return root_.insert(path, fstree::LeafNode::link(path.filename().c_str(), org, server, ref))
+    return root_.insert(path, fstree::LeafNode::link(id, path.filename().c_str(), org, server, ref))
         ? Error::Ok
         : Error::AlreadyExists;
 }
@@ -59,7 +59,7 @@ FSMirror::Error FSMirror::reset_all(const std::vector<models::Mapping>& mappings
     for (const auto& mapping : mappings) {
         files_ok &= (add_file(mapping.org(), mapping.server(), mapping.ref(), mapping.size_bytes(), mapping.last_updated()) == Error::Ok);
         if (!mapping.path().empty()) {
-            mappings_ok &= (link_file(mapping.org(), mapping.server(), mapping.ref(), mapping.path()) == Error::Ok);
+            mappings_ok &= (link_file(mapping.id(), mapping.org(), mapping.server(), mapping.ref(), mapping.path()) == Error::Ok);
         }
     }
 

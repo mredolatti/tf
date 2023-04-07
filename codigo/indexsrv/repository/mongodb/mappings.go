@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mredolatti/tf/codigo/common/refutil"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
 	"github.com/mredolatti/tf/codigo/indexsrv/repository"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Mapping is a MongoDB-compatible struct implementing models.Mapping interface
@@ -98,7 +100,6 @@ func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID stri
 				SetUpdate(bson.D{
 					{Key: "$setOnInsert", Value: bson.D{
 						{Key: "_id", Value: primitive.NewObjectID()},
-						{Key: "path", Value: update.UnmappedPath(orgName, serverName)},
 					}},
 					{Key: "$set", Value: bson.D{
 						{Key: "userId", Value: uid},
@@ -134,8 +135,117 @@ func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID stri
 }
 
 // Update implements repository.MappingRepository
-func (*MappingRepository) Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error) {
-	panic("unimplemented")
+func (r *MappingRepository) AddPath(
+	ctx context.Context,
+	userID string,
+	org string,
+	server string,
+	ref string,
+	newPath string,
+) (models.Mapping, error) {
+
+	uid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing objectID for mapping with id=%s: %w", userID, err)
+	}
+
+	res := r.collection.FindOneAndUpdate(ctx,
+		bson.D{
+			bson.E{Key: "userId", Value: uid},
+			bson.E{Key: "organizationName", Value: org},
+			bson.E{Key: "serverName", Value: server},
+			bson.E{Key: "ref", Value: ref},
+			bson.E{Key: "path", Value: bson.D{bson.E{Key: "$exists", Value: false}}},
+		},
+		bson.D{bson.E{Key: "$set", Value: bson.D{bson.E{Key: "path", Value: newPath}}}},
+		&options.FindOneAndUpdateOptions{ReturnDocument: refutil.Ref(options.After)},
+	)
+
+	if err = res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNilDocument) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error performing bulk update in mongodb: %w", err)
+	}
+
+	var m Mapping
+	if err = res.Decode(&m); err != nil {
+		return nil, fmt.Errorf("error deserializing result: %w", err)
+	}
+
+	return &m, nil
+}
+
+func (r *MappingRepository) UpdatePathByID(ctx context.Context, userID string, id string, newPath string) (models.Mapping, error) {
+
+	uid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing objectID for mapping with id=%s: %w", userID, err)
+	}
+
+	mid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing objectID for mapping with id=%s: %w", userID, err)
+	}
+
+	res := r.collection.FindOneAndUpdate(ctx,
+		bson.D{
+			bson.E{Key: "_id", Value: mid},
+			bson.E{Key: "userId", Value: uid},
+			bson.E{Key: "path", Value: bson.D{bson.E{Key: "$exists", Value: true}}},
+		},
+		bson.D{bson.E{Key: "$set", Value: bson.D{bson.E{Key: "path", Value: newPath}}}},
+		&options.FindOneAndUpdateOptions{ReturnDocument: refutil.Ref(options.After)},
+	)
+
+	if err = res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNilDocument) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("error performing bulk update in mongodb: %w", err)
+	}
+
+	var m Mapping
+	if err = res.Decode(&m); err != nil {
+		return nil, fmt.Errorf("error deserializing result: %w", err)
+	}
+
+	return &m, nil
+}
+
+func (r *MappingRepository) RemovePathByID(ctx context.Context, userID string, id string) error {
+
+	uid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return fmt.Errorf("error constructing objectID for mapping with id=%s: %w", userID, err)
+	}
+
+	mid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("error constructing objectID for mapping with id=%s: %w", userID, err)
+	}
+
+	res, err := r.collection.UpdateOne(ctx,
+		bson.D{
+			bson.E{Key: "userId", Value: uid},
+			bson.E{Key: "_id", Value: mid},
+			bson.E{Key: "path", Value: bson.D{bson.E{Key: "$exists", Value: true}}},
+		},
+		bson.D{
+			bson.E{Key: "$unset", Value: bson.D{bson.E{Key: "path", Value: ""}}},
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("error performing bulk update in mongodb: %w", err)
+	}
+
+	if res.MatchedCount == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+
 }
 
 // Add implements repository.MappingRepository

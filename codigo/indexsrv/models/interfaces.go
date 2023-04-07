@@ -47,6 +47,7 @@ type UserAccount interface {
 
 // Mapping defines the mapping model
 type Mapping interface {
+	ID() string
 	UserID() string
 	OrganizationName() string
 	ServerName() string
@@ -66,7 +67,7 @@ type PendingOAuth2 interface {
 }
 
 type FileServersQuery struct {
-	Names []string
+	Names            []string
 	OrganizationName *string
 }
 

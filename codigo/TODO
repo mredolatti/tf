@@ -8,19 +8,18 @@ IndexServer
 - Agregar seguridad para admin API
 - Hacer que user.tfaSecret() sea *string
 - Arreglar organizationName en fileserver
+- Arreglar PSQL y UTs
+- Revisar compliance jsend
 
 FileServer
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
-- no anda el token refresh
+- token refresh anda debuggeando step-by-step. falla cuando se hace todo automatico. ?
 - hacer que un update al contents triggeree un update al meta por el size
 
 Diver
-- Crear utilidad CLI para crear hacer login y generar token
-- Migrar de std::string_view a std::filesystem::path
-- permitir crear nuevos links (siempre y cuando el mapeo tenga path vacio)
-- permitir mover links
-
-
+- Crear utilidad CLI para hacer login y generar token
+- mejorar logging
+- validaciones
 
 ------------------------------------------------------
 

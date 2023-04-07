@@ -6,8 +6,8 @@
 namespace mifs::models
 {
 
-Mapping::Mapping(std::string_view id, std::string_view path, std::size_t size_bytes, std::string_view ref,
-                 std::string_view org, std::string_view server, int64_t last_updated)
+Mapping::Mapping(std::string_view id, std::string_view path, std::string_view org, std::string_view server,
+                 std::string_view ref, std::size_t size_bytes, int64_t last_updated)
     : id_{id},
       path_{path},
       size_bytes_{size_bytes},
@@ -66,41 +66,51 @@ Mapping::parse<rapidjson::Document::ValueType>(const rapidjson::Document::ValueT
 
     return Mapping{doc["id"].GetString(),
                    doc.HasMember("path") ? doc["path"].GetString() : "",
-                   static_cast<std::size_t>(doc["sizeBytes"].GetInt()),
                    doc["organizationName"].GetString(),
                    doc["serverName"].GetString(),
                    doc["ref"].GetString(),
+                   static_cast<std::size_t>(doc["sizeBytes"].GetInt()),
                    doc["updated"].GetInt64()};
 }
 
 template <> int Mapping::serialize<rapidjson::Document>(rapidjson::Document& doc, bool ignore_empty) const
 {
+    doc.SetObject();
+    auto& alloc{doc.GetAllocator()};
+    
     if (!id_.empty() || !ignore_empty) {
-        doc["id"] = id_;
+        doc.AddMember("id", rapidjson::Value{id_.c_str(), alloc}.Move(), doc.GetAllocator());
+        //doc["id"].SetString(id_.c_str(), id_.size(), doc.GetAllocator());
     }
 
     if (!path_.empty() || !ignore_empty) {
-        doc["path"] = path_;
+        doc.AddMember("path", rapidjson::Value{path_.c_str(), alloc}.Move(), doc.GetAllocator());
+        //doc["path"].SetString(path_.c_str(), path_.size(), doc.GetAllocator());
     }
 
     if (!org_.empty() || !ignore_empty) {
-        doc["organizationName"] = org_;
+        doc.AddMember("organizationName", rapidjson::Value{org_.c_str(), alloc}.Move(), doc.GetAllocator());
+        //doc["organizationName"].SetString(org_.c_str(), org_.size(), doc.GetAllocator());
     }
 
     if (!server_.empty() || !ignore_empty) {
-        doc["serverName"] = server_;
+        doc.AddMember("serverName", rapidjson::Value{server_.c_str(), alloc}.Move(), doc.GetAllocator());
+        //doc["serverName"].SetString(server_.c_str(), server_.size(), doc.GetAllocator());
     }
 
     if (!ref_.empty() || !ignore_empty) {
-        doc["ref"] = ref_;
+        doc.AddMember("ref", rapidjson::Value{ref_.c_str(), alloc}.Move(), doc.GetAllocator());
+        //doc["ref"].SetString(ref_.c_str(), ref_.size(), doc.GetAllocator());
     }
 
     if (last_updated_ != -1 || !ignore_empty) {
-        doc["updated"] = last_updated_;
+        doc.AddMember("updated", last_updated_, doc.GetAllocator());
+        //doc["updated"] = last_updated_;
     }
 
     if (size_bytes_ != -1 || !ignore_empty) {
-        doc["sizeBytes"] = size_bytes_;
+        doc.AddMember("sizeBytes", size_bytes_, doc.GetAllocator());
+        //doc["sizeBytes"] = size_bytes_;
     }
 
     return 0;

@@ -34,7 +34,7 @@ FileServerClient::list_response_result_t FileServerClient::get_all(std::string_v
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse<models::FileMetadata>((*result).body(), "files")};
+    auto response_res{jsend::parse_multi_item_response<models::FileMetadata>((*result).body(), "files")};
     if (!response_res) {
 	    return no_response_t{-2};
     }

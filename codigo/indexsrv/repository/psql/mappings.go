@@ -38,6 +38,7 @@ var formatterForStorage *strings.Replacer = strings.NewReplacer(
 
 // Mapping is a postgres-compatible struct implementing models.Mapping interface
 type Mapping struct {
+	IDField         string `db:"id"`
 	UserIDField     string `db:"user_id"`
 	OrgNameField    string `db:"organization_name"`
 	ServerNameField string `db:"server_name"`
@@ -46,6 +47,10 @@ type Mapping struct {
 	RefField        string `db:"ref"`
 	UpdatedField    int64  `db:"updated"`
 	DeletedField    bool   `db:"deleted"`
+}
+
+func (m *Mapping) ID() string {
+    return m.IDField
 }
 
 // UserID returns the if of the user who has an mapping in a file server
@@ -156,9 +161,26 @@ func (r *MappingRepository) HandleServerUpdates(ctx context.Context, userID stri
 }
 
 // Update TODO!
-func (r *MappingRepository) Update(ctx context.Context, userID string, mappingID string, mapping models.Mapping) (models.Mapping, error) {
+func (r *MappingRepository) AddPath(
+	ctx context.Context,
+	userID string,
+	org string,
+	server string,
+	ref string,
+	newPath string,
+) (models.Mapping, error) {
 	// TODO!
 	return nil, nil
+}
+
+func (r *MappingRepository) UpdatePathByID(ctx context.Context, userID string, id string, newPath string) (models.Mapping, error) {
+	// TODO
+	return nil, nil
+}
+
+func (r *MappingRepository) RemovePathByID(ctx context.Context, userID string, id string) error {
+	// TODO
+	return nil
 }
 
 // Remove deletes a file server that matches the supplied id

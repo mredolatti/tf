@@ -56,7 +56,7 @@ void FileManager::sync()
         return;
     }
 
-    const auto& mappings{(*res_mappings).data["mapping"]};
+    const auto& mappings{(*res_mappings).data["mappings"]};
     fs_mirror_.reset_all(mappings);
 
     SPDLOG_LOGGER_TRACE(logger_, "fetching file server information...");
@@ -67,7 +67,7 @@ void FileManager::sync()
         return;
     }
 
-    const auto& servers{(*res_servers).data["server"]};
+    const auto& servers{(*res_servers).data["servers"]};
     for (const auto& server : servers) {
         fs_catalog_->update_fetch_url(server.org_name(), server.name(), server.fetch_url());
     }
@@ -173,8 +173,15 @@ bool FileManager::link(std::string_view from, std::string_view to)
 {
     auto [org, server, ref]{helpers::parse_server_ref(from)};
     fmt::print("Link: org={}, server={}, ref={}", org, server, ref);
-    fs_mirror_.link_file(org, server, ref, to);
-    return false;
+
+    auto res{is_client_.create_mapping(models::Mapping{"", to, org, server, ref, 0, 0})};
+    if (!res) {
+        return false;
+    }
+
+    const auto it{(*res).data.find("mapping")};
+    assert(it != (*res).data.cend());
+    return fs_mirror_.link_file(it->second.id(), org, server, ref, to) == util::FSMirror::Error::Ok;
 }
 
 bool FileManager::flush(std::string_view path)
@@ -229,6 +236,23 @@ bool FileManager::rmdir(std::string_view path)
 
 bool FileManager::remove(std::string_view path)
 {
+    auto current_res{fs_mirror_.info(std::filesystem::path{path})};
+    if (!current_res) {
+        return false;
+    }
+
+    const auto& current{*current_res};
+    const auto *as_link{dynamic_cast<types::FSELink *>(current.get())};
+    if (!as_link) { // it's not a link. cannot delete server files
+        return false;
+    }
+
+    // TODO: validate `to` is not in servers folder
+
+    if (!is_client_.delete_mapping(as_link->id())) {
+        return false;
+    }
+
     return fs_mirror_.remove(std::filesystem::path{path}) == util::FSMirror::Error::Ok;
 }
 
@@ -247,12 +271,19 @@ bool FileManager::rename(std::string_view from, std::string_view to)
 
     // TODO: validate `to` is not in servers folder
 
-    if (fs_mirror_.remove(from) != util::FSMirror::Error::Ok) {
+    auto res{is_client_.update_mapping(models::Mapping{as_link->id(), to, "", "", "", 0, 0})};
+    if (!res) {
         return false;
     }
 
-    return fs_mirror_.link_file(as_link->org_name(), as_link->server_name(), as_link->ref(), to) ==
-           util::FSMirror::Error::Ok;
+    if (fs_mirror_.remove(from) != util::FSMirror::Error::Ok) {
+        // TODO(mredolatti): ???
+    }
+
+    const auto it{(*res).data.find("mapping")};
+    assert(it != (*res).data.cend());
+    return fs_mirror_.link_file(it->second.id(), as_link->org_name(), as_link->server_name(), as_link->ref(),
+                                to) == util::FSMirror::Error::Ok;
 }
 
 namespace helpers

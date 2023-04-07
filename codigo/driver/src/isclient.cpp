@@ -14,7 +14,7 @@ namespace mifs::apiclients
 namespace detail
 {
 
-using parse_result_t = util::Expected<IndexServerClient::mappings_response_t, int /* TODO */>;
+using parse_result_t = util::Expected<IndexServerClient::mappings_list_response_t, int /* TODO */>;
 using parse_error_t = util::Unexpected<int /* TODO */>;
 
 } // namespace detail
@@ -52,7 +52,7 @@ IndexServerClient::mappings_result_t IndexServerClient::get_mappings()
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse<models::Mapping>((*result).body(), "mapping")};
+    auto response_res{jsend::parse_multi_item_response<models::Mapping>((*result).body(), "mappings")};
     if (!response_res) {
         return no_response_t{-2};
     }
@@ -60,11 +60,11 @@ IndexServerClient::mappings_result_t IndexServerClient::get_mappings()
     return mappings_result_t{std::move(*response_res)};
 }
 
-int IndexServerClient::create_mapping(const models::Mapping& m)
+IndexServerClient::mapping_result_t IndexServerClient::create_mapping(const models::Mapping& m)
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return -2;
+        return no_response_t{-2};
     }
 
     // TODO(mredolatti): move this block to a separate function
@@ -72,6 +72,7 @@ int IndexServerClient::create_mapping(const models::Mapping& m)
     m.serialize<rapidjson::Document>(doc, true); // TODO(mredolatti): check this func output!
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+    doc.Accept(writer);
 
     auto request{http::Request::Builder{}
                      .method(http::Method::POST)
@@ -84,23 +85,28 @@ int IndexServerClient::create_mapping(const models::Mapping& m)
 
     auto result{client_->execute(request)};
     if (!result) {
-        return -1;
+        return no_response_t{-1};
     }
 
     auto code{(*result).code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
-        return code;
+        return no_response_t{code};
     }
 
-    return 0;
+    auto response_res{jsend::parse_single_item_response<models::Mapping>((*result).body(), "mapping")};
+    if (!response_res) {
+        return no_response_t{-2};
+    }
+
+    return mapping_result_t{std::move(*response_res)};
 }
 
-int IndexServerClient::update_mapping(const models::Mapping& m)
+IndexServerClient::mapping_result_t IndexServerClient::update_mapping(const models::Mapping& m)
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return -2;
+        return no_response_t{-2};
     }
 
     // TODO(mredolatti): move this block to a separate function
@@ -108,6 +114,7 @@ int IndexServerClient::update_mapping(const models::Mapping& m)
     m.serialize<rapidjson::Document>(doc, true); // TODO(mredolatti): check this func output!
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+    doc.Accept(writer);
 
     auto request{http::Request::Builder{}
                      .method(http::Method::PUT)
@@ -120,23 +127,28 @@ int IndexServerClient::update_mapping(const models::Mapping& m)
 
     auto result{client_->execute(request)};
     if (!result) {
-        return -1;
+        return no_response_t{-1};
     }
 
     auto code{(*result).code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
-        return code;
+        return no_response_t{code};
     }
 
-    return 0;
+    auto response_res{jsend::parse_single_item_response<models::Mapping>((*result).body(), "mapping")};
+    if (!response_res) {
+        return no_response_t{-2};
+    }
+
+    return mapping_result_t{std::move(*response_res)};
 }
 
-int IndexServerClient::delete_mapping(std::string_view mapping_id)
+bool IndexServerClient::delete_mapping(std::string_view mapping_id)
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return -2;
+        return false;
     }
 
     auto request{http::Request::Builder{}
@@ -148,16 +160,16 @@ int IndexServerClient::delete_mapping(std::string_view mapping_id)
 
     auto result{client_->execute(request)};
     if (!result) {
-        return -1;
+        return false;
     }
 
     auto code{(*result).code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
-        return code;
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
 IndexServerClient::servers_result_t IndexServerClient::get_servers()
@@ -185,7 +197,7 @@ IndexServerClient::servers_result_t IndexServerClient::get_servers()
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse<models::FileServer>((*result).body(), "server")};
+    auto response_res{jsend::parse_multi_item_response<models::FileServer>((*result).body(), "servers")};
     if (!response_res) {
         return no_response_t{-2};
     }

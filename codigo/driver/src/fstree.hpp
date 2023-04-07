@@ -96,7 +96,7 @@ class LeafNode : public Node
     void print(std::size_t depth = 1) const override;
 
   private:
-    std::string mapping_id;
+    std::string mapping_id_;
     std::string org_name_;
     std::string server_name_;
     std::string ref_;

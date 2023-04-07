@@ -108,7 +108,7 @@ void InnerNode::print(std::size_t depth) const
 LeafNode::LeafNode(std::string_view id, std::string_view name, std::size_t size_bytes, std::string_view org,
                    std::string_view server, std::string_view ref, int64_t last_updated, bool link)
     : Node{std::string{name}},
-      mapping_id{id},
+      mapping_id_{id},
       org_name_{org},
       server_name_{server},
       ref_{ref},
@@ -149,7 +149,7 @@ bool LeafNode::drop(path_t path, int flags)
 std::unique_ptr<types::FSElem> LeafNode::get() const
 {
     using rt = std::unique_ptr<types::FSElem>;
-    return (link_) ? rt{std::make_unique<types::FSELink>(name_, org_name_, server_name_, ref_)}
+    return (link_) ? rt{std::make_unique<types::FSELink>(mapping_id_, name_, org_name_, server_name_, ref_)}
                    : rt{std::make_unique<types::FSEFile>(name_, org_name_, server_name_, ref_, size_bytes_,
                                                          last_updated_)};
 }

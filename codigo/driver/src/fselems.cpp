@@ -55,6 +55,7 @@ void FSEFolder::accept(FSElemVisitor& v) const { v.visit_folder(*this); }
 FSELink::FSELink(std::string_view id, std::string_view name, std::string_view org_name,
                  std::string_view server_name, std::string_view ref)
     : FSElem{std::string{name}},
+      mapping_id_{id},
       org_name_{org_name},
       server_name_{server_name},
       ref_{ref}

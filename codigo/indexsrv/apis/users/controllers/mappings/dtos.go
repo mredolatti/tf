@@ -4,6 +4,7 @@ import "time"
 
 // DTO is a JSON-serializable representation of a file
 type DTO struct {
+	IDField               string `json:"id"`
 	UserIDField           string `json:"userId"`
 	OrganizationNameField string `json:"organizationName"`
 	ServerNameField       string `json:"serverName"`
@@ -49,4 +50,8 @@ func (d *DTO) Updated() time.Time {
 // Deleted returns true if the referenced file is no longer available
 func (d *DTO) Deleted() bool {
 	return d.DeletedField
+}
+
+type UpdateDTO struct {
+	Path string `json:"path"`
 }

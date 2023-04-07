@@ -43,11 +43,13 @@ class FileManager
     int read(int fd, char *buffer, off_t offset, std::size_t count);
     int write(std::string_view path, const char *buf, size_t size, off_t offset);
     bool flush(std::string_view path);
-    bool link(std::string_view from, std::string_view to);
+
     bool mkdir(std::string_view path);
     bool rmdir(std::string_view path);
+
     bool remove(std::string_view path);
     bool rename(std::string_view from, std::string_view to);
+    bool link(std::string_view from, std::string_view to);
 
     void sync();
 
