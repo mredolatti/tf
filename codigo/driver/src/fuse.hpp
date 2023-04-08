@@ -5,7 +5,7 @@
 
 class ContextData
 {
-    public:
+  public:
     ContextData() = delete;
     ContextData(ContextData&) noexcept = default;
     ContextData& operator=(const ContextData&) = delete;
@@ -17,7 +17,7 @@ class ContextData
     mifs::FileManager& file_manager();
     const std::string& mount_point() const;
 
-    private:
+  private:
     std::string mount_point_;
     mifs::log::logger_t logger_;
     mifs::FileManager& fm_;

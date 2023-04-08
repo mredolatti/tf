@@ -10,7 +10,6 @@
 
 #include "expected.hpp"
 #include "filemeta.hpp"
-#include "fselems.hpp"
 #include "fstree.hpp"
 #include "mappings.hpp"
 
@@ -31,8 +30,8 @@ class FSMirror
     };
 
     using path_t = std::filesystem::path;
-    using info_result_t = util::Expected<std::unique_ptr<types::FSElem>, Error>;
-    using list_result_t = util::Expected<std::vector<std::unique_ptr<types::FSElem>>, Error>;
+    using info_result_t = util::Expected<fstree::views::Wrapper, Error>;
+    using list_result_t = util::Expected<std::vector<fstree::views::Wrapper>, Error>;
 
     FSMirror();
     FSMirror(const FSMirror&) = delete;

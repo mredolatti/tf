@@ -1,5 +1,4 @@
 #include "fstree.hpp"
-#include "fselems.hpp"
 #include <algorithm>
 #include <iostream>
 
@@ -8,9 +7,69 @@ namespace mifs::fstree
 
 namespace helpers
 {
+
 std::pair<std::string, std::filesystem::path> strip_first(const std::filesystem::path& p);
 
 } // namespace helpers
+
+namespace views
+{
+
+Wrapper::Wrapper(Folder f)
+    : wrapped_{std::move(f)}
+{
+}
+
+Wrapper::Wrapper(File f)
+    : wrapped_{std::move(f)}
+{
+}
+
+Wrapper::Wrapper(Link l)
+    : wrapped_{std::move(l)}
+{
+}
+
+Folder *Wrapper::folder() { return std::get_if<Folder>(&wrapped_); }
+File *Wrapper::file() { return std::get_if<File>(&wrapped_); }
+Link *Wrapper::link() { return std::get_if<Link>(&wrapped_); };
+const Folder *Wrapper::folder() const { return std::get_if<Folder>(&wrapped_); }
+const File *Wrapper::file() const { return std::get_if<File>(&wrapped_); }
+const Link *Wrapper::link() const { return std::get_if<Link>(&wrapped_); };
+
+const std::string& Link::get_name() const { return name; }
+std::size_t Link::get_size_bytes() const { return size_bytes; }
+int Link::get_last_updated_seconds() const { return last_updated; }
+
+const std::string& File::get_name() const { return ref; }
+std::size_t File::get_size_bytes() const { return size_bytes; }
+int File::get_last_updated_seconds() const { return last_updated; }
+
+const std::string& Folder::get_name() const { return name; }
+std::size_t Folder::get_size_bytes() const { return 0; }
+int Folder::get_last_updated_seconds() const { return 0; }
+
+Type Wrapper::type() const
+{
+    return std::visit([](auto&& v) { return v.type; }, wrapped_);
+}
+
+const std::string& Wrapper::name() const
+{
+    return std::visit([](auto&& v) -> const std::string& { return v.get_name(); }, wrapped_);
+}
+
+std::size_t Wrapper::size_bytes() const
+{
+    return std::visit([](auto&& v) -> std::size_t { return v.get_size_bytes(); }, wrapped_);
+}
+
+int Wrapper::last_updated_seconds() const
+{
+    return std::visit([](auto&& v) -> int { return v.get_last_updated_seconds(); }, wrapped_);
+}
+
+} // namespace views
 
 Node::Node(std::string name)
     : name_{std::move(name)}
@@ -69,12 +128,12 @@ bool InnerNode::drop(path_t path, int flags)
     return it->second->drop(tail, flags);
 }
 
-std::unique_ptr<types::FSElem> InnerNode::get() const { return std::make_unique<types::FSEFolder>(name_); }
+views::Wrapper InnerNode::get() const { return views::Wrapper{views::Folder{.name = name_}}; }
 
-std::vector<std::unique_ptr<types::FSElem>> InnerNode::children() const
+std::vector<views::Wrapper> InnerNode::children() const
 {
     using vt = map_t::value_type;
-    std::vector<std::unique_ptr<types::FSElem>> to_ret;
+    std::vector<views::Wrapper> to_ret;
     to_ret.reserve(children_.size());
     std::transform(children_.cbegin(), children_.cend(), std::back_inserter(to_ret),
                    [](const vt& item) { return item.second->get(); });
@@ -125,7 +184,7 @@ std::unique_ptr<LeafNode> LeafNode::link(std::string_view id, std::string_view n
 }
 
 std::unique_ptr<LeafNode> LeafNode::file(std::string_view name, std::string_view org, std::string_view server,
-                                         std::string ref, std::size_t size_bytes, int64_t last_updated)
+                                         std::string_view ref, std::size_t size_bytes, int64_t last_updated)
 {
     return std::make_unique<LeafNode>("", name, size_bytes, org, server, ref, last_updated, false);
 }
@@ -146,15 +205,18 @@ bool LeafNode::drop(path_t path, int flags)
     return false;
 }
 
-std::unique_ptr<types::FSElem> LeafNode::get() const
+views::Wrapper LeafNode::get() const
 {
-    using rt = std::unique_ptr<types::FSElem>;
-    return (link_) ? rt{std::make_unique<types::FSELink>(mapping_id_, name_, org_name_, server_name_, ref_)}
-                   : rt{std::make_unique<types::FSEFile>(name_, org_name_, server_name_, ref_, size_bytes_,
-                                                         last_updated_)};
+    views::File f{.organization_name = org_name_,
+                  .server_name = server_name_,
+                  .ref = ref_,
+                  .size_bytes = size_bytes_,
+                  .last_updated = last_updated_};
+
+    return link_ ? views::Wrapper{views::Link{std::move(f), mapping_id_, name_}} : views::Wrapper{f};
 }
 
-std::vector<std::unique_ptr<types::FSElem>> LeafNode::children() const { return {}; }
+std::vector<views::Wrapper> LeafNode::children() const { return {}; }
 
 const Node *LeafNode::follow_path(path_t path) const
 {
@@ -172,8 +234,8 @@ namespace helpers
 std::pair<std::string, std::filesystem::path> strip_first(const std::filesystem::path& p)
 {
     return p.relative_path().empty()
-               ? std::make_pair(std::string{*p.begin()}, std::filesystem::path{})
-               : std::make_pair(std::string{*p.begin()}, p.lexically_relative(*p.begin()));
+             ? std::make_pair(std::string{*p.begin()}, std::filesystem::path{})
+             : std::make_pair(std::string{*p.begin()}, p.lexically_relative(*p.begin()));
 }
 
 } // namespace helpers

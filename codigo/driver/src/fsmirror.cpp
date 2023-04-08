@@ -38,8 +38,7 @@ FSMirror::Error FSMirror::add_file(std::string_view org, std::string_view server
                                    std::size_t size_bytes, int64_t last_updated)
 {
     return root_.insert(fmt::format("servers/{}/{}/{}", org, server, ref),
-                        fstree::LeafNode::file(ref, std::string{org}, std::string{server}, std::string{ref},
-                                               size_bytes, last_updated))
+                        fstree::LeafNode::file(ref, org, server, ref, size_bytes, last_updated))
              ? Error::Ok
              : Error::AlreadyExists;
 }

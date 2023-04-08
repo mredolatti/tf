@@ -10,44 +10,11 @@
 #include <string.h>
 #include <unistd.h>
 
-class EntryInfo : public mifs::types::FSElemVisitor
+namespace helpers
 {
-  public:
-    void visit_file(const mifs::types::FSEFile&) override;
-    void visit_link(const mifs::types::FSELink&) override;
-    void visit_folder(const mifs::types::FSEFolder&) override;
-
-    __mode_t st_mode() const;
-    int st_nlink() const;
-
-  private:
-    enum class Type { File, Folder, Link };
-    Type type_;
-};
-
-void EntryInfo::visit_file(const mifs::types::FSEFile&) { type_ = Type::File; }
-void EntryInfo::visit_link(const mifs::types::FSELink&) { type_ = Type::Link; }
-void EntryInfo::visit_folder(const mifs::types::FSEFolder&) { type_ = Type::Folder; }
-
-__mode_t EntryInfo::st_mode() const
-{
-    switch (type_) {
-    case Type::File: return S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-    case Type::Folder: return S_IFDIR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-    case Type::Link: return S_IFLNK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
-    }
-    assert(false); // shold never get here
-}
-
-int EntryInfo::st_nlink() const
-{
-    switch (type_) {
-    case Type::File: return 1;
-    case Type::Folder: return 2;
-    case Type::Link: return 1;
-    }
-    assert(false); // shold never get here
-}
+int get_st_nlink(const mifs::fstree::views::Wrapper& w);
+__mode_t get_st_mode(const mifs::fstree::views::Wrapper& w);
+} // namespace helpers
 
 // fuse
 
@@ -75,18 +42,12 @@ static int mifs_getattr(const char *path, struct stat *stbuf, struct fuse_file_i
     }
 
     auto& de{(*res)};
-    EntryInfo v;
-    de->accept(v);
-    stbuf->st_mode = v.st_mode();
-    stbuf->st_nlink = v.st_nlink();
-    stbuf->st_size = de->size_bytes();
+    stbuf->st_mode = helpers::get_st_mode(de);
+    stbuf->st_nlink = helpers::get_st_nlink(de);
+    stbuf->st_size = de.size_bytes();
     stbuf->st_uid = getuid();
     stbuf->st_gid = getgid();
-
-    if (const auto *as_file{dynamic_cast<mifs::types::FSEFile *>(de.get())}) {
-        stbuf->st_mtim.tv_sec = as_file->last_updated();
-    }
-
+    stbuf->st_mtim.tv_sec = de.last_updated_seconds();
     return 0;
 }
 
@@ -107,24 +68,15 @@ static int mifs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
     }
 
     for (auto&& de : (*entries)) {
-        if (!de) {
-            SPDLOG_LOGGER_ERROR(ctx->logger(), "null direntry");
-            std::abort();
-        }
-
-        SPDLOG_LOGGER_INFO(ctx->logger(), "agregando direntry: {}", de->name());
-        EntryInfo v;
-        de->accept(v);
+        SPDLOG_LOGGER_INFO(ctx->logger(), "agregando direntry: {}", de.name());
         struct stat st;
         memset(&st, 0, sizeof(st));
         st.st_ino = 0;
-        st.st_mode = v.st_mode();
+        st.st_size = de.size_bytes();
+        st.st_mode = helpers::get_st_mode(de);
+        st.st_mtim.tv_sec = de.last_updated_seconds();
 
-        if (const auto *as_file{dynamic_cast<mifs::types::FSEFile *>(de.get())}) {
-            st.st_mtim.tv_sec = as_file->last_updated();
-        }
-
-        if (filler(buf, de->name().c_str(), &st, 0, static_cast<enum fuse_fill_dir_flags>(0))) {
+        if (filler(buf, de.name().c_str(), &st, 0, static_cast<enum fuse_fill_dir_flags>(0))) {
             break;
         }
     }
@@ -192,11 +144,11 @@ static int mifs_readlink(const char *path, char *buffer, size_t buffer_size)
         return 1; // TODO
     }
 
-    const auto *as_link{dynamic_cast<const mifs::types::FSELink *>((*res).get())};
+    const auto *as_link{res->link()};
     assert(as_link);
 
-    auto resolved{fmt::format("{}/servers/{}/{}/{}", ctx->mount_point(), as_link->org_name(),
-                              as_link->server_name(), as_link->ref())};
+    auto resolved{fmt::format("{}/servers/{}/{}/{}", ctx->mount_point(), as_link->organization_name,
+                              as_link->server_name, as_link->ref)};
     std::size_t idx{};
     while (buffer_size > 1 && idx < resolved.size()) {
         buffer[idx] = resolved[idx];
@@ -319,3 +271,30 @@ mifs::FileManager& ContextData::file_manager() { return fm_; }
 const std::string& ContextData::mount_point() const { return mount_point_; }
 
 //---------------------------------------
+
+namespace helpers
+{
+
+using mifs::fstree::views::Type;
+
+__mode_t get_st_mode(const mifs::fstree::views::Wrapper& w)
+{
+    switch (w.type()) {
+    case Type::File: return S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+    case Type::Folder: return S_IFDIR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+    case Type::Link: return S_IFLNK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+    }
+    assert(false); // shold never get here
+}
+
+int get_st_nlink(const mifs::fstree::views::Wrapper& w)
+{
+    switch (w.type()) {
+    case Type::File: return 1;
+    case Type::Folder: return 2;
+    case Type::Link: return 1;
+    }
+    assert(false); // shold never get here
+}
+
+} // namespace helpers

@@ -2,7 +2,6 @@
 
 #include "expected.hpp"
 #include "filemeta.hpp"
-#include "fselems.hpp"
 #include "isclient.hpp"
 #include "log.hpp"
 #include "mappings.hpp"
@@ -83,21 +82,21 @@ int FileManager::read(std::string_view path, char *buffer, std::size_t offset, s
         return -1;
     }
 
-    const auto *file_meta{dynamic_cast<types::FSEFile *>(gen_info->get())};
+    const auto *file_meta{gen_info->file()};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
     }
 
-    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(),
-                        file_meta->server(), file_meta->ref());
+    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}",
+                        file_meta->organization_name, file_meta->server_name, file_meta->ref);
 
-    if (!ensure_cached(file_meta->org(), file_meta->server(), file_meta->ref())) {
+    if (!ensure_cached(file_meta->organization_name, file_meta->server_name, file_meta->ref)) {
         SPDLOG_LOGGER_ERROR(logger_, "file '{}' could not be fetched/cached.", path);
         return -1;
     }
 
-    auto from_cache{file_cache_.get(file_meta->org(), file_meta->server(), file_meta->ref())};
+    auto from_cache{file_cache_.get(file_meta->organization_name, file_meta->server_name, file_meta->ref)};
     if (!from_cache) {
         return -1;
     }
@@ -131,21 +130,21 @@ int FileManager::write(std::string_view path, const char *buf, size_t size, off_
         return -1;
     }
 
-    const auto *file_meta{dynamic_cast<types::FSEFile *>(gen_info->get())};
+    const auto *file_meta{gen_info->file()};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
     }
 
-    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}", file_meta->org(),
-                        file_meta->server(), file_meta->ref());
+    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for org={}, server={}, id={}",
+                        file_meta->organization_name, file_meta->server_name, file_meta->ref);
 
-    if (!ensure_cached(file_meta->org(), file_meta->server(), file_meta->ref())) {
+    if (!ensure_cached(file_meta->organization_name, file_meta->server_name, file_meta->ref)) {
         SPDLOG_LOGGER_ERROR(logger_, "file '{}' could not be fetched/cached.", path);
         return -1;
     }
 
-    auto from_cache{file_cache_.get(file_meta->org(), file_meta->server(), file_meta->ref())};
+    auto from_cache{file_cache_.get(file_meta->organization_name, file_meta->server_name, file_meta->ref)};
     if (!from_cache) {
         return -1;
     }
@@ -192,34 +191,35 @@ bool FileManager::flush(std::string_view path)
         return -1;
     }
 
-    const auto *file_meta{dynamic_cast<types::FSEFile *>(gen_info->get())};
+    const auto *file_meta{gen_info->file()};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
     }
 
-    auto cache_entry_res{file_cache_.get(file_meta->org(), file_meta->server(), file_meta->ref())};
+    auto cache_entry_res{
+        file_cache_.get(file_meta->organization_name, file_meta->server_name, file_meta->ref)};
     if (!cache_entry_res) {
-        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' not present on cache. Nothing to do.", file_meta->ref(),
-                            file_meta->org(), file_meta->server());
+        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' not present on cache. Nothing to do.",
+                            file_meta->organization_name, file_meta->server_name, file_meta->ref);
         return true;
     }
 
     auto& cache_entry{cache_entry_res->get()};
     if (!cache_entry.dirty()) {
-        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' is not dirty. Nothing to do.", file_meta->ref(),
-                            file_meta->org(), file_meta->server());
+        SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' is not dirty. Nothing to do.",
+                            file_meta->organization_name, file_meta->server_name, file_meta->ref);
         return true;
     }
 
-    auto res{fs_client_.update_contents(file_meta->org(), file_meta->server(), file_meta->ref(),
+    auto res{fs_client_.update_contents(file_meta->organization_name, file_meta->server_name, file_meta->ref,
                                         cache_entry.contents())};
     if (!res) {
-        SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' was not properly flushed", file_meta->ref(),
-                            file_meta->org(), file_meta->server());
+        SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' was not properly flushed", file_meta->organization_name,
+                            file_meta->server_name, file_meta->ref);
     }
 
-    file_cache_.drop(file_meta->org(), file_meta->server(), file_meta->ref());
+    file_cache_.drop(file_meta->organization_name, file_meta->server_name, file_meta->ref);
     sync();
     return res;
 }
@@ -241,14 +241,14 @@ bool FileManager::remove(std::string_view path)
         return false;
     }
 
-    const auto *as_link{dynamic_cast<types::FSELink *>(current_res->get())};
+    const auto *as_link{current_res->link()};
     if (!as_link) { // it's not a link. cannot delete server files
         return false;
     }
 
     // TODO: validate `to` is not in servers folder
 
-    if (!is_client_.delete_mapping(as_link->id())) {
+    if (!is_client_.delete_mapping(as_link->id)) {
         return false;
     }
 
@@ -262,14 +262,14 @@ bool FileManager::rename(std::string_view from, std::string_view to)
         return false;
     }
 
-    const auto *as_link{dynamic_cast<types::FSELink *>(current_res->get())};
+    const auto *as_link{current_res->link()};
     if (!as_link) { // it's not a link. cannot rename server files
         return false;
     }
 
     // TODO: validate `to` is not in servers folder
 
-    auto res{is_client_.update_mapping(models::Mapping{as_link->id(), to, "", "", "", 0, 0})};
+    auto res{is_client_.update_mapping(models::Mapping{as_link->id, to, "", "", "", 0, 0})};
     if (!res) {
         return false;
     }
@@ -280,8 +280,8 @@ bool FileManager::rename(std::string_view from, std::string_view to)
 
     const auto it{(*res).data.find("mapping")};
     assert(it != (*res).data.cend());
-    return fs_mirror_.link_file(it->second.id(), as_link->org_name(), as_link->server_name(), as_link->ref(),
-                                to) == util::FSMirror::Error::Ok;
+    return fs_mirror_.link_file(it->second.id(), as_link->organization_name, as_link->server_name,
+                                as_link->ref, to) == util::FSMirror::Error::Ok;
 }
 
 namespace helpers

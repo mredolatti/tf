@@ -1,16 +1,87 @@
 #ifndef MIFS_FILESYSTEM_TREE_HPP
 #define MIFS_FILESYSTEM_TREE_HPP
 
-#include "fselems.hpp"
-
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace mifs::fstree
 {
+
+namespace views
+{
+
+enum class Type {
+    Folder = 0,
+    File = 1,
+    Link = 2,
+};
+
+struct Folder {
+    std::string name;
+    constexpr const static Type type = Type::Folder;
+
+    const std::string& get_name() const;
+    std::size_t get_size_bytes() const;
+    int get_last_updated_seconds() const;
+};
+
+struct File {
+    std::string organization_name;
+    std::string server_name;
+    std::string ref;
+    std::size_t size_bytes;
+    int64_t last_updated;
+    constexpr const static Type type = Type::File;
+
+    const std::string& get_name() const;
+    std::size_t get_size_bytes() const;
+    int get_last_updated_seconds() const;
+};
+
+struct Link : public File {
+    std::string id;
+    std::string name;
+    constexpr const static Type type = Type::Link;
+
+    const std::string& get_name() const;
+    std::size_t get_size_bytes() const;
+    int get_last_updated_seconds() const;
+};
+
+class Wrapper
+{
+  public:
+    explicit Wrapper(Folder);
+    explicit Wrapper(File);
+    explicit Wrapper(Link);
+    Wrapper() = delete;
+    Wrapper(const Wrapper&) = default;
+    Wrapper(Wrapper&&) noexcept = default;
+    Wrapper& operator=(const Wrapper&) = default;
+    Wrapper& operator=(Wrapper&&) = default;
+    ~Wrapper() = default;
+
+    Folder *folder();
+    File *file();
+    Link *link();
+    const Folder *folder() const;
+    const File *file() const;
+    const Link *link() const;
+
+    Type type() const;
+    const std::string& name() const;
+    std::size_t size_bytes() const;
+    int last_updated_seconds() const;
+
+  private:
+    std::variant<Folder, File, Link> wrapped_;
+};
+
+} // namespace views
 
 enum class DropFlags : int {
     IF_FILE = (1 << 0),
@@ -35,8 +106,8 @@ class Node
     const std::string& name() const;
     virtual bool insert(path_t path, node_ptr_t node) = 0;
     virtual bool drop(path_t path, int flags) = 0;
-    virtual std::unique_ptr<types::FSElem> get() const = 0;
-    virtual std::vector<std::unique_ptr<types::FSElem>> children() const = 0;
+    virtual views::Wrapper get() const = 0;
+    virtual std::vector<views::Wrapper> children() const = 0;
     virtual const Node *follow_path(path_t path) const = 0;
     virtual void print(std::size_t depth = 1) const = 0;
 
@@ -57,8 +128,8 @@ class InnerNode : public Node
     InnerNode(std::string path);
     bool insert(path_t path, node_ptr_t node) override;
     bool drop(path_t path, int flags) override;
-    std::unique_ptr<types::FSElem> get() const override;
-    std::vector<std::unique_ptr<types::FSElem>> children() const override;
+    views::Wrapper get() const override;
+    std::vector<views::Wrapper> children() const override;
     const Node *follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
@@ -86,12 +157,12 @@ class LeafNode : public Node
                            std::string_view server, std::string_view ref);
 
     static leaf_ptr_t file(std::string_view name, std::string_view org, std::string_view server,
-                           std::string ref, std::size_t size_bytes, int64_t last_updated);
+                           std::string_view ref, std::size_t size_bytes, int64_t last_updated);
 
     bool insert(path_t path, std::unique_ptr<Node> node) override;
     bool drop(path_t path, int flags) override;
-    std::unique_ptr<types::FSElem> get() const override;
-    std::vector<std::unique_ptr<types::FSElem>> children() const override;
+    views::Wrapper get() const override;
+    std::vector<views::Wrapper> children() const override;
     const Node *follow_path(path_t path) const override;
     void print(std::size_t depth = 1) const override;
 
