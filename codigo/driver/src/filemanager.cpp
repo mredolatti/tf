@@ -56,7 +56,7 @@ void FileManager::sync()
         return;
     }
 
-    const auto& mappings{(*res_mappings).data["mappings"]};
+    const auto& mappings{res_mappings->data["mappings"]};
     fs_mirror_.reset_all(mappings);
 
     SPDLOG_LOGGER_TRACE(logger_, "fetching file server information...");
@@ -67,7 +67,7 @@ void FileManager::sync()
         return;
     }
 
-    const auto& servers{(*res_servers).data["servers"]};
+    const auto& servers{res_servers->data["servers"]};
     for (const auto& server : servers) {
         fs_catalog_->update_fetch_url(server.org_name(), server.name(), server.fetch_url());
     }
@@ -83,7 +83,7 @@ int FileManager::read(std::string_view path, char *buffer, std::size_t offset, s
         return -1;
     }
 
-    const auto *file_meta{dynamic_cast<types::FSEFile *>((*gen_info).get())};
+    const auto *file_meta{dynamic_cast<types::FSEFile *>(gen_info->get())};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
@@ -102,7 +102,7 @@ int FileManager::read(std::string_view path, char *buffer, std::size_t offset, s
         return -1;
     }
 
-    const auto& contents{(*from_cache).get().contents()};
+    const auto& contents{from_cache->get().contents()};
     std::size_t read_bytes{};
     while ((offset + read_bytes) < contents.size() && count > 0) {
         buffer[read_bytes] = contents[offset + read_bytes];
@@ -131,7 +131,7 @@ int FileManager::write(std::string_view path, const char *buf, size_t size, off_
         return -1;
     }
 
-    const auto *file_meta{dynamic_cast<types::FSEFile *>((*gen_info).get())};
+    const auto *file_meta{dynamic_cast<types::FSEFile *>(gen_info->get())};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
@@ -150,7 +150,7 @@ int FileManager::write(std::string_view path, const char *buf, size_t size, off_
         return -1;
     }
 
-    return (*from_cache).get().write(buf, size, offset);
+    return from_cache->get().write(buf, size, offset);
 }
 
 bool FileManager::ensure_cached(const std::string& org, const std::string& server, const std::string& ref)
@@ -179,8 +179,8 @@ bool FileManager::link(std::string_view from, std::string_view to)
         return false;
     }
 
-    const auto it{(*res).data.find("mapping")};
-    assert(it != (*res).data.cend());
+    const auto it{res->data.find("mapping")};
+    assert(it != res->data.cend());
     return fs_mirror_.link_file(it->second.id(), org, server, ref, to) == util::FSMirror::Error::Ok;
 }
 
@@ -192,7 +192,7 @@ bool FileManager::flush(std::string_view path)
         return -1;
     }
 
-    const auto *file_meta{dynamic_cast<types::FSEFile *>((*gen_info).get())};
+    const auto *file_meta{dynamic_cast<types::FSEFile *>(gen_info->get())};
     if (!file_meta) {
         SPDLOG_LOGGER_ERROR(logger_, "invalid item returned.");
         return -1;
@@ -205,15 +205,15 @@ bool FileManager::flush(std::string_view path)
         return true;
     }
 
-    auto& cache_entry{*cache_entry_res};
-    if (!cache_entry.get().dirty()) {
+    auto& cache_entry{cache_entry_res->get()};
+    if (!cache_entry.dirty()) {
         SPDLOG_LOGGER_TRACE(logger_, "file '{}/{}/{}' is not dirty. Nothing to do.", file_meta->ref(),
                             file_meta->org(), file_meta->server());
         return true;
     }
 
     auto res{fs_client_.update_contents(file_meta->org(), file_meta->server(), file_meta->ref(),
-                                        cache_entry.get().contents())};
+                                        cache_entry.contents())};
     if (!res) {
         SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' was not properly flushed", file_meta->ref(),
                             file_meta->org(), file_meta->server());
@@ -241,8 +241,7 @@ bool FileManager::remove(std::string_view path)
         return false;
     }
 
-    const auto& current{*current_res};
-    const auto *as_link{dynamic_cast<types::FSELink *>(current.get())};
+    const auto *as_link{dynamic_cast<types::FSELink *>(current_res->get())};
     if (!as_link) { // it's not a link. cannot delete server files
         return false;
     }
@@ -263,8 +262,7 @@ bool FileManager::rename(std::string_view from, std::string_view to)
         return false;
     }
 
-    const auto& current{*current_res};
-    const auto *as_link{dynamic_cast<types::FSELink *>(current.get())};
+    const auto *as_link{dynamic_cast<types::FSELink *>(current_res->get())};
     if (!as_link) { // it's not a link. cannot rename server files
         return false;
     }

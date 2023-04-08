@@ -46,13 +46,13 @@ IndexServerClient::mappings_result_t IndexServerClient::get_mappings()
         return no_response_t{-1};
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse_multi_item_response<models::Mapping>((*result).body(), "mappings")};
+    auto response_res{jsend::parse_multi_item_response<models::Mapping>(result->body(), "mappings")};
     if (!response_res) {
         return no_response_t{-2};
     }
@@ -88,13 +88,13 @@ IndexServerClient::mapping_result_t IndexServerClient::create_mapping(const mode
         return no_response_t{-1};
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse_single_item_response<models::Mapping>((*result).body(), "mapping")};
+    auto response_res{jsend::parse_single_item_response<models::Mapping>(result->body(), "mapping")};
     if (!response_res) {
         return no_response_t{-2};
     }
@@ -130,13 +130,13 @@ IndexServerClient::mapping_result_t IndexServerClient::update_mapping(const mode
         return no_response_t{-1};
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse_single_item_response<models::Mapping>((*result).body(), "mapping")};
+    auto response_res{jsend::parse_single_item_response<models::Mapping>(result->body(), "mapping")};
     if (!response_res) {
         return no_response_t{-2};
     }
@@ -163,7 +163,7 @@ bool IndexServerClient::delete_mapping(std::string_view mapping_id)
         return false;
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return false;
@@ -191,13 +191,13 @@ IndexServerClient::servers_result_t IndexServerClient::get_servers()
         return no_response_t{-1};
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return no_response_t{code};
     }
 
-    auto response_res{jsend::parse_multi_item_response<models::FileServer>((*result).body(), "servers")};
+    auto response_res{jsend::parse_multi_item_response<models::FileServer>(result->body(), "servers")};
     if (!response_res) {
         return no_response_t{-2};
     }

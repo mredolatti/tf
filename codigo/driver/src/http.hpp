@@ -3,22 +3,23 @@
 
 #include "tls.hpp"
 #include <optional>
-#include <string>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 
-namespace mifs::http {
+namespace mifs::http
+{
 
-enum class Method {GET, POST, PUT, PATCH, DELETE};
+enum class Method { GET, POST, PUT, PATCH, DELETE };
 
 using Headers = std::unordered_map<std::string, std::string>;
 
 class Request
 {
-    public:
+  public:
     class Builder
     {
-        public:
+      public:
         Builder() = default;
         Builder(const Builder&) = default;
         Builder(Builder&&) = default;
@@ -33,7 +34,7 @@ class Request
         Builder& tls(tls::Config tls_conf);
         Request build();
 
-        private:
+      private:
         Method method_;
         std::string body_;
         std::string uri_;
@@ -48,14 +49,15 @@ class Request
     Request& operator=(Request&&) = default;
     ~Request() = default;
 
-    Request(Method m, std::string body, std::string uri, Headers headers, std::optional<tls::Config> tls_conf);
+    Request(Method m, std::string body, std::string uri, Headers headers,
+            std::optional<tls::Config> tls_conf);
     Method method() const;
     const std::string& url() const;
     const std::string& body() const;
     const Headers& headers() const;
     const std::optional<tls::Config>& tls_conf() const;
 
-    private:
+  private:
     Method method_;
     std::string body_;
     std::string uri_;
@@ -65,11 +67,10 @@ class Request
 
 class Response
 {
-    public:
-    
+  public:
     class Builder
     {
-        public:
+      public:
         Builder() = default;
         Builder(const Builder&) = delete;
         Builder(Builder&&) noexcept = default;
@@ -80,11 +81,11 @@ class Response
         Builder& code(int code);
         Builder& add_header(std::string name, std::string value);
         Builder& body_append(std::string data);
-        Builder& body_append(const char* data);
-        Builder& body_append(const char* data, std::size_t len);
+        Builder& body_append(const char *data);
+        Builder& body_append(const char *data, std::size_t len);
         Response build();
 
-        private:
+      private:
         int code_;
         std::stringstream body_builder_;
         Headers headers_;
@@ -103,12 +104,12 @@ class Response
     const std::string body() const;
     const Headers& headears() const;
 
-    private:
+  private:
     int code_;
     std::string body_;
     Headers headers_;
 };
 
-}
+} // namespace mifs::http
 
 #endif

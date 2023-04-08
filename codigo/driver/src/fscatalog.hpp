@@ -9,11 +9,12 @@
 #include <string>
 #include <unordered_map>
 
-namespace mifs::util {
+namespace mifs::util
+{
 
 class ServerInfo
 {
-    public:
+  public:
     ServerInfo() = delete;
     ServerInfo(const ServerInfo&) = default;
     ServerInfo(ServerInfo&&) noexcept = default;
@@ -21,7 +22,8 @@ class ServerInfo
     ServerInfo& operator=(ServerInfo&&) noexcept = default;
     ~ServerInfo() noexcept = default;
 
-    ServerInfo(std::string_view organization, std::string_view server_id, std::string_view server_url, tls::Config tls_config);
+    ServerInfo(std::string_view organization, std::string_view server_id, std::string_view server_url,
+               tls::Config tls_config);
 
     const std::string& organization() const;
     const std::string& server() const;
@@ -30,18 +32,16 @@ class ServerInfo
 
     void update_fetch_url(std::string_view new_url);
 
-    private:
+  private:
     std::string organization_;
     std::string server_;
     std::string files_url_;
     tls::Config tls_config_;
 };
 
-
 class FileServerCatalog
 {
-    public:
-
+  public:
     using ptr_t = std::shared_ptr<FileServerCatalog>;
     using catalog_t = std::unordered_map<std::string, ServerInfo>;
 
@@ -58,14 +58,11 @@ class FileServerCatalog
     std::optional<ServerInfo> get(std::string_view org, std::string_view server);
     bool update_fetch_url(std::string_view org, std::string_view server, std::string_view fetch_url);
 
-    private:
-
-
+  private:
     std::mutex mtx_;
     catalog_t catalog_;
 };
 
-
-}
+} // namespace mifs::util
 
 #endif

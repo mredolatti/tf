@@ -5,13 +5,14 @@
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 
-namespace mifs::log {
+namespace mifs::log
+{
 
 using logger_t = std::shared_ptr<spdlog::logger>;
 
 logger_t initialize();
 logger_t get();
 
-};
+}; // namespace mifs::log
 
 #endif

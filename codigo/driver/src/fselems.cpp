@@ -42,11 +42,7 @@ FSEFolder::FSEFolder(std::string name)
 {
 }
 
-std::size_t FSEFolder::size_bytes() const
-{
-    // TODO: is this ok?
-    return 0;
-}
+std::size_t FSEFolder::size_bytes() const { return 0; }
 
 void FSEFolder::accept(FSElemVisitor& v) const { v.visit_folder(*this); }
 

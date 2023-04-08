@@ -28,7 +28,7 @@ FileServerClient::list_response_result_t FileServerClient::get_all(std::string_v
         return no_response_t{-1};
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return no_response_t{code};
@@ -67,7 +67,7 @@ FileServerClient::contents_response_result_t FileServerClient::contents(const st
         return no_response_t{code};
     }
 
-    return contents_response_result_t{(*result).body()};
+    return contents_response_result_t{result->body()};
 }
 
 bool FileServerClient::update_contents(std::string_view org, std::string_view server, std::string_view ref, std::string_view contents)
@@ -89,7 +89,7 @@ bool FileServerClient::update_contents(std::string_view org, std::string_view se
         return false;
     }
 
-    auto code{(*result).code()};
+    auto code{result->code()};
     if (code != 200) {
         std::cout << "code: " << code << '\n';
         return false;

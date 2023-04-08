@@ -1,30 +1,31 @@
 #ifndef MIFS_HTTP_CLIENT_HPP
 #define MIFS_HTTP_CLIENT_HPP
 
-#include "http.hpp"
 #include "expected.hpp"
+#include "http.hpp"
 
-namespace mifs::http {
+namespace mifs::http
+{
 
 using MaybeResponse = util::Expected<Response, int>;
 using NoResponse = util::Unexpected<int>;
 
-namespace detail {
+namespace detail
+{
 
-    using curl_handle_t = void*;
+using curl_handle_t = void *;
 
-    struct Context
-    {
-        const Request& request; // reference to the one passed by the client
-        Response::Builder response;
-    };
+struct Context {
+    const Request& request; // reference to the one passed by the client
+    Response::Builder response;
+};
 
-    using contexts_t = std::unordered_map<curl_handle_t, Context>;
-}
+using contexts_t = std::unordered_map<curl_handle_t, Context>;
+} // namespace detail
 
 class Client
 {
-    public:
+  public:
     Client() = default;
     Client(const Client&) = delete;
     Client(Client&&) noexcept = default;
@@ -33,10 +34,10 @@ class Client
 
     MaybeResponse execute(const Request& request);
 
-    private:
+  private:
     detail::contexts_t contexts_;
 };
 
-}
+} // namespace mifs::http
 
 #endif
