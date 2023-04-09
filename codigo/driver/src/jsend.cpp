@@ -1,6 +1,7 @@
 #include "jsend.hpp"
 
-namespace mifs::jsend::detail {
+namespace mifs::jsend::detail
+{
 
 Status parse_status(std::string_view status)
 {

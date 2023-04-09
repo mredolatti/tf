@@ -22,7 +22,6 @@ target_sources(mifs
     PRIVATE filemanager.cpp
     PRIVATE log.cpp
     PRIVATE fsmirror.cpp
-    PRIVATE fselems.cpp
     PRIVATE fstree.cpp
     PRIVATE filecache.cpp
     PRIVATE openfiles.cpp

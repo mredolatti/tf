@@ -1,25 +1,26 @@
 #ifndef MIFS_IS_TOKENS_HPP
 #define MIFS_IS_TOKENS_HPP
 
-#include <string>
 #include "expected.hpp"
+#include <string>
 
-namespace mifs::apiclients {
+namespace mifs::apiclients
+{
 
 class IndexServerTokenSource
 {
-    public:
+  public:
     using token_result_t = util::Expected<std::string, int>;
     virtual token_result_t get() = 0;
 };
 
 class EnvISTokenSource : public IndexServerTokenSource
 {
-    public:
+  public:
     explicit EnvISTokenSource(std::string var_name);
     token_result_t get();
 
-    private:
+  private:
     std::string var_name_;
 };
 

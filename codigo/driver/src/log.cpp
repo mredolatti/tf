@@ -1,10 +1,11 @@
 #include "log.hpp"
+#include "spdlog/sinks/stdout_color_sinks.h"
 #include <spdlog/common.h>
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
-#include "spdlog/sinks/stdout_color_sinks.h"
 
-namespace mifs::log {
+namespace mifs::log
+{
 
 static const std::string logger_name{"mifs"};
 
@@ -15,11 +16,6 @@ logger_t initialize()
     return logger;
 }
 
-
-logger_t get()
-{
-    return spdlog::get(logger_name);
-}
-
+logger_t get() { return spdlog::get(logger_name); }
 
 } // namespace mifs::log

@@ -149,10 +149,10 @@ debug-fileserver-postgres: fsbasic_for_debug
 
 # ------------------------------------
 
-# ## Run a CLI gRPC client against a local instance of file-server
+## Run a CLI gRPC client against a local instance of file-server
 runlocal-evans-fs: $(pki_tgts)
 	evans \
-		--host localhost \
+		--host file-server \
 		--port 9000 \
 		--tls \
 		--cacert PKI/root/certs/ca.crt \

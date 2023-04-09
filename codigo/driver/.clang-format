@@ -1,11 +1,13 @@
 AlignTrailingComments: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Empty
 AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
 BreakBeforeBraces: Linux
 ColumnLimit: 110
 IndentWidth: 4
 PackConstructorInitializers: Never
 ReferenceAlignment: Left
 AlignOperands: AlignAfterOperator
-AllowShortCaseLabelsOnASingleLine: true
+

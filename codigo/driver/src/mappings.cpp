@@ -77,40 +77,33 @@ template <> int Mapping::serialize<rapidjson::Document>(rapidjson::Document& doc
 {
     doc.SetObject();
     auto& alloc{doc.GetAllocator()};
-    
+
     if (!id_.empty() || !ignore_empty) {
         doc.AddMember("id", rapidjson::Value{id_.c_str(), alloc}.Move(), doc.GetAllocator());
-        //doc["id"].SetString(id_.c_str(), id_.size(), doc.GetAllocator());
     }
 
     if (!path_.empty() || !ignore_empty) {
         doc.AddMember("path", rapidjson::Value{path_.c_str(), alloc}.Move(), doc.GetAllocator());
-        //doc["path"].SetString(path_.c_str(), path_.size(), doc.GetAllocator());
     }
 
     if (!org_.empty() || !ignore_empty) {
         doc.AddMember("organizationName", rapidjson::Value{org_.c_str(), alloc}.Move(), doc.GetAllocator());
-        //doc["organizationName"].SetString(org_.c_str(), org_.size(), doc.GetAllocator());
     }
 
     if (!server_.empty() || !ignore_empty) {
         doc.AddMember("serverName", rapidjson::Value{server_.c_str(), alloc}.Move(), doc.GetAllocator());
-        //doc["serverName"].SetString(server_.c_str(), server_.size(), doc.GetAllocator());
     }
 
     if (!ref_.empty() || !ignore_empty) {
         doc.AddMember("ref", rapidjson::Value{ref_.c_str(), alloc}.Move(), doc.GetAllocator());
-        //doc["ref"].SetString(ref_.c_str(), ref_.size(), doc.GetAllocator());
     }
 
     if (last_updated_ != -1 || !ignore_empty) {
         doc.AddMember("updated", last_updated_, doc.GetAllocator());
-        //doc["updated"] = last_updated_;
     }
 
     if (size_bytes_ != -1 || !ignore_empty) {
         doc.AddMember("sizeBytes", size_bytes_, doc.GetAllocator());
-        //doc["sizeBytes"] = size_bytes_;
     }
 
     return 0;

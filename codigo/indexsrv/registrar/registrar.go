@@ -334,7 +334,7 @@ func isTokenStillValid(token string) bool {
 		return false
 	}
 
-	return time.Now().Before(time.Unix(claims.ExpiresAt, 0).Add(tokenValidityMaxTolerance))
+	return time.Now().Before(time.Unix(claims.ExpiresAt, 0))
 }
 
 func buildRedirectURL(server models.FileServer, clientID string, state string) (*url.URL, error) {

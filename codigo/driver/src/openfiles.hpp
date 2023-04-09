@@ -6,10 +6,11 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-namespace mifs::util {
 
-struct OpenFile
+namespace mifs::util
 {
+
+struct OpenFile {
     int fd;
     std::string name;
     std::size_t offset;
@@ -18,7 +19,7 @@ struct OpenFile
 
 class OpenFileTracker
 {
-    public:
+  public:
     OpenFileTracker();
     OpenFileTracker(const OpenFileTracker&) = delete;
     OpenFileTracker(OpenFileTracker&&) noexcept = delete;
@@ -30,12 +31,11 @@ class OpenFileTracker
     std::optional<std::reference_wrapper<OpenFile>> get(int fd);
     void close(int fd);
 
-    private:
+  private:
     std::unordered_map<int, OpenFile> open_files_;
     std::mutex mutex_;
     int last_fd_;
 };
-
 
 } // namespace mifs::util
 #endif // MIFS_OPEN_FILE_TRACKER_HPP

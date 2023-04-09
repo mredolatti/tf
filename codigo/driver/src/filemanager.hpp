@@ -7,7 +7,6 @@
 #include "expected.hpp"
 #include "filecache.hpp"
 #include "fsclient.hpp"
-#include "fselems.hpp"
 #include "fservers.hpp"
 #include "fsmirror.hpp"
 #include "isclient.hpp"
@@ -23,8 +22,8 @@ namespace mifs
 class FileManager
 {
   public:
-    using list_result_t = util::Expected<std::vector<std::unique_ptr<types::FSElem>>, int>;
-    using stat_result_t = util::Expected<std::unique_ptr<types::FSElem>, int>;
+    using list_result_t = util::Expected<std::vector<fstree::views::Wrapper>, int>;
+    using stat_result_t = util::Expected<fstree::views::Wrapper, int>;
     using http_client_ptr_t = std::shared_ptr<http::Client>;
 
     explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client,
@@ -38,6 +37,8 @@ class FileManager
 
     list_result_t list(std::string_view path);
     stat_result_t stat(std::string_view path);
+
+    int touch(std::string_view path);
     int open(std::string_view path, int mode);
     int read(std::string_view path, char *buffer, std::size_t offset, std::size_t count);
     int read(int fd, char *buffer, off_t offset, std::size_t count);

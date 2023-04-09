@@ -45,7 +45,7 @@ class IndexServerClient
     ~IndexServerClient() = default;
 
     explicit IndexServerClient(http_client_ptr_t http_client, Config config);
-    mappings_result_t get_mappings();
+    mappings_result_t get_mappings(bool forceFresh);
     mapping_result_t create_mapping(const models::Mapping& m);
     mapping_result_t update_mapping(const models::Mapping& m);
     bool delete_mapping(std::string_view mapping_id);

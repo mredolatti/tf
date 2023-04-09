@@ -5,12 +5,12 @@
 
 #include "expected.hpp"
 
-namespace mifs::models {
+namespace mifs::models
+{
 
 class FileServer
 {
-    public:
-
+  public:
     using parse_result_t = util::Expected<FileServer, int /* TODO */>;
 
     FileServer() = delete;
@@ -20,17 +20,17 @@ class FileServer
     FileServer& operator=(FileServer&&) = default;
     ~FileServer() = default;
 
-    FileServer(std::string_view id, std::string_view org_id, std::string_view name, std::string_view fetch_url);
+    FileServer(std::string_view id, std::string_view org_id, std::string_view name,
+               std::string_view fetch_url);
 
-    template<typename Serialized>
-    static parse_result_t parse(const Serialized& data);
+    template <typename Serialized> static parse_result_t parse(const Serialized& data);
 
     const std::string& id() const;
     const std::string& org_name() const;
     const std::string& name() const;
     const std::string& fetch_url() const;
 
-    private:
+  private:
     std::string id_;
     std::string org_name_;
     std::string name_;

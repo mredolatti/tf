@@ -2,3 +2,4 @@ file-server
 index-server
 incoming
 client_secret.json
+*.png

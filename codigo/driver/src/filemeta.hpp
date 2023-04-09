@@ -4,11 +4,12 @@
 #include "expected.hpp"
 #include <string>
 
-namespace mifs::models {
+namespace mifs::models
+{
 
 class FileMetadata
 {
-    public:
+  public:
     using parse_result_t = util::Expected<FileMetadata, int /* TODO */>;
 
     FileMetadata() = delete;
@@ -18,11 +19,12 @@ class FileMetadata
     FileMetadata& operator=(FileMetadata&&) noexcept = default;
     ~FileMetadata() noexcept = default;
 
-    template<typename Serialized>
-    static parse_result_t parse(const Serialized& data);
+    template <typename Serialized> static parse_result_t parse(const Serialized& data);
+    template <typename Serializer> int serialize(Serializer& doc, bool ignore_empty) const;
 
-    FileMetadata(std::string id, std::string name, std::size_t size_bytes, std::string notes, std::string patient_id,
-            std::string type, std::string content_id, int64_t last_updated, bool deleted);
+    FileMetadata(std::string id, std::string name, std::size_t size_bytes, std::string notes,
+                 std::string patient_id, std::string type, std::string content_id, int64_t last_updated,
+                 bool deleted);
 
     const std::string& id() const;
     const std::string& name() const;
@@ -34,7 +36,7 @@ class FileMetadata
     int64_t last_updated() const;
     bool deleted() const;
 
-    private:
+  private:
     std::string id_;
     std::string name_;
     std::size_t size_bytes_;
@@ -47,7 +49,6 @@ class FileMetadata
 };
 
 std::ostream& operator<<(std::ostream& sink, const FileMetadata& fm);
-
 
 } // namespace mifs::models
 #endif // MIFS_FILE_META_HPP

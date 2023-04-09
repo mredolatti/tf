@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/mredolatti/tf/codigo/common/log"
@@ -62,6 +63,16 @@ func New(
 	manager.MapClientStorage(clientStore)
 	manager.MapTokenStorage(tokenStore)
 	manager.MapAccessGenerate(generates.NewJWTAccessGenerate("", jwtSecret, jwt.SigningMethodHS512))
+	manager.SetClientTokenCfg(&manage.Config{
+		AccessTokenExp:    6 * time.Hour,
+		RefreshTokenExp:   720 * time.Hour, // 1 week
+		IsGenerateRefresh: true,
+	})
+    manager.SetAuthorizeCodeTokenCfg(&manage.Config{
+		AccessTokenExp:    6 * time.Hour,
+		RefreshTokenExp:   720 * time.Hour, // 1 week
+		IsGenerateRefresh: true,
+	})
 
 	srv := server.NewDefaultServer(manager)
 	srv.SetAllowGetAccessRequest(true)

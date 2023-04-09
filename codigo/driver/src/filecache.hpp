@@ -9,14 +9,15 @@
 #include <string>
 #include <unordered_map>
 
-namespace mifs::util {
+namespace mifs::util
+{
 
-namespace detail {
+namespace detail
+{
 
 class CacheEntry
 {
-    public:
-
+  public:
     using sync_time_t = std::chrono::system_clock::time_point;
 
     CacheEntry() = delete;
@@ -36,7 +37,7 @@ class CacheEntry
     void update(std::string contents, sync_time_t last_sync);
     int write(std::string_view contents, std::size_t size, off_t offset);
 
-    private:
+  private:
     std::string file_id_;
     std::string file_name_;
     std::string contents_;
@@ -44,19 +45,12 @@ class CacheEntry
     bool dirty_;
 };
 
-
 } // namespace detail
 
 class FileCache
 {
-    public:
-
-    enum class Error
-    {
-        Ok = 0,
-        NotFound,
-        Expired
-    };
+  public:
+    enum class Error { Ok = 0, NotFound, Expired };
 
     using get_res_t = util::Expected<std::reference_wrapper<detail::CacheEntry>, Error>;
 
@@ -72,13 +66,12 @@ class FileCache
     bool put(const std::string& org_name, std::string server_id, std::string ref, std::string contents);
     bool drop(const std::string& org_name, const std::string& server_id, const std::string& ref);
 
-    private:
+  private:
     using map_t = std::unordered_map<std::string, detail::CacheEntry>;
     map_t entries_;
     log::logger_t logger_;
     mutable std::mutex mutex_;
 };
 
-
-} // namespace mifs::utils
+} // namespace mifs::util
 #endif // MIFS_FILE_CACHE_HPP

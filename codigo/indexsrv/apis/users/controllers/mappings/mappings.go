@@ -48,6 +48,10 @@ func (c *Controller) list(ctx *gin.Context) {
 	}
 
 	forceUpdate := false
+    if force := ctx.Query("forceUpdate"); force == "true" {
+        forceUpdate = true
+    }
+
 	mappings, err := c.maps.Get(ctx.Request.Context(), session.User(), forceUpdate, &query)
 	if err != nil {
 		c.logger.Error("[mappings::list] error fetching: %s", err.Error())
