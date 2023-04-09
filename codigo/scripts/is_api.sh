@@ -109,9 +109,10 @@ function is_mapping_list() {
     local usage="usage: is_mapping_list -t <session_token>"
     local verbose=""
     local OPTIND
-    while getopts "hvt:" options; do
+    while getopts "hvft:" options; do
         case ${options} in
             t) local token=${OPTARG} ;;
+            f) local force="?forceUpdate=true" ;;
             h) echo ${usage} && return 0 ;;
 	    v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
@@ -119,7 +120,7 @@ function is_mapping_list() {
     done
  
     [ -z ${token+x} ] && echo ${usage} && return 1
- 
+
     curl \
         ${verbose} \
         -L \
@@ -129,7 +130,7 @@ function is_mapping_list() {
         --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -H"X-MIFS-IS-Session-Token: ${token}" \
-        "${BASE_CLIENTS_URL}/mappings"
+        "${BASE_CLIENTS_URL}/mappings${force}"
 }
 
 function is_mapping_rename() {
