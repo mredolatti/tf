@@ -37,6 +37,8 @@ class FileManager
 
     list_result_t list(std::string_view path);
     stat_result_t stat(std::string_view path);
+
+    int touch(std::string_view path);
     int open(std::string_view path, int mode);
     int read(std::string_view path, char *buffer, std::size_t offset, std::size_t count);
     int read(int fd, char *buffer, off_t offset, std::size_t count);

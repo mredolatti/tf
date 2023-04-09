@@ -20,6 +20,7 @@ Diver
 - Crear utilidad CLI para hacer login y generar token
 - mejorar logging
 - validaciones
+- mover los '+1' de fuse.cpp a condicionales en filemanager.cpp
 
 ------------------------------------------------------
 

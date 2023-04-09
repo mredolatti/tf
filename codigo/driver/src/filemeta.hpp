@@ -20,6 +20,7 @@ class FileMetadata
     ~FileMetadata() noexcept = default;
 
     template <typename Serialized> static parse_result_t parse(const Serialized& data);
+    template <typename Serializer> int serialize(Serializer& doc, bool ignore_empty) const;
 
     FileMetadata(std::string id, std::string name, std::size_t size_bytes, std::string notes,
                  std::string patient_id, std::string type, std::string content_id, int64_t last_updated,

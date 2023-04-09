@@ -36,6 +36,7 @@ class FileServerClient
     explicit FileServerClient(http_client_ptr_t http_client, util::FileServerCatalog::ptr_t fs_catalog);
 
     list_response_result_t get_all(std::string_view org, std::string_view server_name);
+    bool touch(std::string_view org, std::string_view server, std::string_view ref, models::FileMetadata fm);
     contents_response_result_t contents(const std::string& org, const std::string& server_id,
                                         const std::string file_id);
     bool update_contents(std::string_view org, std::string_view server, std::string_view ref,

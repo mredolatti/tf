@@ -131,8 +131,9 @@ static int mifs_truncate(const char *path, off_t size, struct fuse_file_info *fi
 
 static int mifs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-    // TODO(mredolatti): implementar?
-    return 0;
+    auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
+    SPDLOG_LOGGER_TRACE(ctx->logger(), "creating file: '{}'", path);
+    return ctx->file_manager().touch(path+1);
 }
 
 static int mifs_readlink(const char *path, char *buffer, size_t buffer_size)
@@ -223,6 +224,11 @@ static int mifs_release(const char *path, struct fuse_file_info *fi)
     return 0;
 }
 
+static int mifs_utimens(const char *, const struct timespec tv[2], struct fuse_file_info *fi)
+{
+    return 0;
+}
+
 static const struct fuse_operations mifs_oper = {
     .getattr = mifs_getattr,
     .readlink = mifs_readlink,
@@ -247,6 +253,7 @@ static const struct fuse_operations mifs_oper = {
     .init = mifs_init,
     .access = mifs_access,
     .create = mifs_create,
+    .utimens = mifs_utimens,
 };
 
 // --------------------------------------------------

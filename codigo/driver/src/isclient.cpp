@@ -27,7 +27,7 @@ IndexServerClient::IndexServerClient(http_client_ptr_t http_client, Config confi
 {
 }
 
-IndexServerClient::mappings_result_t IndexServerClient::get_mappings()
+IndexServerClient::mappings_result_t IndexServerClient::get_mappings(bool forceFresh)
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
@@ -36,7 +36,7 @@ IndexServerClient::mappings_result_t IndexServerClient::get_mappings()
 
     auto request{http::Request::Builder{}
                      .method(http::Method::GET)
-                     .uri(fmt::format("{}/api/clients/v1/mappings", url_))
+                     .uri(fmt::format("{}/api/clients/v1/mappings?forceUpdate={}", url_, forceFresh))
                      .tls(tls::Config{cacert_fn_, "", ""})
                      .headers(http::Headers{{"X-MIFS-IS-Session-Token", *token_res}})
                      .build()};

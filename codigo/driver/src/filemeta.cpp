@@ -42,18 +42,6 @@ template <>
 FileMetadata::parse_result_t
 FileMetadata::parse<rapidjson::Document::ValueType>(const rapidjson::Document::ValueType& doc)
 {
-
-    /*
-     `json:"id"`
-     `json:"name"`
-     `json:"notes"`
-     `json:"patientId"`
-     `json:"type"`
-     `json:"contentId"`
-     `json:"lastUpdated"`
-     `json:"deleted"`
-    */
-
     if (!doc.HasMember("id") || !doc["id"].IsString()) {
         return util::Unexpected<int>{1};
     }
@@ -70,6 +58,10 @@ FileMetadata::parse<rapidjson::Document::ValueType>(const rapidjson::Document::V
         return util::Unexpected<int>{1};
     }
 
+    if (!doc.HasMember("sizeBytes") || !doc["sizeBytes"].IsInt64()) {
+        return util::Unexpected<int>{1};
+    }
+
     if (!doc.HasMember("lastUpdated") || !doc["lastUpdated"].IsInt64()) {
         return util::Unexpected<int>{1};
     }
@@ -80,7 +72,7 @@ FileMetadata::parse<rapidjson::Document::ValueType>(const rapidjson::Document::V
 
     return FileMetadata{doc["id"].GetString(),
                         doc["name"].GetString(),
-                        11, // TODO(mredolatti): get size from server
+                        static_cast<size_t>(doc["sizeBytes"].GetInt()),
                         doc.HasMember("notes") ? doc["notes"].GetString() : "",
                         doc.HasMember("patientId") ? doc["patientId"].GetString() : "",
                         doc["type"].GetString(),
@@ -88,6 +80,47 @@ FileMetadata::parse<rapidjson::Document::ValueType>(const rapidjson::Document::V
                         doc["lastUpdated"].GetInt64(),
                         doc["deleted"].GetBool()};
 }
+
+template <> int FileMetadata::serialize<rapidjson::Document>(rapidjson::Document& doc, bool ignore_empty) const
+{
+    doc.SetObject();
+    auto& alloc{doc.GetAllocator()};
+
+    if (!id_.empty() || !ignore_empty) {
+        doc.AddMember("id", rapidjson::Value{id_.c_str(), alloc}.Move(), doc.GetAllocator());
+    }
+
+    if (!name_.empty() || !ignore_empty) {
+        doc.AddMember("name", rapidjson::Value{name_.c_str(), alloc}.Move(), doc.GetAllocator());
+    }
+
+    if (!notes_.empty() || !ignore_empty) {
+        doc.AddMember("notes", rapidjson::Value{notes_.c_str(), alloc}.Move(), doc.GetAllocator());
+    }
+
+    if (!patient_id_.empty() || !ignore_empty) {
+        doc.AddMember("patientId", rapidjson::Value{patient_id_.c_str(), alloc}.Move(), doc.GetAllocator());
+    }
+
+    if (!type_.empty() || !ignore_empty) {
+        doc.AddMember("type", rapidjson::Value{type_.c_str(), alloc}.Move(), doc.GetAllocator());
+    }
+
+    if (last_updated_ != -1 || !ignore_empty) {
+        doc.AddMember("lastUpdated", last_updated_, doc.GetAllocator());
+    }
+
+    if (size_bytes_ != -1 || !ignore_empty) {
+        doc.AddMember("sizeBytes", size_bytes_, doc.GetAllocator());
+    }
+
+    if (deleted_ || !ignore_empty) {
+        doc.AddMember("deleted", deleted_, doc.GetAllocator());
+    }
+
+    return 0;
+}
+
 
 std::ostream& operator<<(std::ostream& sink, const FileMetadata& fm)
 {

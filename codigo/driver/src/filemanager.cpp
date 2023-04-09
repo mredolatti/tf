@@ -49,7 +49,7 @@ FileManager::stat_result_t FileManager::stat(std::string_view path)
 void FileManager::sync()
 {
     SPDLOG_LOGGER_TRACE(logger_, "fetching mappings...");
-    auto res_mappings{is_client_.get_mappings()};
+    auto res_mappings{is_client_.get_mappings(true)};
     if (!res_mappings) {
         SPDLOG_LOGGER_ERROR(logger_, "failed to fetch mappings from index server: {}", res_mappings.error());
         return;
@@ -70,6 +70,20 @@ void FileManager::sync()
     for (const auto& server : servers) {
         fs_catalog_->update_fetch_url(server.org_name(), server.name(), server.fetch_url());
     }
+}
+
+int FileManager::touch(std::string_view path)
+{
+    using namespace std::chrono;
+    auto now{time_point_cast<seconds>(system_clock::now()).time_since_epoch().count()};
+    auto [org, server, ref]{helpers::parse_server_ref(path)};
+    fmt::print("creando {} -- {} -- {}\n", org, server, ref);
+    if (!fs_client_.touch(org, server, ref, models::FileMetadata{"", ref, 0, "", "", "", "", now, false})) {
+        return 1;
+    }
+
+    fs_mirror_.add_file(org, server, ref, 0, now);
+    return 0;
 }
 
 int FileManager::open(std::string_view path, int mode) { return open_files_.open(path, mode); }
