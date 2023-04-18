@@ -27,14 +27,13 @@ const (
 
 // Public errors
 var (
-	ErrOrgNotFound = errors.New("organization not found")
+	ErrOrgNotFound             = errors.New("organization not found")
 	ErrServerAlreadyRegistered = errors.New("server already registered")
 
 	ErrAccountExists = errors.New("account already exists")
-	ErrInvalidToken  = errors.New("error parsing raw token")
 	ErrInvalidClaims = errors.New("unknown claims in jwt")
 
-    ErrInvalidResponse = errors.New("access and/or refresh tokens returned from server are empty")
+	ErrNeedReLink = errors.New("accounts needs to be re-linked")
 )
 
 // Interface defines the set of methods for managing user <-> server links
@@ -53,10 +52,11 @@ type Interface interface {
 
 // Impl is an implementation of the registar interface
 type Impl struct {
+	redirectURL   string
 	randGen       *randGenerator
 	fileServers   repository.FileServerRepository
 	organizations repository.OrganizationRepository
-	userAccounts repository.UserAccountRepository
+	userAccounts  repository.UserAccountRepository
 	oauth2Flows   repository.PendingOAuth2Repository
 	httpClient    http.Client
 }
@@ -66,6 +66,7 @@ type Config struct {
 	UserAccounts       repository.UserAccountRepository
 	Organizations      repository.OrganizationRepository
 	Pauth2Flows        repository.PendingOAuth2Repository
+	BaseURL            string
 	RootCAFN           string
 	ServerCertFN       string
 	ServerPrivateKeyFN string
@@ -76,13 +77,15 @@ func New(cfg *Config) *Impl {
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = setupTLSConfig(cfg.RootCAFN, cfg.ServerCertFN, cfg.ServerPrivateKeyFN)
+    url, _ := url.JoinPath(cfg.BaseURL, "user_accounts/callback")
 	return &Impl{
 		randGen:       newRandGenerator(),
 		fileServers:   cfg.FileServers,
-		userAccounts: cfg.UserAccounts,
+		userAccounts:  cfg.UserAccounts,
 		organizations: cfg.Organizations,
 		oauth2Flows:   cfg.Pauth2Flows,
 		httpClient:    http.Client{Transport: transport},
+		redirectURL:   url,
 	}
 }
 
@@ -197,7 +200,7 @@ func (i *Impl) CompleteLinkProcess(ctx context.Context, state string, code strin
 		return fmt.Errorf("error exchanging code for token: %w", err)
 	}
 
-	if _, err := i.userAccounts.Add(ctx, flow.UserID(), flow.OrganizationName(), flow.ServerName(), tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
+	if _, err := i.userAccounts.AddOrUpdate(ctx, flow.UserID(), flow.OrganizationName(), flow.ServerName(), tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
 		return fmt.Errorf("error creating user account with received tokens: %w", err)
 	}
 
@@ -257,7 +260,6 @@ func (i *Impl) GetValidToken(ctx context.Context, userID string, orgName string,
 		return &Token{raw: token}, nil
 	}
 
-
 	newAccessToken, err := i.doRefreshToken(ctx, userID, orgName, serverName, acc.RefreshToken())
 	if err != nil {
 		return nil, fmt.Errorf("error refreshing token: %w", err)
@@ -272,11 +274,14 @@ func (i *Impl) doRefreshToken(ctx context.Context, userID string, orgName string
 		return "", fmt.Errorf("error fetching server from repository: %w", err)
 	}
 
-	tokenResponse, err := i.makeTokenRefreshRequest(server.TokenURL(), refreshToken)
-	if err != nil {
-		return "", fmt.Errorf("error making token refresh request: %w", err)
+	status, tokenResponse, err := i.makeTokenRefreshRequest(server.TokenURL(), refreshToken)
+	switch status {
+	case 200: // do nothing
+	case 401:
+		return "", ErrNeedReLink
+	default:
+		return "", fmt.Errorf("error making request: %w", err)
 	}
-
 	if err := i.userAccounts.UpdateTokens(ctx, userID, orgName, serverName, tokenResponse.AccessToken, tokenResponse.RefreshToken); err != nil {
 		return "", fmt.Errorf("error storing new tokens in db: %w", err)
 	}
@@ -284,7 +289,7 @@ func (i *Impl) doRefreshToken(ctx context.Context, userID string, orgName string
 	return tokenResponse.AccessToken, nil
 }
 
-func (i *Impl) makeTokenRefreshRequest(tokenURL string, refreshToken string) (*tokenResponse, error) {
+func (i *Impl) makeTokenRefreshRequest(tokenURL string, refreshToken string) (int, *tokenResponse, error) {
 	bodyForm := url.Values{}
 	bodyForm.Add("grant_type", "refresh_token")
 	bodyForm.Add("client_id", clientID)
@@ -292,34 +297,29 @@ func (i *Impl) makeTokenRefreshRequest(tokenURL string, refreshToken string) (*t
 	bodyForm.Add("refresh_token", refreshToken)
 	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(bodyForm.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("error creating request for token refresh: %w", err)
+		return 0, nil, fmt.Errorf("error creating request for token refresh: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := i.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error making token refresh request: %w", err)
+		return 0, nil, fmt.Errorf("error making token refresh request: %w", err)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
-    defer resp.Body.Close()
+	defer resp.Body.Close()
 	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
+		return resp.StatusCode, nil, fmt.Errorf("error reading response body: %w", err)
 	}
-	fmt.Println("body: ", string(body))
 
 	var tokenResponse tokenResponse
 	err = json.Unmarshal(body, &tokenResponse)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing response json: %w", err)
+		return resp.StatusCode, nil, fmt.Errorf("error parsing response json: %w", err)
 
 	}
 
-    if tokenResponse.AccessToken == "" || tokenResponse.RefreshToken == "" {
-        return nil, ErrInvalidResponse
-    }
-
-	return &tokenResponse, nil
+	return resp.StatusCode, &tokenResponse, nil
 }
 
 func isTokenStillValid(token string) bool {

@@ -30,6 +30,7 @@ target_sources(mifs
     PRIVATE config.cpp
     PRIVATE fuseopts.cpp
     PRIVATE fscatalog.cpp
+    PRIVATE apierror.cpp
 )
 
 target_link_libraries(mifs

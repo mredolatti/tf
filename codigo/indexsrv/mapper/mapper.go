@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/mredolatti/tf/codigo/indexsrv/fslinks"
@@ -60,7 +59,7 @@ func (i *Impl) Get(ctx context.Context, userID string, forceUpdate bool, query *
 
 	err := i.ensureUpdated(ctx, userID, forceUpdate)
 	if err != nil {
-		return nil, fmt.Errorf("update required but failed: %w", err)
+		return nil, err // do not wrap to preserve underlying error type
 	}
 	return i.mappings.List(ctx, userID, *query)
 }
@@ -94,7 +93,7 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 	thresholdNS := time.Now().Add(-defaultUpdateTolerance).UnixNano()
 
 	var wg sync.WaitGroup
-	var errCount int64
+    multiErr := newMultiSyncErr()
 	for _, account := range forUser {
 		if account.Checkpoint() < thresholdNS || force {
 			wg.Add(1)
@@ -102,23 +101,23 @@ func (i *Impl) ensureUpdated(ctx context.Context, userID string, force bool) err
 				defer wg.Done()
 				updates, err := i.serverLinks.FetchUpdates(ctx, acc.OrganizationName(), acc.FileServerName(), user, acc.Checkpoint())
 				if err != nil {
-					// TODO(mredolatti): Log!
-					atomic.AddInt64(&errCount, 1)
+                    multiErr.Add(acc.OrganizationName(), acc.FileServerName(), err)
+                    return
 				}
 
 				err = i.handleUpdates(ctx, acc, updates)
 				if err != nil {
-					// TODO(mredolatti): Log!
-					atomic.AddInt64(&errCount, 1)
+                    multiErr.Add(acc.OrganizationName(), acc.FileServerName(), err)
+                    return
 				}
 			}(account)
 		}
 	}
 	wg.Wait()
 
-	if errCount > 0 {
-		return fmt.Errorf("%d accounts filed to sync", atomic.LoadInt64(&errCount))
-	}
+    if multiErr.HasErrors() {
+        return multiErr
+    }
 
 	return nil
 }

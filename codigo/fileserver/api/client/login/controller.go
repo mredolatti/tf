@@ -38,6 +38,11 @@ func (c *Controller) authorize(ctx *gin.Context) {
 }
 
 func (c *Controller) token(ctx *gin.Context) {
+
+    // there's a specific error being returned internally for expired refresh tokens,
+    // but it's internally replaced by a more generic before the function returns.
+    // clients will have treat any refresh error as fatal and request a re-link of the
+    // user account if the refresh token ever expires
 	err := c.oauth2Wrapper.HandleAuthCodeExchangeRequest(ctx)
 	if err != nil {
 		c.logger.Error(err.Error())

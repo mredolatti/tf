@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // UserAccount is a postgres-compatible struct implementing models.UserAccount interface
@@ -63,7 +64,7 @@ func NewUserAccountRepository(db *mongo.Database) *UserAccountRepository {
 }
 
 // Add implements repository.UserAccountRepository
-func (r *UserAccountRepository) Add(
+func (r *UserAccountRepository) AddOrUpdate(
 	ctx context.Context,
 	userID string,
 	organizationName string,
@@ -75,8 +76,11 @@ func (r *UserAccountRepository) Add(
 	if err != nil {
 		return nil, fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)
 	}
+
+	newID := primitive.NewObjectID()
+
 	a := UserAccount{
-		IDField:               primitive.NewObjectID(),
+		IDField:               newID,
 		UserIDField:           uid,
 		OrganizationNameField: organizationName,
 		ServerNameField:       serverName,
@@ -84,12 +88,31 @@ func (r *UserAccountRepository) Add(
 		RefreshTokenField:     refreshToken,
 	}
 
-	res, err := r.collection.InsertOne(ctx, &a)
-	if err != nil {
-		return nil, fmt.Errorf("error inserting mapping in mongodb: %w", err)
-	}
+	_, err = r.collection.UpdateOne(ctx,
+		bson.D{
+			{Key: "userId", Value: uid},
+			{Key: "organizationName", Value: organizationName},
+			{Key: "serverName", Value: serverName},
+		},
+		bson.D{
+			{Key: "$setOnInsert", Value: bson.D{
+				{Key: "_id", Value: primitive.NewObjectID()},
+				{Key: "userId", Value: uid},
+				{Key: "organizationName", Value: organizationName},
+				{Key: "serverName", Value: serverName},
+			}},
+			{Key: "$set", Value: bson.D{
+				{Key: "accessToken", Value: accessToken},
+				{Key: "refreshToken", Value: refreshToken},
+			}},
+		},
+		options.Update().SetUpsert(true),
+	)
 
-	a.IDField = res.InsertedID.(primitive.ObjectID)
+    if err != nil {
+        return  nil, fmt.Errorf("error updating account in db: %w", err)
+    }
+
 	return &a, nil
 }
 
@@ -192,7 +215,7 @@ func (r *UserAccountRepository) UpdateCheckpoint(ctx context.Context, userID str
 }
 
 // UpdateTokens implements repository.UserAccountRepository
-func (r *UserAccountRepository) UpdateTokens(ctx context.Context, userID string, orgName string, serverName string,accessToken string, refreshToken string) error {
+func (r *UserAccountRepository) UpdateTokens(ctx context.Context, userID string, orgName string, serverName string, accessToken string, refreshToken string) error {
 	uid, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return fmt.Errorf("error constructing objectID for user with id=%s: %w", userID, err)

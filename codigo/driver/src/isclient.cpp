@@ -11,14 +11,6 @@
 namespace mifs::apiclients
 {
 
-namespace detail
-{
-
-using parse_result_t = util::Expected<IndexServerClient::mappings_list_response_t, int /* TODO */>;
-using parse_error_t = util::Unexpected<int /* TODO */>;
-
-} // namespace detail
-
 IndexServerClient::IndexServerClient(http_client_ptr_t http_client, Config config)
     : client_{std::move(http_client)},
       token_source_{std::move(config.token_source)},
@@ -31,7 +23,7 @@ IndexServerClient::mappings_result_t IndexServerClient::get_mappings(bool forceF
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return no_response_t{-2};
+        return error_t{predefined::token_error};
     }
 
     auto request{http::Request::Builder{}
@@ -43,18 +35,21 @@ IndexServerClient::mappings_result_t IndexServerClient::get_mappings(bool forceF
 
     auto result{client_->execute(request)};
     if (!result) {
-        return no_response_t{-1};
+        return error_t{Error(result.error())};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return no_response_t{code};
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return error_t{predefined::json_error_unsuccessful};
+        }
+        return error_t{Error{code, jsend::format_error(*res)}};
     }
 
     auto response_res{jsend::parse_multi_item_response<models::Mapping>(result->body(), "mappings")};
     if (!response_res) {
-        return no_response_t{-2};
+        return error_t{predefined::json_error};
     }
 
     return mappings_result_t{std::move(*response_res)};
@@ -64,7 +59,7 @@ IndexServerClient::mapping_result_t IndexServerClient::create_mapping(const mode
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return no_response_t{-2};
+        return error_t{predefined::token_error};
     }
 
     // TODO(mredolatti): move this block to a separate function
@@ -85,18 +80,21 @@ IndexServerClient::mapping_result_t IndexServerClient::create_mapping(const mode
 
     auto result{client_->execute(request)};
     if (!result) {
-        return no_response_t{-1};
+        return error_t{result.error()};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return no_response_t{code};
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return error_t{predefined::json_error_unsuccessful};
+        }
+        return error_t{Error{code, jsend::format_error(*res)}};
     }
 
     auto response_res{jsend::parse_single_item_response<models::Mapping>(result->body(), "mapping")};
     if (!response_res) {
-        return no_response_t{-2};
+        return error_t{predefined::json_error};
     }
 
     return mapping_result_t{std::move(*response_res)};
@@ -106,7 +104,7 @@ IndexServerClient::mapping_result_t IndexServerClient::update_mapping(const mode
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return no_response_t{-2};
+        return error_t{predefined::token_error};
     }
 
     // TODO(mredolatti): move this block to a separate function
@@ -127,28 +125,31 @@ IndexServerClient::mapping_result_t IndexServerClient::update_mapping(const mode
 
     auto result{client_->execute(request)};
     if (!result) {
-        return no_response_t{-1};
+        return error_t{result.error()};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return no_response_t{code};
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return error_t{predefined::json_error_unsuccessful};
+        }
+        return error_t{Error{code, jsend::format_error(*res)}};
     }
 
     auto response_res{jsend::parse_single_item_response<models::Mapping>(result->body(), "mapping")};
     if (!response_res) {
-        return no_response_t{-2};
+        return error_t{predefined::json_error};
     }
 
     return mapping_result_t{std::move(*response_res)};
 }
 
-bool IndexServerClient::delete_mapping(std::string_view mapping_id)
+std::optional<Error> IndexServerClient::delete_mapping(std::string_view mapping_id)
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return false;
+        return predefined::token_error;
     }
 
     auto request{http::Request::Builder{}
@@ -160,23 +161,26 @@ bool IndexServerClient::delete_mapping(std::string_view mapping_id)
 
     auto result{client_->execute(request)};
     if (!result) {
-        return false;
+        return Error{result.error()};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return false;
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return predefined::json_error_unsuccessful;
+        }
+        return Error{code, jsend::format_error(*res)};
     }
 
-    return true;
+    return std::nullopt;
 }
 
 IndexServerClient::servers_result_t IndexServerClient::get_servers()
 {
     auto token_res{token_source_->get()};
     if (!token_res) {
-        return no_response_t{-2};
+        return error_t{predefined::token_error};
     }
 
     auto request{http::Request::Builder{}
@@ -188,18 +192,21 @@ IndexServerClient::servers_result_t IndexServerClient::get_servers()
 
     auto result{client_->execute(request)};
     if (!result) {
-        return no_response_t{-1};
+        return error_t{result.error()};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return no_response_t{code};
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return error_t{predefined::json_error_unsuccessful};
+        }
+        return error_t{Error{code, jsend::format_error(*res)}};
     }
 
     auto response_res{jsend::parse_multi_item_response<models::FileServer>(result->body(), "servers")};
     if (!response_res) {
-        return no_response_t{-2};
+        return error_t{predefined::json_error};
     }
 
     return servers_response_t{*response_res};

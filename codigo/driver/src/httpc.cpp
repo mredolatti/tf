@@ -131,7 +131,22 @@ static size_t header_callback(const char *buffer, size_t size, size_t nitems, vo
 namespace mifs::http
 {
 
-MaybeResponse Client::execute(const Request& request)
+Client::Error::Error(int64_t code)
+    : code_{code}
+{
+}
+
+int64_t Client::Error::get() const
+{
+    return code_;
+}
+
+const char* Client::Error::message() const
+{
+    return curl_easy_strerror(static_cast<CURLcode>(code_));
+}
+
+Client::response_t Client::execute(const Request& request)
 {
     httpc::detail::CurlEasyHandle handle;
 
@@ -185,7 +200,7 @@ MaybeResponse Client::execute(const Request& request)
 
     auto res{curl_easy_perform(*handle)};
     if (res != CURLE_OK) {
-        return NoResponse{res};
+        return no_response_t{res};
     }
 
     return context.response.build();

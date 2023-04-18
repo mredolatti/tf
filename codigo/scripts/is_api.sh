@@ -23,7 +23,7 @@ function is_signup() {
             n) local name=${OPTARG} ;;
             e) local email=${OPTARG} ;;
             p) local password=${OPTARG} ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
             *) echo ${usage} && return 1 ;;
         esac
@@ -54,7 +54,7 @@ function is_login() {
             e) local email=${OPTARG} ;;
             p) local password=${OPTARG} ;;
             f) local passcode=${OPTARG} ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
             *) echo ${usage} && return 1 ;;
         esac
@@ -84,7 +84,7 @@ function is_setup_2fa() {
             t) local token=${OPTARG} ;;
             q) local qr_output=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -114,7 +114,7 @@ function is_mapping_list() {
             t) local token=${OPTARG} ;;
             f) local force="?forceUpdate=true" ;;
             h) echo ${usage} && return 0 ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -143,7 +143,7 @@ function is_mapping_rename() {
             i) local id=${OPTARG} ;;
             n) local new=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -171,7 +171,7 @@ function is_mapping_delete() {
             t) local token=${OPTARG} ;;
             i) local id=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -251,9 +251,9 @@ function is_list_servers_for_org() {
     while getopts "hvt:o:" options; do
         case ${options} in
             t) local token=${OPTARG} ;;
-	    o) local org=${OPTARG} ;;
+            o) local org=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -279,7 +279,7 @@ function is_list_servers() {
         case ${options} in
             t) local token=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
-	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -300,12 +300,13 @@ function is_link_fs() {
     local usage="usage: idx_link_fs -o <org_name> -s <server_name> -t <token>"
     local verbose=""
     local OPTIND
-    while getopts "hvt:o:s:" options; do
+    while getopts "hvt:o:s:f" options; do
         case ${options} in
             s) local server=${OPTARG} ;;
             o) local org=${OPTARG} ;;
-	    t) local token=${OPTARG} ;;
- 	    v) verbose="-v" ;;
+            f) local force='?force=true' ;;
+            t) local token=${OPTARG} ;;
+            v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
             *) echo ${usage} && return 1 ;;
         esac
@@ -323,7 +324,7 @@ function is_link_fs() {
         --cert ${USER_FS_CERT} \
         --key ${USER_FS_KEY} \
         -H"X-MIFS-IS-Session-Token: ${token}" \
-        "${BASE_CLIENTS_URL}/organizations/${org}/servers/${server}/link"
+        "${BASE_CLIENTS_URL}/organizations/${org}/servers/${server}/link${force}"
 }
 
 function is_logout() {
@@ -333,7 +334,7 @@ function is_logout() {
     while getopts "hvt:" options; do
         case ${options} in
             t) local token=${OPTARG} ;;
- 	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
             *) echo ${usage} && return 1 ;;
         esac
@@ -363,7 +364,7 @@ function is_admin_add_org() {
     while getopts "hvn:" options; do
         case ${options} in
             n) local org_name=${OPTARG} ;;
- 	    v) verbose="-v" ;;
+            v) verbose="-v" ;;
             h) echo ${usage} && return 0 ;;
             *) echo ${usage} && return 1 ;;
         esac
@@ -376,8 +377,8 @@ function is_admin_add_org() {
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
-	-H'Content-Type: application/json' \
-	-d"{\"name\": \"${org_name}\"}" \
+        -H'Content-Type: application/json' \
+        -d"{\"name\": \"${org_name}\"}" \
         "${BASE_CLIENTS_URL}/admin/organizations"
 }
 
@@ -431,7 +432,7 @@ function is_server_register() {
         -L \
         -XPOST \
         -H'Content-Type: application/json' \
-	-d "${body}" \
+        -d "${body}" \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \

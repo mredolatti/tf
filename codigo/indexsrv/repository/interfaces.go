@@ -63,7 +63,7 @@ type FileServerRepository interface {
 type UserAccountRepository interface {
 	List(ctx context.Context, userID string) ([]models.UserAccount, error)
 	Get(ctx context.Context, userID string, orgName string, serverName string) (models.UserAccount, error)
-	Add(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) (models.UserAccount, error)
+	AddOrUpdate(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) (models.UserAccount, error)
 	Remove(ctx context.Context, userID string, orgName string, serverName string) error
 	UpdateCheckpoint(ctx context.Context, userID string, orgName string, serverName string, newCheckpoint int64) error
 	UpdateTokens(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) error

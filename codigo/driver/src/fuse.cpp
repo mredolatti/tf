@@ -14,6 +14,7 @@ namespace helpers
 {
 int get_st_nlink(const mifs::fstree::views::Wrapper& w);
 __mode_t get_st_mode(const mifs::fstree::views::Wrapper& w);
+int map_filemanager_error(mifs::FileManager::Error e);
 } // namespace helpers
 
 // fuse
@@ -37,8 +38,8 @@ static int mifs_getattr(const char *path, struct stat *stbuf, struct fuse_file_i
     SPDLOG_LOGGER_TRACE(ctx->logger(), "gathering stats for: '{}'", path);
     auto res{ctx->file_manager().stat(path)};
     if (!res) {
-        SPDLOG_LOGGER_ERROR(ctx->logger(), "failed to stat '{}': {}", path, res.error());
-        return -ENOENT;
+        SPDLOG_LOGGER_ERROR(ctx->logger(), "failed to stat '{}': {}", path, static_cast<int>(res.error()));
+        return helpers::map_filemanager_error(res.error());
     }
 
     auto& de{(*res)};
@@ -64,11 +65,10 @@ static int mifs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
     auto entries{ctx->file_manager().list(path)};
     if (!entries) {
-        return 1; // TODO(mredolatti): devolver codigo apropiado
+        return -ENOENT;
     }
 
     for (auto&& de : (*entries)) {
-        SPDLOG_LOGGER_INFO(ctx->logger(), "agregando direntry: {}", de.name());
         struct stat st;
         memset(&st, 0, sizeof(st));
         st.st_ino = 0;
@@ -86,54 +86,44 @@ static int mifs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
 static int mifs_mkdir(const char *path, mode_t mode)
 {
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    return !ctx->file_manager().mkdir(path + 1); // +1 to skip leading '/'
+    return helpers::map_filemanager_error(ctx->file_manager().mkdir(path));
 }
 
 static int mifs_unlink(const char *path)
 {
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    return !ctx->file_manager().remove(path + 1); // +1 to skip leading '/'
+    return helpers::map_filemanager_error(ctx->file_manager().remove(path));
 }
 
 static int mifs_rmdir(const char *path)
 {
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    return !ctx->file_manager().rmdir(path + 1); // +1 to skip leading '/'
+    return helpers::map_filemanager_error(ctx->file_manager().rmdir(path));
 }
 
 static int mifs_symlink(const char *from, const char *to)
 {
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    return !ctx->file_manager().link(from, to + 1); // +1 to skip leading '/'
+    return helpers::map_filemanager_error(ctx->file_manager().link(from, to));
 }
 
 static int mifs_rename(const char *from, const char *to, unsigned int flags)
 {
     (void)flags;
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    return !ctx->file_manager().rename(from + 1, to + 1); // +1 to skip leading '/'
+    return helpers::map_filemanager_error(ctx->file_manager().rename(from, to));
 }
-
-static int mifs_link(const char *from, const char *to)
-{
-    return EACCES; // nohard links allowed
-}
-
-static int mifs_chmod(const char *path, mode_t mode, struct fuse_file_info *fi) { return EACCES; }
-
-static int mifs_chown(const char *path, uid_t uid, gid_t gid, struct fuse_file_info *fi) { return EACCES; }
 
 static int mifs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 {
-    // TODO(mredolatti): volar esto?
+    // TODO(mredolatti): implementar!
     return 0;
 }
 
 static int mifs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    SPDLOG_LOGGER_TRACE(ctx->logger(), "creating file: '{}'", path);
-    return ctx->file_manager().touch(path+1);
+    return helpers::map_filemanager_error(ctx->file_manager().touch(path));
 }
 
 static int mifs_readlink(const char *path, char *buffer, size_t buffer_size)
@@ -142,7 +132,7 @@ static int mifs_readlink(const char *path, char *buffer, size_t buffer_size)
     SPDLOG_LOGGER_TRACE(ctx->logger(), "reading link for: '{}'", path);
     auto res{ctx->file_manager().stat(path)};
     if (!res) {
-        return 1; // TODO
+        return helpers::map_filemanager_error(res.error());
     }
 
     const auto *as_link{res->link()};
@@ -166,6 +156,8 @@ static int mifs_open(const char *path, struct fuse_file_info *fi)
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
     SPDLOG_LOGGER_INFO(ctx->logger(), "opening file: {}", path);
     fi->fh = ctx->file_manager().open(path, 0 /*TODO */);
+
+    // TODO(mredolatti): error out if directory does not exist
     return 0;
 }
 
@@ -175,14 +167,15 @@ static int mifs_read(const char *path, char *buf, size_t size, off_t offset, str
     SPDLOG_LOGGER_INFO(ctx->logger(), "reading from file: {}", path);
 
     std::size_t read_bytes;
+    mifs::FileManager::Error err;
     if (fi == nullptr) {
         SPDLOG_LOGGER_TRACE(ctx->logger(), "reading by path: {}", path);
-        read_bytes = ctx->file_manager().read(path, buf, offset, size);
+        std::tie(read_bytes, err) = ctx->file_manager().read(path, buf, offset, size);
     } else {
         SPDLOG_LOGGER_TRACE(ctx->logger(), "reading by fd: {}", fi->fh);
-        read_bytes = ctx->file_manager().read(fi->fh, buf, offset, size);
+        std::tie(read_bytes, err) = ctx->file_manager().read(fi->fh, buf, offset, size);
     }
-    return read_bytes;
+    return err == mifs::FileManager::Error::Ok ? read_bytes : helpers::map_filemanager_error(err);
 }
 
 static int mifs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
@@ -190,7 +183,8 @@ static int mifs_write(const char *path, const char *buf, size_t size, off_t offs
 
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
     SPDLOG_LOGGER_INFO(ctx->logger(), "writing to file: {}", path);
-    return ctx->file_manager().write(path, buf, size, offset);
+    auto [written_bytes, err]{ctx->file_manager().write(path, buf, size, offset)};
+    return err == mifs::FileManager::Error::Ok ? written_bytes : helpers::map_filemanager_error(err);
 }
 
 static int mifs_statfs(const char *path, struct statvfs *stbuf) { return 0; }
@@ -213,8 +207,7 @@ static int mifs_flush(const char *path, struct fuse_file_info *fi)
 {
     (void)fi;
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    ctx->file_manager().flush(path);
-    return 0;
+    return helpers::map_filemanager_error(ctx->file_manager().flush(path));
 }
 
 static int mifs_release(const char *path, struct fuse_file_info *fi)
@@ -224,10 +217,7 @@ static int mifs_release(const char *path, struct fuse_file_info *fi)
     return 0;
 }
 
-static int mifs_utimens(const char *, const struct timespec tv[2], struct fuse_file_info *fi)
-{
-    return 0;
-}
+static int mifs_utimens(const char *, const struct timespec tv[2], struct fuse_file_info *fi) { return 0; }
 
 static const struct fuse_operations mifs_oper = {
     .getattr = mifs_getattr,
@@ -237,9 +227,6 @@ static const struct fuse_operations mifs_oper = {
     .rmdir = mifs_rmdir,
     .symlink = mifs_symlink,
     .rename = mifs_rename,
-    .link = mifs_link,
-    .chmod = mifs_chmod,
-    .chown = mifs_chown,
     .truncate = mifs_truncate,
     .open = mifs_open,
     .read = mifs_read,
@@ -302,6 +289,32 @@ int get_st_nlink(const mifs::fstree::views::Wrapper& w)
     case Type::Link: return 1;
     }
     assert(false); // shold never get here
+}
+
+int map_filemanager_error(mifs::FileManager::Error e)
+{
+    switch (e) {
+    case mifs::FileManager::Error::Ok: return 0;
+    case mifs::FileManager::Error::NotFound: return -ENOENT;
+    case mifs::FileManager::Error::AlreadyExists: return -EEXIST;
+    case mifs::FileManager::Error::NotAFile:
+    case mifs::FileManager::Error::NotALink:
+    case mifs::FileManager::Error::NotAForlder:
+    case mifs::FileManager::Error::CannotWriteInNonServerPath:
+    case mifs::FileManager::Error::ServerTreeManipulation:
+    case mifs::FileManager::Error::InvalidLinkSource:
+    case mifs::FileManager::Error::InvalidLinkDestination: return -EPERM;
+    case mifs::FileManager::Error::FailedToFetchMappings:
+    case mifs::FileManager::Error::FiledToUpdateRemoteMapping:
+    case mifs::FileManager::Error::FiledToReadFileFromServer:
+    case mifs::FileManager::Error::FiledToWriteFileInServer:
+    case mifs::FileManager::Error::FailedToFetchServerInfos: return -EBADE;
+    case mifs::FileManager::Error::InternalCacheError:
+    case mifs::FileManager::Error::InternalRepresentationError: return EBADFD;
+    case mifs::FileManager::Error::Unknown: break;
+    }
+
+    return -EPROTO;
 }
 
 } // namespace helpers

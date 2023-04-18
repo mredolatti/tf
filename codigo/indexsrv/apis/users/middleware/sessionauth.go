@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mredolatti/tf/codigo/common/dtos/jsend"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/access/authentication"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
@@ -37,7 +38,7 @@ func (m *SessionAuth) Handle(ctx *gin.Context) {
 	sessionID := ctx.Request.Header.Get(sessionAuthHeaderName)
 	if sessionID == "" {
 		m.logger.Error("Invalid request: session token missing in headers.")
-		ctx.AbortWithStatus(400)
+		ctx.AbortWithStatusJSON(400, jsend.NewCustomFailResponse("", sessionAuthHeaderName, "header missing"))
 		return
 	}
 
@@ -45,10 +46,10 @@ func (m *SessionAuth) Handle(ctx *gin.Context) {
 	if err != nil {
 		if errors.Is(err, authentication.ErrNoSuchSession) {
 			m.logger.Error("Token '%s' provided in request not found", sessionID)
-			ctx.AbortWithStatus(401)
+			ctx.AbortWithStatusJSON(401, jsend.NewCustomFailResponse("", sessionAuthHeaderName, "not found"))
 		} else {
 			m.logger.Error("error fetching session for id '%s': %s", err)
-			ctx.AbortWithStatus(500)
+			ctx.AbortWithStatusJSON(500, jsend.NewErrorResponse("internal error validanting auth token"))
 		}
 		return
 	}
