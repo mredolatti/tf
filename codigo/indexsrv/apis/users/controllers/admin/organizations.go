@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mredolatti/tf/codigo/common/dtos/jsend"
 	"github.com/mredolatti/tf/codigo/common/log"
 	"github.com/mredolatti/tf/codigo/indexsrv/apis/users/controllers"
 	"github.com/mredolatti/tf/codigo/indexsrv/models"
@@ -34,17 +35,17 @@ func (c *Controller) create(ctx *gin.Context) {
 	var dto DTO
 	if err := ctx.ShouldBindJSON(&dto); err != nil {
 		c.logger.Error("error reading body: ", err)
-		ctx.AbortWithStatus(400)
+		ctx.AbortWithStatusJSON(400, jsend.NewReadBodyFailResponse(err))
 		return
 	}
 
 	if err := c.registrar.AddNewOrganization(ctx.Request.Context(), dto.Name); err != nil {
 		c.logger.Error("error creating new organization: ", err)
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, jsend.NewErrorResponse("error creating organization"))
 		return
 	}
 
-	ctx.Status(200)
+	ctx.JSON(200, jsend.ResponseEmptySuccess)
 }
 
 func (c *Controller) list(ctx *gin.Context) {
@@ -57,11 +58,11 @@ func (c *Controller) list(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("error fetching organizations for user %s: %s", userID, err)
 		// TODO: Verificar el error
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, jsend.NewErrorResponse("error reading organizations from db"))
 		return
 	}
 
-	ctx.JSON(200, formatOrgs(orgs))
+	ctx.JSON(200, jsend.NewSuccessResponse("organizations", formatOrgs(orgs), ""))
 }
 
 func (c *Controller) get(ctx *gin.Context) {
@@ -73,7 +74,7 @@ func (c *Controller) get(ctx *gin.Context) {
 	orgID := ctx.Param("orgId")
 	if orgID == "" {
 		c.logger.Error("user '%s' requested organization with empty id", userID)
-		ctx.AbortWithStatus(400)
+		ctx.AbortWithStatusJSON(400, jsend.NewCustomFailResponse("invalid input", "id", "cannot be empty/null"))
 		return
 	}
 
@@ -81,11 +82,11 @@ func (c *Controller) get(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("error fetching organization with id '%s' for user %s: %s", orgID, userID, err)
 		// TODO: Verificar el error
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, jsend.NewErrorResponse("error fetching organization from db"))
 		return
 	}
 
-	ctx.JSON(200, formatOrg(org))
+	ctx.JSON(200, jsend.NewSuccessResponse("organization", formatOrg(org), ""))
 }
 
 func formatOrgs(orgs []models.Organization) []DTO {

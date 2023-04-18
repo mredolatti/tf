@@ -103,7 +103,9 @@ func (r *UserAccountRepository) Get(ctx context.Context, userID string, orgName 
 }
 
 // Add adds a new user account
-func (r *UserAccountRepository) Add(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) (models.UserAccount, error) {
+func (r *UserAccountRepository) AddOrUpdate(ctx context.Context, userID, orgName, serverName, accessToken, refreshToken string) (models.UserAccount, error) {
+
+    panic("ARREGLAR")
 	var account UserAccount
 	err := r.db.QueryRowxContext(ctx, accountAddQuery, userID, orgName, serverName, accessToken, refreshToken).StructScan(&account)
 	if err != nil {

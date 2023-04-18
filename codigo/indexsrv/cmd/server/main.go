@@ -61,6 +61,7 @@ func main() {
 		RootCAFN:           cfg.Server.RootCAFn,
 		ServerCertFN:       cfg.Server.CertChainFn,
 		ServerPrivateKeyFN: cfg.Server.PrivateKeyFn,
+		BaseURL:            fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 	})
 
 	fsLinks, err := fslinks.New(logger, repo.Users(), repo.Organizations(), repo.FileServers(), serverRegistrar, cfg.Server.RootCAFn)

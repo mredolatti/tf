@@ -19,14 +19,30 @@ namespace mifs::util
 class FSMirror
 {
   public:
-    enum class Error {
-        Ok = 0,
-        AlreadyExists = 1,
-        CannotLinkInServerFolder = 2,
-        CannotAddInLinkedFolder = 3,
-        NotFound = 4,
-        ErrorAddingMappings = 5,
-        ErrorAddingFiles = 6,
+    class Error
+    {
+        public:
+
+        enum class Code {
+            Ok = 0,
+            AlreadyExists = 1,
+            CannotLinkInServerFolder = 2,
+            CannotAddInLinkedFolder = 3,
+            NotFound = 4,
+        };
+
+        Error(Code c);
+        Error(const Error&) = default;
+        Error& operator=(const Error&) = default;
+        Error(Error&&) noexcept = default;
+        Error& operator=(Error&&) noexcept = default;
+        ~Error() = default;
+
+        Code code() const;
+        const char* message() const;
+
+        private:
+        Code code_;
     };
 
     using path_t = std::filesystem::path;
@@ -50,7 +66,7 @@ class FSMirror
     info_result_t info(std::filesystem::path path);
     Error remove(std::filesystem::path path);
 
-    Error reset_all(const std::vector<models::Mapping>& mappings);
+    std::vector<std::pair<std::size_t, Error>> reset_all(const std::vector<models::Mapping>& mappings);
 
   private:
     fstree::InnerNode root_;

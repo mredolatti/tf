@@ -3,6 +3,7 @@
 
 #include "expected.hpp"
 
+#include <fmt/format.h>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -24,7 +25,9 @@ Status parse_status(std::string_view status);
 
 } // namespace detail
 
-template <typename T> struct BaseResponse {
+// Base template
+template <typename T>
+struct BaseResponse {
     using data_t = std::unordered_map<std::string, T>;
 
     Status status;
@@ -33,15 +36,30 @@ template <typename T> struct BaseResponse {
     data_t data;
 };
 
-template <typename T> using SingleItemResponse = BaseResponse<T>;
+// Response types
+template <typename T>
+using SingleItemResponse = BaseResponse<T>;
 
-template <typename T> using MultipleItemResponse = BaseResponse<std::vector<T>>;
+template <typename T>
+using MultipleItemResponse = BaseResponse<std::vector<T>>;
+
+using ErrorResponse = BaseResponse<std::string>;
+
+template <typename T>
+util::Expected<MultipleItemResponse<T>, JSONParseStatus> parse_multi_item_response(std::string_view body,
+                                                                                   std::string_view resource);
+template <typename T>
+util::Expected<SingleItemResponse<T>, JSONParseStatus> parse_single_item_response(std::string_view body,
+                                                                                  std::string_view resource);
+
+util::Expected<ErrorResponse, JSONParseStatus> parse_unsuccessful_response(std::string_view body);
+
+// helpers
 
 template <typename T>
 util::Expected<MultipleItemResponse<T>, JSONParseStatus> parse_multi_item_response(std::string_view body,
                                                                                    std::string_view resource)
 {
-
     rapidjson::Document doc;
     doc.Parse(body.data());
 
@@ -123,6 +141,8 @@ util::Expected<SingleItemResponse<T>, JSONParseStatus> parse_single_item_respons
     toRet.data = typename SingleItemResponse<T>::data_t{std::move(map_data)};
     return toRet;
 }
+
+std::string format_error(const ErrorResponse& r);
 
 } // namespace mifs::jsend
 

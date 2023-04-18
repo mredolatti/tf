@@ -1,6 +1,12 @@
 package registrar
 
-import "github.com/golang-jwt/jwt"
+import (
+	"errors"
+
+	"github.com/golang-jwt/jwt"
+)
+
+var ErrInvalidToken = errors.New("could not parse token")
 
 // Token is a type mapping to jwt.Token
 type Token struct {

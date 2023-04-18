@@ -19,7 +19,7 @@ FileServerClient::list_response_result_t FileServerClient::get_all(std::string_v
 
     auto server_data{fs_catalog->get(org, server_name)};
     if (!server_data) {
-        return no_response_t{-1};
+        return no_response_t{predefined::no_server_data};
     }
 
     auto request{http::Request::Builder{}
@@ -30,29 +30,32 @@ FileServerClient::list_response_result_t FileServerClient::get_all(std::string_v
 
     auto result{client_->execute(request)};
     if (!result) {
-        return no_response_t{-1};
+        return no_response_t{Error(result.error())};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return no_response_t{code};
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return no_response_t{predefined::json_error_unsuccessful};
+        }
+        return no_response_t{Error{code, jsend::format_error(*res)}};
     }
 
     auto response_res{jsend::parse_multi_item_response<models::FileMetadata>((*result).body(), "files")};
     if (!response_res) {
-        return no_response_t{-2};
+        return no_response_t{predefined::json_error};
     }
 
     return list_response_result_t{*response_res};
 }
 
-bool FileServerClient::touch(std::string_view org, std::string_view server, std::string_view ref,
+std::optional<Error> FileServerClient::touch(std::string_view org, std::string_view server, std::string_view ref,
                              models::FileMetadata fm)
 {
     auto server_data{fs_catalog->get(org, server)};
     if (!server_data) {
-        return false;
+        return predefined::no_server_data;
     }
 
     // TODO(mredolatti): move this block to a separate function
@@ -72,16 +75,19 @@ bool FileServerClient::touch(std::string_view org, std::string_view server, std:
 
     auto result{client_->execute(request)};
     if (!result) {
-        return false;
+        return Error(result.error());
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return false;
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return predefined::json_error_unsuccessful;
+        }
+        return Error{code, jsend::format_error(*res)};
     }
 
-    return true;
+    return std::nullopt;
 }
 
 FileServerClient::contents_response_result_t
@@ -89,7 +95,7 @@ FileServerClient::contents(const std::string& org, const std::string& server_nam
 {
     auto server_data{fs_catalog->get(org, server_name)};
     if (!server_data) {
-        return no_response_t{-1};
+        return no_response_t{predefined::no_server_data};
     }
 
     auto request{http::Request::Builder{}
@@ -100,24 +106,27 @@ FileServerClient::contents(const std::string& org, const std::string& server_nam
 
     auto result{client_->execute(request)};
     if (!result) {
-        return no_response_t{-1};
+        return no_response_t{Error(result.error())};
     }
 
     auto code{(*result).code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return no_response_t{code};
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return no_response_t{predefined::json_error_unsuccessful};
+        }
+        return no_response_t{Error{code, jsend::format_error(*res)}};
     }
 
     return contents_response_result_t{result->body()};
 }
 
-bool FileServerClient::update_contents(std::string_view org, std::string_view server, std::string_view ref,
+std::optional<Error> FileServerClient::update_contents(std::string_view org, std::string_view server, std::string_view ref,
                                        std::string_view contents)
 {
     auto server_data{fs_catalog->get(org, server)};
     if (!server_data) {
-        return false;
+        return predefined::no_server_data;
     }
 
     auto request{http::Request::Builder{}
@@ -129,16 +138,19 @@ bool FileServerClient::update_contents(std::string_view org, std::string_view se
 
     auto result{client_->execute(request)};
     if (!result) {
-        return false;
+        return Error{result.error()};
     }
 
     auto code{result->code()};
     if (code != 200) {
-        std::cout << "code: " << code << '\n';
-        return false;
+        auto res{jsend::parse_unsuccessful_response(result->body())};
+        if (!res) {
+            return predefined::json_error_unsuccessful;
+        }
+        return Error{code, jsend::format_error(*res)};
     }
 
-    return true;
+    return std::nullopt;
 }
 
 } // namespace mifs::apiclients

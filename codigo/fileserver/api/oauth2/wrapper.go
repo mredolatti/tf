@@ -26,6 +26,9 @@ var (
 
 const (
 	ctxUser ctxKey = iota + 100
+
+    accessTokenDuration = 24 * time.Hour // 1 day
+    refreshTokenDUration = 30 * 24 * time.Hour // 1 month
 )
 
 // Interface defines the set of methods required to handle oauth2 flows and validations
@@ -64,13 +67,13 @@ func New(
 	manager.MapTokenStorage(tokenStore)
 	manager.MapAccessGenerate(generates.NewJWTAccessGenerate("", jwtSecret, jwt.SigningMethodHS512))
 	manager.SetClientTokenCfg(&manage.Config{
-		AccessTokenExp:    6 * time.Hour,
-		RefreshTokenExp:   720 * time.Hour, // 1 week
+		AccessTokenExp:    accessTokenDuration,
+		RefreshTokenExp:   refreshTokenDUration,
 		IsGenerateRefresh: true,
 	})
     manager.SetAuthorizeCodeTokenCfg(&manage.Config{
-		AccessTokenExp:    6 * time.Hour,
-		RefreshTokenExp:   720 * time.Hour, // 1 week
+		AccessTokenExp:    accessTokenDuration,
+		RefreshTokenExp:   refreshTokenDUration,
 		IsGenerateRefresh: true,
 	})
 

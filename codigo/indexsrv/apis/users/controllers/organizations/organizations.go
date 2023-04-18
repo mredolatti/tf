@@ -35,10 +35,17 @@ func (c *Controller) Register(router gin.IRouter) {
 }
 
 func (c *Controller) listOrganizations(ctx *gin.Context) {
+	_, err := middleware.SessionFromContext(ctx)
+	if err != nil {
+		c.logger.Error("error getting session information: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, jsend.ResponseErrorInSession)
+		return
+	}
+
 	orgs, err := c.registrar.ListOrganizations(ctx.Request.Context())
 	if err != nil {
 		c.logger.Error("error fetching organizations: %s", err.Error())
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, responseErrorFetchingOrgs)
 		return
 	}
 
@@ -46,15 +53,22 @@ func (c *Controller) listOrganizations(ctx *gin.Context) {
 }
 
 func (c *Controller) getOrganization(ctx *gin.Context) {
+	_, err := middleware.SessionFromContext(ctx)
+	if err != nil {
+		c.logger.Error("error getting session information: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, jsend.ResponseErrorInSession)
+		return
+	}
+
 	org, err := c.registrar.GetOrganization(ctx.Request.Context(), ctx.Param("name"))
 	switch err {
 	case nil:
 	case repository.ErrNotFound:
-		ctx.AbortWithStatus(404)
+		ctx.AbortWithStatusJSON(404, responseNoOrgForName)
 		return
 	default:
 		c.logger.Error("error fetching organization: %s", err.Error())
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, responseErrorFetchingOrgs)
 		return
 	}
 
@@ -62,11 +76,18 @@ func (c *Controller) getOrganization(ctx *gin.Context) {
 }
 
 func (c *Controller) listServersForOrg(ctx *gin.Context) {
+	_, err := middleware.SessionFromContext(ctx)
+	if err != nil {
+		c.logger.Error("error getting session information: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, jsend.ResponseErrorInSession)
+		return
+	}
+
 	id := ctx.Param("name")
 	fss, err := c.registrar.ListServers(ctx.Request.Context(), models.FileServersQuery{OrganizationName: &id})
 	if err != nil {
 		c.logger.Error("error fetching servers for organization %s: %s", id, err.Error())
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, responseErrorFetchingServers)
 		return
 	}
 
@@ -74,10 +95,17 @@ func (c *Controller) listServersForOrg(ctx *gin.Context) {
 }
 
 func (c *Controller) listServers(ctx *gin.Context) {
+	_, err := middleware.SessionFromContext(ctx)
+	if err != nil {
+		c.logger.Error("error getting session information: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, jsend.ResponseErrorInSession)
+		return
+	}
+
 	fss, err := c.registrar.ListServers(ctx.Request.Context(), models.FileServersQuery{})
 	if err != nil {
 		c.logger.Error("error fetching servers: %s", err.Error())
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, responseErrorFetchingServers)
 		return
 	}
 
@@ -85,19 +113,25 @@ func (c *Controller) listServers(ctx *gin.Context) {
 }
 
 func (c *Controller) getServer(ctx *gin.Context) {
-	// TODO(mredolatti: validate org id?
+	_, err := middleware.SessionFromContext(ctx)
+	if err != nil {
+		c.logger.Error("error getting session information: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, jsend.ResponseErrorInSession)
+		return
+	}
+
 	server, err := c.registrar.GetServer(ctx.Request.Context(), ctx.Param("name"), ctx.Param("serverName"))
 	switch err {
 	case nil:
 	case repository.ErrNotFound:
-		ctx.AbortWithStatus(404)
+		ctx.AbortWithStatusJSON(404, responseNoServerForName)
 		return
 	default:
-		c.logger.Error("error fetching organization: %s", err.Error())
-		ctx.AbortWithStatus(500)
+		c.logger.Error("error fetching server: %s", err.Error())
+		ctx.AbortWithStatusJSON(500, responseErrorFetchingServers)
 		return
 	}
-    ctx.JSON(200, jsend.NewSuccessResponse("server", toFileServerView(server), ""))
+	ctx.JSON(200, jsend.NewSuccessResponse("server", toFileServerView(server), ""))
 }
 
 func (c *Controller) initiateLinkProcess(ctx *gin.Context) {
@@ -105,7 +139,7 @@ func (c *Controller) initiateLinkProcess(ctx *gin.Context) {
 	session, err := middleware.SessionFromContext(ctx)
 	if err != nil {
 		c.logger.Error("error getting session information: %s", err.Error())
-		ctx.AbortWithStatus(500)
+		ctx.AbortWithStatusJSON(500, jsend.ResponseErrorInSession)
 		return
 	}
 
@@ -116,12 +150,12 @@ func (c *Controller) initiateLinkProcess(ctx *gin.Context) {
 	url, err := c.registrar.InitiateLinkProcess(ctx.Request.Context(), session.User(), orgName, serverName, force)
 	if err != nil {
 		if errors.Is(err, registrar.ErrAccountExists) {
-			ctx.JSON(400, "account already exists")
 			c.logger.Error("requested initial link with an already existing account (%s/%s/%s)", session.User(), orgName, serverName)
+			ctx.JSON(400, "account already exists")
 			return
 		}
-		ctx.JSON(500, "unable to initiate oauth2 flow")
 		c.logger.Error("error initiating oauth2 flow: %s", err)
+		ctx.JSON(500, "unable to initiate oauth2 flow")
 		return
 	}
 
@@ -162,3 +196,10 @@ func toFileServersView(servers []models.FileServer) []FileServerViewDTO {
 	}
 	return res
 }
+
+var (
+	responseNoOrgForName         = jsend.NewCustomFailResponse("", "name", "no organization found with the provided name")
+	responseNoServerForName      = jsend.NewCustomFailResponse("", "name/serverName", "no server found with the provided names")
+	responseErrorFetchingOrgs    = jsend.NewErrorResponse("internal error collecting organizations")
+	responseErrorFetchingServers = jsend.NewErrorResponse("internal error collecting servers")
+)

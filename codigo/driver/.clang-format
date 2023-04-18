@@ -10,4 +10,4 @@ IndentWidth: 4
 PackConstructorInitializers: Never
 ReferenceAlignment: Left
 AlignOperands: AlignAfterOperator
-
+AlwaysBreakTemplateDeclarations: Yes
