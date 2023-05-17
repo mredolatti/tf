@@ -13,7 +13,7 @@ class Config
     const std::string& client_cert_fn() const;
     const std::string& client_pk_fn() const;
 
-    Config(std::string root_ca, std::string client_cert, std::string client_pk);
+    Config(std::string_view root_ca, std::string_view client_cert, std::string_view client_pk);
 
   private:
     std::string root_ca_fn_;

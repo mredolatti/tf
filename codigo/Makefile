@@ -54,7 +54,7 @@ index-server: $(sources) go.sum
 	$(GO) build -o index-server ./indexsrv/cmd/server/main.go
 
 ## Construir file-server
-file-server: $(sources) go.sum
+file-server: $(sources) go.sum fsbasic.so 
 	$(GO) build -o file-server ./fileserver/cmd/server/main.go
 
 fsbasic.so: $(sources) go.sum

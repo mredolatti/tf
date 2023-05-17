@@ -15,14 +15,16 @@ Error::Error(int code, std::string_view message)
 
 int64_t Error::get() const
 {
-    return std::holds_alternative<http_jsend_err>(data_) ? std::get<http_jsend_err>(data_).first
-                                                         : std::get<http::Client::Error>(data_).get();
+    if (std::holds_alternative<http_jsend_err>(data_)) return std::get<http_jsend_err>(data_).first;
+    if (std::holds_alternative<http::Client::Error>(data_)) return std::get<http::Client::Error>(data_).get();
+    return static_cast<int64_t>(std::get<HTTPErrorCode>(data_));
 }
 
 const char *Error::message() const
 {
-    return std::holds_alternative<http_jsend_err>(data_) ? std::get<http_jsend_err>(data_).second.c_str()
-                                                         : std::get<http::Client::Error>(data_).message();
+    if (std::holds_alternative<http_jsend_err>(data_)) return std::get<http_jsend_err>(data_).second.c_str();
+    if (std::holds_alternative<http::Client::Error>(data_)) return std::get<http::Client::Error>(data_).message();
+    return "";    
 }
 
 namespace predefined

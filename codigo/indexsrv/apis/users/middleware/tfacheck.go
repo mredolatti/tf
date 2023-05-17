@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/mredolatti/tf/codigo/common/dtos/jsend"
 	"github.com/mredolatti/tf/codigo/common/log"
 )
 
@@ -22,7 +23,8 @@ func (t *TFACheck) Handle(ctx *gin.Context) {
 	}
 
 	if !session.TFADone() {
-		ctx.AbortWithStatusJSON(403, gin.H{"message": "2fa is required to access this endpoint"})
+//		ctx.AbortWithStatusJSON(403, gin.H{"message": "2fa is required to access this endpoint"})
+		ctx.AbortWithStatusJSON(403, jsend.NewCustomFailResponse("2fa is required to access this endpoint", "X-IS-MIFS-Token", "missing OTP"))
 		return
 	}
 }
