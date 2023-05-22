@@ -187,8 +187,6 @@ static int mifs_write(const char *path, const char *buf, size_t size, off_t offs
     return err == mifs::FileManager::Error::Ok ? written_bytes : helpers::map_filemanager_error(err);
 }
 
-static int mifs_statfs(const char *path, struct statvfs *stbuf) { return 0; }
-
 static int mifs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 {
     (void)path;
@@ -231,7 +229,6 @@ static const struct fuse_operations mifs_oper = {
     .open = mifs_open,
     .read = mifs_read,
     .write = mifs_write,
-    .statfs = mifs_statfs,
     .flush = mifs_flush,
     .release = mifs_release,
     .fsync = mifs_fsync,
