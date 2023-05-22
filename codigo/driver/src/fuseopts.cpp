@@ -16,15 +16,19 @@ enum {
     KEY_VERSION,
 };
 
-static struct fuse_opt mifs_opts[] = {{"config=%s", offsetof(options, config), 0},
-                                      FUSE_OPT_KEY("-V", KEY_VERSION),
-                                      FUSE_OPT_KEY("--version", KEY_VERSION),
-                                      FUSE_OPT_KEY("-h", KEY_HELP),
-                                      FUSE_OPT_KEY("--help", KEY_HELP),
+static struct fuse_opt mifs_opts[] = {FUSE_OPT_KEY("-V", KEY_VERSION), FUSE_OPT_KEY("--version", KEY_VERSION),
+                                      FUSE_OPT_KEY("-h", KEY_HELP), FUSE_OPT_KEY("--help", KEY_HELP),
                                       FUSE_OPT_END};
 
 static int mifs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
+    auto *opts{reinterpret_cast<struct options *>(data)};
+    if (key == FUSE_OPT_KEY_NONOPT && opts->config == nullptr) {
+        // this is the first argument/device to mount, in this case the json cfg file
+        opts->config = arg;
+        return 0;
+    }
+
     switch (key) {
     case KEY_HELP:
         fprintf(stderr,
@@ -34,12 +38,10 @@ static int mifs_opt_proc(void *data, const char *arg, int key, struct fuse_args 
                 "    -o opt,[opt...]  mount options\n"
                 "    -h   --help      print help\n"
                 "    -V   --version   print version\n"
-                "\n"
-                "MIFS options:\n"
-                "    -o config=<path_to_config_file>\n",
+                "\n",
                 outargs->argv[0]);
         fuse_opt_add_arg(outargs, "-h");
-        exit(1);
+        exit(0);
 
     case KEY_VERSION:
         fprintf(stderr, "MIFS version %s\n", "0.1");

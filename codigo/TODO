@@ -6,11 +6,9 @@ IndexServer
 - Hacer que user.tfaSecret() sea *string
 - Arreglar organizationName en fileserver
 - Arreglar PSQL y UTs
+- Endpoint p/bulk rename
 
 FileServer
 - Agregar un CRL y tarea que lo parsee periodicamente (crear un cert revocado para poder probar)
 - hacer que un update al contents triggeree un update al meta por el size
-
-Driver
-- Desde nautilus no deja crear carpetas de mas de un caracter de longitud. debuggear
-
+- Manejar deletes correctamente en el backend `fsbasic`
