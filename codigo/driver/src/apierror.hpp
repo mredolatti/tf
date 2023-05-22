@@ -8,7 +8,7 @@
 namespace mifs::apiclients
 {
 
-
+using HTTPErrorCode = int;
 
 class Error
 {
@@ -27,7 +27,7 @@ class Error
 
   private:
     using http_jsend_err = std::pair<int, std::string>;
-    using data_t = std::variant<http::Client::Error, http_jsend_err>;
+    using data_t = std::variant<http::Client::Error, http_jsend_err, HTTPErrorCode>;
     data_t data_;
 };
 

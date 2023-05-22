@@ -38,8 +38,6 @@ function is_signup() {
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
-        --cert ${USER_FS_CERT} \
-        --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -d"{\"name\": \"${name}\", \"email\": \"${email}\", \"password\": \"${password}\"}" \
         "${BASE_CLIENTS_URL}/signup"
@@ -68,8 +66,6 @@ function is_login() {
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
-        --cert ${USER_FS_CERT} \
-        --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -d"{\"email\": \"${email}\", \"password\": \"${password}\", \"OTP\": \"${passcode}\"}" \
         "${BASE_CLIENTS_URL}/login"
@@ -97,8 +93,6 @@ function is_setup_2fa() {
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
-        --cert ${USER_FS_CERT} \
-        --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -H"X-MIFS-IS-Session-Token: ${token}" \
         "${BASE_CLIENTS_URL}/2fa" \
@@ -126,8 +120,6 @@ function is_mapping_list() {
         -L \
         -XGET \
         --cacert ${USER_FS_CACERT} \
-        --cert ${USER_FS_CERT} \
-        --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -H"X-MIFS-IS-Session-Token: ${token}" \
         "${BASE_CLIENTS_URL}/mappings${force}"
@@ -347,8 +339,6 @@ function is_logout() {
         -L \
         -XPOST \
         --cacert ${USER_FS_CACERT} \
-        --cert ${USER_FS_CERT} \
-        --key ${USER_FS_KEY} \
         -H'Content-Type: application/json' \
         -H"X-MIFS-IS-Session-Token: ${token}" \
         "${BASE_CLIENTS_URL}/logout"

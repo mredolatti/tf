@@ -158,6 +158,9 @@ Client::response_t Client::execute(const Request& request)
 
     // url
     curl_easy_setopt(*handle, CURLOPT_URL, request.url().c_str());
+    if (request.follow_redirects()) {
+        curl_easy_setopt(*handle, CURLOPT_FOLLOWLOCATION, 1L);
+    }
 
     // tls
     if (request.tls_conf()) {

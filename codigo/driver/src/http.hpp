@@ -32,6 +32,7 @@ class Request
         Builder& uri(std::string u);
         Builder& headers(Headers h);
         Builder& tls(tls::Config tls_conf);
+        Builder& follow_redirects(bool follow);
         Request build();
 
       private:
@@ -40,6 +41,7 @@ class Request
         std::string uri_;
         Headers headers_;
         std::optional<tls::Config> tls_conf_;
+        bool follow_redirects_;
     };
 
     Request() = delete;
@@ -50,12 +52,14 @@ class Request
     ~Request() = default;
 
     Request(Method m, std::string body, std::string uri, Headers headers,
-            std::optional<tls::Config> tls_conf);
+            std::optional<tls::Config> tls_conf, bool follow_redirects);
+
     Method method() const;
     const std::string& url() const;
     const std::string& body() const;
     const Headers& headers() const;
     const std::optional<tls::Config>& tls_conf() const;
+    bool follow_redirects() const;
 
   private:
     Method method_;
@@ -63,6 +67,7 @@ class Request
     std::string uri_;
     Headers headers_;
     std::optional<tls::Config> tls_conf_;
+    bool follow_redirects_;
 };
 
 class Response

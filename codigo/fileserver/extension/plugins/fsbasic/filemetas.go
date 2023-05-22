@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/mredolatti/tf/codigo/fileserver/extension/contracts/apiv1"
 )
@@ -76,6 +77,16 @@ func NewFilesMetadata(path string) (*FilesMetadata, error) {
 		return nil, fmt.Errorf("cannot use '%s' as path: %w", path, err)
 	}
 
+	deletedFolder := filepath.Join(path, ".deleted")
+	if err := os.Mkdir(deletedFolder, 777); err != nil {
+		if !os.IsExist(err) {
+			return nil, fmt.Errorf("unexpected error when ensuring `.deleted` exists: %w", err)
+		}
+
+		if info, err := os.Stat(deletedFolder); err != nil || !info.IsDir() {
+			return nil, fmt.Errorf("unexpected error validating `.deleted` folder: %w", err)
+		}
+	}
 	return &FilesMetadata{path}, nil
 }
 

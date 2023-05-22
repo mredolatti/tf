@@ -10,8 +10,18 @@ FS_CERT=${FS_CERT:-'PKI/client/certs/client.crt'}
 FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}
 
 function fs_list() {
+    usage="usage: fs_list [-v]"
+    local verbose=""
+    local OPTIND
+    while getopts "hv" options; do
+        case ${options} in
+            h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
+        esac
+    done
+
     curl \
-	-v \
+        ${verbose} \
         -XGET \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -21,11 +31,13 @@ function fs_list() {
 
 function fs_get() {
     usage="usage: fs_get -i <file_id>"
+    local verbose=""
     local OPTIND
-    while getopts "i:" options; do
+    while getopts "hi:v" options; do
         case ${options} in
             i) local fid=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -33,6 +45,7 @@ function fs_get() {
     [ -z ${fid+x} ] && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XGET \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -42,9 +55,11 @@ function fs_get() {
 
 function fs_create() {
     local usage="usage: fs_create -n <name> -s <notes> -p <patient> -t <type>"
+    local verbose=""
     local OPTIND
-    while getopts "hn:s:p:t:" option; do
+    while getopts "hvn:s:p:t:" option; do
         case ${option} in
+            v) verbose="-v" ;;
             n) local name=${OPTARG} ;;
             s) local notes=${OPTARG} ;;
             p) local patient=${OPTARG} ;;
@@ -58,6 +73,7 @@ function fs_create() {
         && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XPOST \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -69,8 +85,9 @@ function fs_create() {
 
 function fs_update() {
     local usage="usage: fs_update -i <id> -n <name> -s <notes> -p <patient> -t <type>"
+    local verbose=""
     local OPTIND
-    while getopts "hi:n:s:p:t:" option; do
+    while getopts "hvi:n:s:p:t:" option; do
         case ${option} in
             i) local id=${OPTARG} ;;
             n) local name=${OPTARG} ;;
@@ -78,6 +95,7 @@ function fs_update() {
             p) local patient=${OPTARG} ;;
             t) local typ=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -86,6 +104,7 @@ function fs_update() {
         && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XPUT \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -97,11 +116,13 @@ function fs_update() {
 
 function fs_del() {
     usage="usage: fs_del -i <file_id>"
+    local verbose=""
     local OPTIND
-    while getopts "i:" options; do
+    while getopts "hi:v" options; do
         case ${options} in
             i) local fid=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -109,6 +130,7 @@ function fs_del() {
     [ -z "${fid+x}" ] && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XDELETE \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -118,11 +140,13 @@ function fs_del() {
 
 function fs_get_contents() {
     usage="usage: fs_get_contents -i <file_id>"
+    local verbose=""
     local OPTIND
-    while getopts "i:" options; do
+    while getopts "hi:v" options; do
         case ${options} in
             i) local fid=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -130,6 +154,7 @@ function fs_get_contents() {
     [ -z "${fid+x}" ] && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XGET \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -139,12 +164,14 @@ function fs_get_contents() {
 
 function fs_update_contents() {
     usage="usage: fs_update_contents -i <file_id> -f <path-to-file>"
+    local verbose=""
     local OPTIND
-    while getopts "i:f:" options; do
+    while getopts "hi:f:v" options; do
         case ${options} in
             i) local fid=${OPTARG} ;;
             f) local fname=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -152,6 +179,7 @@ function fs_update_contents() {
     [ -z "${fid+x}" ] || [ -z "${fname+x}" ] && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XPUT \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -162,11 +190,13 @@ function fs_update_contents() {
 
 function fs_delete_contents() {
     usage="usage: fs_delete_contents -i <file_id>"
+    local verbose=""
     local OPTIND
-    while getopts "i:" options; do
+    while getopts "hi:v" options; do
         case ${options} in
             i) local fid=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -174,6 +204,7 @@ function fs_delete_contents() {
     [ -z "${fid+x}" ] && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XDELETE \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
@@ -184,11 +215,13 @@ function fs_delete_contents() {
 function fs_auth_code() {
 
     usage="usage: fs_auth_code -i <client_id>"
+    local verbose=""
     local OPTIND
-    while getopts "i:" options; do
+    while getopts "hi:" options; do
         case ${options} in
             i) local cid=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -196,7 +229,7 @@ function fs_auth_code() {
     [ -z "${cid+x}" ] && echo ${usage} && return 1
 
     curl \
-        -XGET -v \
+        -XGET \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \
         --key ${FS_KEY} \
@@ -205,14 +238,16 @@ function fs_auth_code() {
 
 function fs_exchange_code() {
     usage="usage: fs_exchange_code -c <code> -i <client_id> -s <client_secret> -r <redirect_uri>"
+    local verbose=""
     local OPTIND
-    while getopts "c:i:s:r:" options; do
+    while getopts "hvc:i:s:r:" options; do
         case ${options} in
             c) local code=${OPTARG} ;;
             i) local cid=${OPTARG} ;;
             s) local secret=${OPTARG} ;;
             r) local redirect=${OPTARG} ;;
             h) echo ${usage} && return 0 ;;
+            v) verbose="-v" ;;
             *) echo ${usage} && return 1 ;;
         esac
     done
@@ -225,6 +260,7 @@ function fs_exchange_code() {
     [ -z "${redirect+x}" ] && echo ${usage} && return 1
 
     curl \
+        ${verbose} \
         -XGET \
         --cacert ${FS_CACERT} \
         --cert ${FS_CERT} \

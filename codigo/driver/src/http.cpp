@@ -29,18 +29,25 @@ Request::Builder& Request::Builder::tls(tls::Config c)
     return *this;
 }
 
+Request::Builder& Request::Builder::follow_redirects(bool follow)
+{
+    follow_redirects_ = follow;
+    return *this;
+}
+
 Request Request::Builder::build()
 {
-    return Request{method_, std::move(body_), std::move(uri_), std::move(headers_), std::move(tls_conf_)};
+    return Request{method_, std::move(body_), std::move(uri_), std::move(headers_), std::move(tls_conf_), follow_redirects_};
 }
 
 Request::Request(Method m, std::string body, std::string uri, Headers headers,
-                 std::optional<tls::Config> tls_conf)
+                 std::optional<tls::Config> tls_conf, bool follow_redirects)
     : method_{m},
       body_{std::move(body)},
       uri_{std::move(uri)},
       headers_{std::move(headers)},
-      tls_conf_{std::move(tls_conf)}
+      tls_conf_{std::move(tls_conf)},
+      follow_redirects_(follow_redirects)
 {
 }
 
@@ -53,6 +60,8 @@ const std::string& Request::body() const { return body_; }
 const Headers& Request::headers() const { return headers_; }
 
 const std::optional<tls::Config>& Request::tls_conf() const { return tls_conf_; }
+
+bool Request::follow_redirects() const { return follow_redirects_; }
 
 // Response
 
