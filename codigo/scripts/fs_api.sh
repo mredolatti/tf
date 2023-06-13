@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 
-
-# Setup base URLs
-BASE_URL="https://file-server:9877"
-
-# Setup user key & cert (+cacert for server validation) to authenticate calls to FS
+BASE_URL=${BASE_URL:-'https://file-server:9877'}
 FS_CACERT=${FS_CACERT:-'PKI/root/certs/ca.crt'}
 FS_CERT=${FS_CERT:-'PKI/client/certs/client.crt'}
 FS_KEY=${FS_KEY:-'PKI/client/private/client.key'}

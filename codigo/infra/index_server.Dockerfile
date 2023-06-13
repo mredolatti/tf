@@ -1,5 +1,5 @@
 # vi: ft=dockerfile
-FROM golang:1.17.6-alpine3.15 as builder
+FROM golang:1.20.4-alpine3.18 as builder
 
 RUN apk add \
   bash \
@@ -13,7 +13,7 @@ RUN make index-server
 
 # --- runner stage
 
-FROM alpine:3.15 AS runner
+FROM alpine:3.18 AS runner
 
 RUN apk add bash
 

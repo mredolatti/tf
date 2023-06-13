@@ -63,33 +63,31 @@ func New(files storage.Files, metadatas storage.FilesMetadata, authorization aut
 
 // ListFileMetadata lists all known file (metas) that a user has access to
 func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMetadata, error) {
-	objsWithAuth, err := i.authorization.AllForSubject(user)
+
+	filter := &storage.Filter{}
+	canReadAll, err := i.authorization.Can(user, authz.OperationRead, authz.AnyObject)
 	if err != nil {
-		return nil, fmt.Errorf("error permissions for user '%s': %w", user, err)
-	}
-	if len(objsWithAuth) == 0 { // supplied user doesn't have access to any file
-		return nil, nil
+		return nil, fmt.Errorf("error reading permissions for user '%s': %w", user, err)
 	}
 
-	fileIDList := make([]string, 0, len(objsWithAuth))
-	for id := range objsWithAuth {
-		if id != authz.AnyObject {
+	if !canReadAll {
+		objsWithAuth, err := i.authorization.AllForSubject(user)
+		if err != nil {
+			return nil, fmt.Errorf("error reading permissions for user '%s': %w", user, err)
+		}
+		if len(objsWithAuth) == 0 { // supplied user doesn't have access to any file
+			return nil, nil
+		}
+
+		fileIDList := make([]string, 0, len(objsWithAuth))
+		for id := range objsWithAuth {
 			fileIDList = append(fileIDList, id)
 		}
+
+		filter.IDs = fileIDList
 	}
 
-	if query == nil { // para que no falle
-		query = &ListQuery{}
-	}
-
-	if query == nil {
-		query = &ListQuery{}
-	}
-
-	metas, err := i.metadatas.GetMany(&storage.Filter{
-		IDs:          fileIDList,
-		UpdatedAfter: query.UpdatedAfter,
-	})
+	metas, err := i.metadatas.GetMany(mapQuery2Filter(query, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +98,11 @@ func (i *Impl) ListFileMetadata(user string, query *ListQuery) ([]models.FileMet
 	}
 
 	return result, nil
-
 }
 
 // GetFileMetadata fetches a single file-metadata record
 func (i *Impl) GetFileMetadata(user string, id string) (models.FileMetadata, error) {
-	allowed, err := i.authorization.Can(user, authz.OperationRead, id)
+	allowed, err := can(i.authorization, user, authz.OperationRead, id)
 	if err != nil {
 		return nil, fmt.Errorf("error reading permissions: %w", err)
 	}
@@ -149,7 +146,7 @@ func (i *Impl) CreateFileMetadata(user string, data models.FileMetadata) (models
 
 // UpdateFileMetadata updates an already existing file-metadata record
 func (i *Impl) UpdateFileMetadata(user string, id string, data models.FileMetadata) (models.FileMetadata, error) {
-	allowed, err := i.authorization.Can(user, authz.OperationWrite, id)
+	allowed, err := can(i.authorization, user, authz.OperationWrite, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get permission: %w", err)
 	}
@@ -170,7 +167,7 @@ func (i *Impl) UpdateFileMetadata(user string, id string, data models.FileMetada
 
 // DeleteFileMetadata removes a file-metadata record
 func (i *Impl) DeleteFileMetadata(user string, id string) error {
-	allowed, err := i.authorization.Can(user, authz.OperationWrite, id)
+	allowed, err := can(i.authorization, user, authz.OperationWrite, id)
 	if err != nil {
 		return fmt.Errorf("error reading permissions: %w", err)
 	}
@@ -190,8 +187,7 @@ func (i *Impl) DeleteFileMetadata(user string, id string) error {
 
 // GetFileContents returns the contents of a file
 func (i *Impl) GetFileContents(user string, id string) ([]byte, error) {
-	// TODO(mredolatti): Fix and re-enable!
-	allowed, err := i.authorization.Can(user, authz.OperationRead, id)
+	allowed, err := can(i.authorization, user, authz.OperationRead, id)
 	if err != nil {
 		return nil, fmt.Errorf("error reading permissions: %s", err)
 	}
@@ -205,7 +201,7 @@ func (i *Impl) GetFileContents(user string, id string) ([]byte, error) {
 
 // UpdateFileContents updates the contents of a file
 func (i *Impl) UpdateFileContents(user string, id string, data []byte) error {
-	allowed, err := i.authorization.Can(user, authz.OperationCreate, authz.AnyObject)
+	allowed, err := can(i.authorization, user, authz.OperationCreate, authz.AnyObject)
 	if err != nil {
 		return fmt.Errorf("error reading permissions: %s", err)
 	}
@@ -226,7 +222,7 @@ func (i *Impl) UpdateFileContents(user string, id string, data []byte) error {
 
 // DeleteFileContents deletest he contents of a file
 func (i *Impl) DeleteFileContents(user string, id string) error {
-	allowed, err := i.authorization.Can(user, authz.OperationWrite, id)
+	allowed, err := can(i.authorization, user, authz.OperationWrite, id)
 	if err != nil {
 		return fmt.Errorf("error reading permissions: %s", err)
 	}
@@ -267,6 +263,45 @@ func (i *Impl) notify(c Change) {
 		listener(c)
 	}
 	i.listenersMutex.RUnlock()
+}
+
+func mapQuery2Filter(query *ListQuery, filter *storage.Filter) *storage.Filter {
+	if query != nil {
+		filter.UpdatedAfter = query.UpdatedAfter
+	}
+	return filter
+}
+
+func can(auth authz.Authorization, user string, action authz.Operation, resource string) (bool, error) {
+
+	// Exact permission
+	ok, err := auth.Can(user, action, resource)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	// user is admin
+	ok, err = auth.Can(user, action, authz.AnyObject)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	// object is publicly accessible
+	ok, err = auth.Can(authz.EveryOne, action, resource)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 var _ Interface = (*Impl)(nil)

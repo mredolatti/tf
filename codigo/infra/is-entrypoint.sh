@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
-POSTGRES_HOST="index-server-db"
-POSTGRES_PORT="5432"
+# TODO(mredolatti): usar nombrs genericos y recibir host t port por env
+MONGO_HOST="mongodb"
+MONGO_PORT="27017"
 
+MDBP_HOST="mongodb_populator"
+MDBP_PORT=5555
 
-waitport.sh ${POSTGRES_HOST} ${POSTGRES_PORT}
+waitport.sh ${MONGO_HOST} ${MONGO_PORT}
+waitport.sh ${MDBP_HOST} ${MDBP_PORT}
 
 exec index-server
-

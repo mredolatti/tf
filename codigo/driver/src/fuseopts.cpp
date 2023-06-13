@@ -29,6 +29,14 @@ static int mifs_opt_proc(void *data, const char *arg, int key, struct fuse_args 
         return 0;
     }
 
+    if (key == FUSE_OPT_KEY_NONOPT && opts->mount_point.empty()) {
+        // this is the second argument (the mount point)
+        opts->mount_point = std::filesystem::path{std::string{arg}};
+        if (opts->mount_point.is_relative()) {
+            opts->mount_point = std::filesystem::current_path() / arg;
+        }
+    }
+
     switch (key) {
     case KEY_HELP:
         fprintf(stderr,
@@ -54,7 +62,6 @@ static int mifs_opt_proc(void *data, const char *arg, int key, struct fuse_args 
 options parse(int *argc, char ***argv)
 {
     struct options opts;
-    memset(&opts, 0, sizeof(options));
     struct fuse_args custom_args = FUSE_ARGS_INIT(*argc, *argv);
     fuse_opt_parse(&custom_args, &opts, mifs_opts, mifs_opt_proc);
 

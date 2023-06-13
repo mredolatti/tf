@@ -49,8 +49,8 @@ class FileManager
     using stat_result_t = util::Expected<fstree::views::Wrapper, Error>;
     using http_client_ptr_t = std::shared_ptr<http::Client>;
 
-    explicit FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client,
-                         util::FileServerCatalog::ptr_t fs_catalog);
+    explicit FileManager(apiclients::IndexServerClient is_client,
+                         apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog);
     FileManager() = delete;
     FileManager(const FileManager&) = delete;
     FileManager(FileManager&&) = delete;

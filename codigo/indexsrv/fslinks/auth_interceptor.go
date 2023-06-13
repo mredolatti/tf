@@ -33,8 +33,6 @@ func (a *authInterceptor) Unary() grpc.UnaryClientInterceptor {
 		invoker grpc.UnaryInvoker,
 		opts ...grpc.CallOption,
 	) error {
-		fmt.Printf("req type: %T\n", req)
-		fmt.Printf("req: %+v\n", req)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }

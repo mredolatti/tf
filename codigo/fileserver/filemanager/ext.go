@@ -67,23 +67,9 @@ func buildFromV1Plugin(pl *plugin.Plugin, params map[string]interface{}) (Interf
 	fileStore := v1adapters.NewFilesWrapper(plug.GetFileStorage())
 	authorization := v1adapters.NewAuthWrapper(plug.GetAuthorization())
 
-	// TODO(mredolatti): remove this fake data
-	m1, _ := metaStore.Create("file1.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
-	m2, _ := metaStore.Create("file2.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
-	m3, _ := metaStore.Create("file3.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
-	m4, _ := metaStore.Create("file4.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
-	m5, _ := metaStore.Create("file5.jpg", "some note", "some_patient_id", "image", 1646394925714181390)
-	fileStore.Write(m1.ID(), []byte("some data 1"), true)
-	fileStore.Write(m2.ID(), []byte("some data 2"), true)
-	fileStore.Write(m3.ID(), []byte("some data 3"), true)
-	fileStore.Write(m4.ID(), []byte("some data 4"), true)
-	fileStore.Write(m5.ID(), []byte("some data 5"), true)
+	authorization.Grant("martin.redolatti", authz.OperationRead, authz.AnyObject)
+	authorization.Grant("martin.redolatti", authz.OperationWrite, authz.AnyObject)
 	authorization.Grant("martin.redolatti", authz.OperationCreate, authz.AnyObject)
-	authorization.Grant("martin.redolatti", authz.OperationAdmin|authz.OperationWrite|authz.OperationRead, m1.ID())
-	authorization.Grant("martin.redolatti", authz.OperationAdmin|authz.OperationWrite|authz.OperationRead, m2.ID())
-	authorization.Grant("martin.redolatti", authz.OperationAdmin|authz.OperationWrite|authz.OperationRead, m3.ID())
-	authorization.Grant("martin.redolatti", authz.OperationAdmin|authz.OperationWrite|authz.OperationRead, m4.ID())
-	authorization.Grant("martin.redolatti", authz.OperationAdmin|authz.OperationWrite|authz.OperationRead, m5.ID())
 	// end stuff to remove
 
 	return New(fileStore, metaStore, authorization), nil
