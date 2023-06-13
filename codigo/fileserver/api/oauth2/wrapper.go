@@ -147,7 +147,6 @@ func (o *Impl) ValidateAccess(ctx *gin.Context) (string, error) {
 
 // ValidateToken parses and verifies a token in string form
 func (o *Impl) ValidateToken(token string) (*generates.JWTAccessClaims, error) {
-	fmt.Println("parseando: ", token)
 	parsed, err := jwt.ParseWithClaims(token, &generates.JWTAccessClaims{}, func(token *jwt.Token) (interface{}, error) {
 		_, ok := token.Method.(*jwt.SigningMethodHMAC)
 		if !ok {

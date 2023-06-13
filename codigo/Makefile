@@ -1,10 +1,11 @@
 .PHONY: all clean build test test-norace docker-images pki \
-	runlocal-indexserver runlocal-fileserver fsbasic_for_debug help
+	runlocal-indexserver runlocal-fileserver fsbasic_for_debug incoming help
 
 BASH ?= bash
 GO ?= go
 PROTOC ?= protoc
 DOCKER ?= docker
+DOCKER_COMPOSE ?= docker-compose
 MAKE ?= make
 
 sources := $(shell find . -name *.go)
@@ -14,11 +15,34 @@ grpc_generated := common/is2fs/changes.pb.go common/is2fs/changes_grpc.pb.go
 # pki_phony_tgts := $(shell cat PKI/Makefile | grep "\.PHONY" | sed 's/.PHONY: //')
 # pki_all_tgts := $(shell make -f Makefile -C ./PKI -s list)
 # pki_tgts := $(addprefix PKI/,$(filter-out $(pki_phony_tgts),$(pki_all_tgts)))
-pki_tgts := PKI/client/certs PKI/client/certs/client.crt PKI/client/crl PKI/client/csr PKI/client/csr/client.csr PKI/client/newcerts PKI/client/private PKI/client/private/client.key PKI/fileserver/certs PKI/fileserver/certs/chain.pem PKI/fileserver/certs/fs_server.crt PKI/fileserver/crl PKI/fileserver/csr PKI/fileserver/csr/fs_server.csr PKI/fileserver/newcerts PKI/fileserver/private PKI/fileserver/private/fs_server.key PKI/indexserver/certs PKI/indexserver/certs/chain.pem PKI/indexserver/certs/idx_server.crt PKI/indexserver/crl PKI/indexserver/csr PKI/indexserver/csr/idx_server.csr PKI/indexserver/newcerts PKI/indexserver/private PKI/indexserver/private/idx_server.key PKI/root/certs PKI/root/certs/ca.crt PKI/root/crl PKI/root/csr PKI/root/newcerts PKI/root/private PKI/root/private/ca.key PKI/sub/certs PKI/sub/certs/sub-ca.crt PKI/sub/crl PKI/sub/csr PKI/sub/csr/sub-ca.csr PKI/sub/newcerts PKI/sub/private PKI/sub/private/sub-ca.key
+ 
+pki_tgts := PKI/root/private/ca.key \
+			PKI/root/certs/ca.crt \
+			PKI/sub/private/sub-ca.key \
+			PKI/sub/certs/sub-ca.crt \
+			PKI/indexserver/private/idx_server.key \
+			PKI/indexserver/certs/idx_server.crt \
+			PKI/indexserver/certs/chain.pem \
+			PKI/fileserver/private/fs_server.key \
+			PKI/fileserver/certs/fs_server.crt \
+			PKI/fileserver/certs/chain.pem \
+			PKI/fileserver2/private/fs_server.key \
+			PKI/fileserver2/certs/fs_server.crt \
+			PKI/fileserver2/certs/chain.pem \
+			PKI/client/private/client.key \
+			PKI/client/certs/client.crt
 
-container_incoming_tgts := incoming/fileserver/certs/ca.crt \
-			   incoming/fileserver/certs/key.pem \
-			   incoming/fileserver/certs/chain.pem
+incoming_tgts := incoming/fileserver/ca.crt \
+				 incoming/fileserver/chain.pem \
+				 incoming/fileserver/fs_server.key \
+				 incoming/fileserver2/ca.crt \
+				 incoming/fileserver2/chain.pem \
+				 incoming/fileserver2/fs_server.key \
+				 incoming/indexserver/ca.crt \
+				 incoming/indexserver/chain.pem \
+				 incoming/indexserver/idx_server.key \
+				 incoming/sqlinit/filesrvs.init.sh \
+				 incoming/sqlinit/indexserver.init.sql 
 
 default: help
 
@@ -84,11 +108,11 @@ psql-shell:
 
 ## Configurar mongodb local desde un contenedor
 mongo-rebuild:
-	$(BASH) ./scripts/mkmongo.sh -dcf
+	MONGO_CONTAINER=mongo_mifs $(BASH) ./scripts/mongo_populator.sh
 
 ## Abrir un shell en mongodb
 mongo-shell:
-	$(BASH) ./scripts/mkmongo.sh -s
+	$(DOCKER) exec -it infra-mongodb-1 mongosh --username root --password
 
 # ------------ Targets para ejecucion local
 
@@ -111,9 +135,9 @@ runlocal-indexserver-postgres: index-server $(pki_tgts)
 
 ## Ejecucion local de file-server
 runlocal-fileserver: file-server $(pki_tgts) fsbasic.so
-	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
+	FS_LOG_DEBUG="true" FS_HOST="file-server-1" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
-		FS_PSQL_URI="postgres://postgres:mysecretpassword@localhost:5432/filesrv" \
+		FS_PSQL_URI="postgres://fs1:fs1@localhost:5432/filesrv" \
 		FS_STORAGE_PLUGIN="./fsbasic.so" \
 		FS_STORAGE_PLUGIN_CONF='{"filePath": "/home/martin/fsbasic/files", "authDBPath": "/home/martin/fsbasic/authdb"}' \
 		./file-server
@@ -140,9 +164,9 @@ debug-indexserver-postgres:
 
 ## iniciar file-server en delve
 debug-fileserver-postgres: fsbasic_for_debug
-	FS_LOG_DEBUG="true" FS_HOST="file-server" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
+	FS_LOG_DEBUG="true" FS_HOST="file-server-1" FS_PORT="9877" FS_SERVER_CERT_CHAIN="PKI/fileserver/certs/chain.pem" \
 		FS_SERVER_PRIVATE_KEY="PKI/fileserver/private/fs_server.key" FS_ROOT_CA="PKI/root/certs/ca.crt" \
-		FS_PSQL_URI="postgres://postgres:mysecretpassword@localhost:5432/filesrv" \
+		FS_PSQL_URI="postgres://fs1:fs1@localhost:5432/filesrv" \
 		FS_STORAGE_PLUGIN="./fsbasic.so" \
 		FS_STORAGE_PLUGIN_CONF='{"filePath": "/home/martin/fsbasic/files", "authDBPath": "/home/martin/fsbasic/authdb"}' \
 		dlv debug fileserver/cmd/server/main.go
@@ -166,32 +190,32 @@ docker-images: infra/Dockerfile.index_server infra/Dockerfile.file_server
 $(pki_tgts):
 	$(MAKE) -f Makefile -C ./PKI all
 
-docker-compose-build: infra/Dockerfile.index_server infra/Dockerfile.file_server $(sources) go.sum $(container_incoming_tgts)
-	docker-compose -f infra/docker_compose.yml build
+docker-compose-build: infra/docker_compose.yml infra/index_server.Dockerfile infra/file_server.Dockerfile $(sources) go.sum $(incoming_tgts)
+	$(DOCKER_COMPOSE) -f infra/docker_compose.yml build --no-cache 
 
 docker-compose-up: docker-compose-build
-	docker-compose -f infra/docker_compose.yml up
+	$(DOCKER_COMPOSE) -f infra/docker_compose.yml up
 
 docker-compose-down: 
-	docker-compose -f infra/docker_compose.yml down
+	$(DOCKER_COMPOSE) -f infra/docker_compose.yml down
 
 ## Preparar volumenes locales que seran montados en los contenedores de docker
-incoming: $(container_incoming_tgts)
+incoming: $(incoming_tgts)
 
-$(container_incoming_tgts): $(pki_tgts)
-	mkdir -p incoming/{fileserver,indexserver}/certs
-	mkdir -p incoming/indexserver/credentials
-	mkdir -p incoming/idx_server_db/scripts
-	cp PKI/root/certs/ca.crt incoming/fileserver/certs
-	cp PKI/fileserver/certs/chain.pem incoming/fileserver/certs
-	cp PKI/fileserver/private/fs_server.key incoming/fileserver/certs
-	cp PKI/root/certs/ca.crt incoming/indexserver/certs
-	cp PKI/indexserver/certs/chain.pem incoming/indexserver/certs
-	cp PKI/indexserver/private/idx_server.key incoming/indexserver/certs
-	cp client_secret.json incoming/indexserver/credentials
-	cp scripts/fileserver.init.sql incoming/idx_server_db/scripts
-	cp scripts/indexserver.init.sql incoming/idx_server_db/scripts
-
+$(incoming_tgts): $(pki_tgts)
+	mkdir -p incoming/{fileserver,fileserver2,indexserver}
+	mkdir -p incoming/sqlinit
+	cp PKI/root/certs/ca.crt incoming/fileserver
+	cp PKI/fileserver/certs/chain.pem incoming/fileserver
+	cp PKI/fileserver/private/fs_server.key incoming/fileserver
+	cp PKI/root/certs/ca.crt incoming/fileserver2
+	cp PKI/fileserver2/certs/chain.pem incoming/fileserver2
+	cp PKI/fileserver2/private/fs_server.key incoming/fileserver2
+	cp PKI/root/certs/ca.crt incoming/indexserver
+	cp PKI/indexserver/certs/chain.pem incoming/indexserver
+	cp PKI/indexserver/private/idx_server.key incoming/indexserver
+	cp scripts/indexserver.init.sql incoming/sqlinit/
+	cp scripts/filesrv.init.sh incoming/sqlinit/
 
 # autodoc de targets tomado de: https://docs.cloudposse.com/reference/best-practices/make-best-practices/
 ## Esta ayuda

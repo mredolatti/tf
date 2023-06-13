@@ -21,8 +21,8 @@ FileManager::Error map_fs_mirror_error(util::FSMirror::Error e);
 bool is_server_path(std::filesystem::path path);
 } // namespace helpers
 
-FileManager::FileManager(apiclients::IndexServerClient is_client, apiclients::FileServerClient fs_client,
-                         util::FileServerCatalog::ptr_t fs_catalog)
+FileManager::FileManager(apiclients::IndexServerClient is_client,
+                         apiclients::FileServerClient fs_client, util::FileServerCatalog::ptr_t fs_catalog)
     : is_client_{std::move(is_client)},
       fs_client_{std::move(fs_client)},
       fs_catalog_{fs_catalog},
@@ -128,7 +128,7 @@ int FileManager::open(std::string_view path, int mode)
 std::pair<int, FileManager::Error> FileManager::read(std::string_view path, char *buffer, std::size_t offset,
                                                      std::size_t count)
 {
-    path =  helpers::trim_leading_slash(path);
+    path = helpers::trim_leading_slash(path);
     auto gen_info{fs_mirror_.info(path)};
     if (!gen_info) {
         SPDLOG_LOGGER_ERROR(logger_, "error fetching info for path '{}': {}", path,
@@ -226,26 +226,6 @@ std::pair<int, FileManager::Error> FileManager::write(std::string_view path, con
     return std::make_pair(from_cache->get().write(buf, size, offset), Error::Ok);
 }
 
-FileManager::Error FileManager::ensure_cached(const std::string& org, const std::string& server,
-                                              const std::string& ref)
-{
-    if (file_cache_.has(org, server, ref)) {
-        return Error::Ok;
-    }
-
-    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for file '{}' on server '{}'", ref, server);
-
-    auto result{fs_client_.contents(org, server, ref)};
-    if (!result) {
-        SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' could not be fetched/cached.", org, server, ref);
-        return Error::FiledToReadFileFromServer;
-    }
-
-    return file_cache_.put(org, std::move(server), std::move(ref), std::move(*result))
-             ? Error::Ok
-             : Error::InternalCacheError;
-}
-
 FileManager::Error FileManager::link(std::string_view from, std::string_view to)
 {
     from = helpers::trim_leading_slash(from);
@@ -337,8 +317,7 @@ FileManager::Error FileManager::mkdir(std::string_view path)
         return Error::ServerTreeManipulation;
     }
 
-    if (auto err{fs_mirror_.mkdir(path)};
-        err.code() != util::FSMirror::Error::Code::Ok) {
+    if (auto err{fs_mirror_.mkdir(path)}; err.code() != util::FSMirror::Error::Code::Ok) {
 
         SPDLOG_LOGGER_CRITICAL(logger_, "failed to update internal tree representation of filesystem");
         return helpers::map_fs_mirror_error(err);
@@ -355,8 +334,7 @@ FileManager::Error FileManager::rmdir(std::string_view path)
         return Error::ServerTreeManipulation;
     }
 
-    if (auto err{fs_mirror_.rmdir(path)};
-        err.code() != util::FSMirror::Error::Code::Ok) {
+    if (auto err{fs_mirror_.rmdir(path)}; err.code() != util::FSMirror::Error::Code::Ok) {
 
         SPDLOG_LOGGER_CRITICAL(logger_, "failed to update internal tree representation of filesystem");
         return helpers::map_fs_mirror_error(err);
@@ -436,6 +414,26 @@ FileManager::Error FileManager::rename(std::string_view from, std::string_view t
     assert(it != (*res).data.cend());
     return helpers::map_fs_mirror_error(fs_mirror_.link_file(it->second.id(), as_link->organization_name,
                                                              as_link->server_name, as_link->ref, to));
+}
+
+FileManager::Error FileManager::ensure_cached(const std::string& org, const std::string& server,
+                                              const std::string& ref)
+{
+    if (file_cache_.has(org, server, ref)) {
+        return Error::Ok;
+    }
+
+    SPDLOG_LOGGER_TRACE(logger_, "fetching contents for file '{}' on server '{}'", ref, server);
+
+    auto result{fs_client_.contents(org, server, ref)};
+    if (!result) {
+        SPDLOG_LOGGER_ERROR(logger_, "file '{}/{}/{}' could not be fetched/cached.", org, server, ref);
+        return Error::FiledToReadFileFromServer;
+    }
+
+    return file_cache_.put(org, std::move(server), std::move(ref), std::move(*result))
+             ? Error::Ok
+             : Error::InternalCacheError;
 }
 
 namespace helpers

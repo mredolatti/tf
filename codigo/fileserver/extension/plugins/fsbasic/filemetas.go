@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -133,7 +134,18 @@ func (f *FilesMetadata) GetMany(filter *apiv1.Filter) (map[string]apiv1.FileMeta
 	metas := make(map[string]apiv1.FileMetadata)
 	var names []string = filter.IDs
 	if names == nil {
-		// TODO(populate from list in dir)
+        indir, err := ioutil.ReadDir(f.path)
+        if err != nil {
+            return nil, fmt.Errorf("error fetching files in dir: %w", err)
+        }
+        
+        names = make([]string, 0, len(indir))
+        for _, fi := range indir {
+            if fi.Name() == ".deleted" {
+                continue
+            }
+            names = append(names, fi.Name())
+        }
 	}
 
 	for _, name := range names {

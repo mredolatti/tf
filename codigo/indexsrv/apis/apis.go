@@ -38,6 +38,7 @@ func Setup(config *Config) (*Bundle, error) {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
+    router.Use(gin.Logger())
 	clientAPI := router.Group("/api/clients/v1")
 	users.Mount(clientAPI, &users.Config{
 		UserManager:     config.UserManager,

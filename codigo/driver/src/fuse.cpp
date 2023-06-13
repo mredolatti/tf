@@ -15,6 +15,7 @@ namespace helpers
 int get_st_nlink(const mifs::fstree::views::Wrapper& w);
 __mode_t get_st_mode(const mifs::fstree::views::Wrapper& w);
 int map_filemanager_error(mifs::FileManager::Error e);
+std::string normalize_path(const char* path);
 } // namespace helpers
 
 // fuse
@@ -104,7 +105,7 @@ static int mifs_rmdir(const char *path)
 static int mifs_symlink(const char *from, const char *to)
 {
     auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
-    return helpers::map_filemanager_error(ctx->file_manager().link(from, to));
+    return helpers::map_filemanager_error(ctx->file_manager().link(helpers::normalize_path(from), to));
 }
 
 static int mifs_rename(const char *from, const char *to, unsigned int flags)
@@ -313,5 +314,39 @@ int map_filemanager_error(mifs::FileManager::Error e)
 
     return -EPROTO;
 }
+
+std::string normalize_path(const char* path)
+{
+    // file manager interface expects paths to be relative to the mount point, but when symlinking, the source
+    // path is passed as is.
+    // https://stackoverflow.com/questions/67163300/how-to-keep-track-of-working-directory-in-fuse
+    char buffer[1024];
+    memset(buffer, 0, 1024);
+    auto res{readlink(fmt::format("/proc/{}/cwd", fuse_get_context()->pid).c_str(), buffer, 1024)};
+    if (res == -1) {
+        std::cerr << "unable to get current user's path" << '\n';
+        std::abort();
+    }
+
+    std::string absolute{std::filesystem::path{std::string(buffer, res)} / std::filesystem::path{path}};
+
+    // we need to manually turn it into a path relative to the mount point without
+    // using syscalls like `realpath` and other wrappers (like cpp's std::filesystem::relative) since they
+    // will cause a deadlock.
+    // To do this, we need to generate absolute paths for the file & mount point, compare them,
+    // and if the prefix (mp) matches, strip it.
+    // TODO(mredolatti): the path may contain references like "../" at some point, these need to be collapsed
+    auto ctx{reinterpret_cast<ContextData *>(fuse_get_context()->private_data)};
+    if (absolute.size() > ctx->mount_point().size()) {
+        auto sub{absolute.substr(0, ctx->mount_point().size())};
+        if (sub == ctx->mount_point()) {
+            auto toret{absolute.substr(ctx->mount_point().size())};
+            return toret;
+        }
+    }
+        
+    return path;
+}
+
 
 } // namespace helpers

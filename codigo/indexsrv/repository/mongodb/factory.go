@@ -20,7 +20,7 @@ func NewFactory(cfg *config.Mongo) (*Factory, error) {
 	opts := &options.ClientOptions{Hosts: cfg.Hosts}
 	if len(cfg.User) > 0 && len(cfg.Password) > 0 {
 		opts.Auth = &options.Credential{
-			AuthMechanism: "PLAIN",
+		    AuthMechanism: "SCRAM-SHA-256",
 			Username:      cfg.User,
 			Password:      cfg.Password,
 		}

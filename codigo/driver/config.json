@@ -6,7 +6,12 @@
     },
     "credentials": {
         "unicen": {
-            "file-server": {
+            "file-server-1": {
+                "rootCertificate": "/home/martin/Projects/tf/codigo/PKI/root/certs/ca.crt",
+                "clientCertificate": "/home/martin/Projects/tf/codigo/PKI/client/certs/client.crt",
+                "clientPrivateKey": "/home/martin/Projects/tf/codigo/PKI/client/private/client.key"
+            },
+            "file-server-2": {
                 "rootCertificate": "/home/martin/Projects/tf/codigo/PKI/root/certs/ca.crt",
                 "clientCertificate": "/home/martin/Projects/tf/codigo/PKI/client/certs/client.crt",
                 "clientPrivateKey": "/home/martin/Projects/tf/codigo/PKI/client/private/client.key"

@@ -1,52 +1,119 @@
-version: "3.9"
+version: "2"
 
 services:
 
-  index-server-db:
+  mongodb:
+    image: mongo
+    ports: 
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+
+  mongodb_populator:
+    build:
+      context: ..
+      dockerfile: infra/mongo_populator.Dockerfile
+    ports:
+      - "5555:5555"
+    environment:
+      MONGO_HOST: mongodb
+      MONGO_USER: root
+      MONGO_PASS: example
+      LISTEN_ON_READY: true
+    depends_on:
+      - mongodb
+    restart: on-failure
+
+  redis:
+    image: redis
+    ports: 
+      - "6379:6379"
+
+  index-server:
+    build:
+      context: ..
+      dockerfile: infra/index_server.Dockerfile
+    depends_on:
+      - "mongodb"
+      - "mongodb_populator"
+      - "redis"
+    restart: on-failure
+    ports:
+      - "9876:9876"
+    volumes:
+      - ../incoming/indexserver:/incoming
+    environment:
+      IS_LOG_DEBUG: true
+      IS_HOST: "index-server"
+      IS_PORT: "9876"
+      IS_DB_ENGINE: "mongo"
+      IS_MONGO_HOSTS: "mongodb:27017"
+      IS_MONGO_DATABASE: "mifs_indexsrv"
+      IS_MONGO_USERNAME: "root"
+      IS_MONGO_PASSWORD: "example"
+      IS_REDIS_HOST: "redis"
+      IS_REDIS_PORT: "6379"
+      IS_ROOT_CA: "/incoming/ca.crt"
+      IS_SERVER_CERT_CHAIN: "/incoming/chain.pem"
+      IS_SERVER_PRIVATE_KEY: "/incoming/idx_server.key"
+
+  postgres:
     image: postgres:14.2
     ports: 
       - "5432:5432"
     environment:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "mysecretpassword"
+      FS1_PASS: "somepass123"
+      FS2_PASS: "somepass456"
     volumes:
-      - ../incoming/idx_server_db/scripts:/docker-entrypoint-initdb.d
+      - ../incoming/sqlinit:/docker-entrypoint-initdb.d
 
-  index-server:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.index_server
-    depends_on:
-      - "index-server-db"
-    ports:
-      - "9876:9876"
-    volumes:
-      - ../incoming/indexserver:/incoming
-    environment:
-      IS_LOG_DEBUG: "true"
-      IS_HOST: "index-server"
-      IS_PORT: "9876"
-      IS_PG_USER: "postgres"
-      IS_PG_PWD: "mysecretpassword"
-      IS_PG_HOST: "index-server-db"
-      IS_PG_PORT: "5432"
-      IS_PG_DB: "indexsrv"
-      IS_GOOGLE_CREDS_FN: "/incoming/credentials/client_secret.json"
-    
   file-server-1:
     build:
       context: ..
-      dockerfile: infra/Dockerfile.file_server
+      dockerfile: infra/file_server.Dockerfile
+    image: mifs/file-server
+    depends_on:
+      - "index-server"
+    restart: on-failure
     ports:
       - "9877:9877"   # User REST API
       - "9000:9000" # Index server gRPC API
     volumes:
       - ../incoming/fileserver:/incoming
     environment:
-      FS_LOG_DEBUG: "true"
+      FS_LOG_DEBUG: true
       FS_HOST: "file-server-1"
-      FS_CLIENT_PORT: "9877"
-      FS_SERVER_PORT: "9000"
-      FS_SERVER_CERT_CHAIN: "/incoming/certs/chain.pem"
-      FS_SERVER_PRIVATE_KEY: "/incoming/certs/fs_server.key"
-      FS_ROOT_CA: "/incoming/certs/ca.crt"
+      FS_CLIENT_PORT: 9877
+      FS_SERVER_PORT: 9000
+      FS_SERVER_CERT_CHAIN: "/incoming/chain.pem"
+      FS_SERVER_PRIVATE_KEY: "/incoming/fs_server.key"
+      FS_ROOT_CA: "/incoming/ca.crt"
+      #FS_PSQL_URI: "postgres://postgres:mysecretpassword@postgres:5432/filesrv"
+      FS_PSQL_URI: "postgres://fs1:somepass123@postgres:5432/filesrv"
+      FS_STORAGE_PLUGIN: "/opt/mifs/plugins/fsbasic.so"
+      FS_STORAGE_PLUGIN_CONF: '{"filePath": "/var/mifs/files", "authDBPath": "/var/mifs/authdb"}'
+
+  file-server-2:
+    image: mifs/file-server
+    depends_on:
+      - "index-server"
+    restart: on-failure
+    ports:
+      - "9878:9878"   # User REST API
+      - "9001:9001" # Index server gRPC API
+    volumes:
+      - ../incoming/fileserver2:/incoming
+    environment:
+      FS_LOG_DEBUG: true
+      FS_HOST: "file-server-2"
+      FS_CLIENT_PORT: 9878
+      FS_SERVER_PORT: 9001
+      FS_SERVER_CERT_CHAIN: "/incoming/chain.pem"
+      FS_SERVER_PRIVATE_KEY: "/incoming/fs_server.key"
+      FS_ROOT_CA: "/incoming/ca.crt"
+      FS_PSQL_URI: "postgres://fs2:somepass456@postgres:5432/filesrv2"
+      FS_STORAGE_PLUGIN: "/opt/mifs/plugins/fsbasic.so"
+      FS_STORAGE_PLUGIN_CONF: '{"filePath": "/var/mifs/files", "authDBPath": "/var/mifs/authdb"}'

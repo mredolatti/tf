@@ -1,13 +1,13 @@
-.PHONY: all clean root sub fileserver indexserver client
+.PHONY: all clean root sub fileserver fileserver2 indexserver client
 
-folders := $(shell echo {root,sub,fileserver,indexserver,client}/{private,csr,crl,certs,newcerts})
+folders := $(shell echo {root,sub,fileserver,fileserver2,indexserver,client}/{private,csr,crl,certs,newcerts})
 
 $(folders):
 	@mkdir -p $(folders)
 
 
 ## Armar todo el PKI
-all: root sub fileserver indexserver client
+all: root sub fileserver fileserver2 indexserver client
 
 ## Armar clave privavada y certificado para el ROOT CA
 root: root/private/ca.key root/certs/ca.crt
@@ -17,6 +17,9 @@ sub: sub/private/sub-ca.key sub/certs/sub-ca.crt
 
 ## Armar clave privavada y certificado para el file server (firmado por SUB CA)
 fileserver: fileserver/private/fs_server.key fileserver/certs/chain.pem
+
+## Armar clave privavada y certificado para el file server (firmado por SUB CA)
+fileserver2: fileserver2/private/fs_server.key fileserver2/certs/chain.pem
 
 ## Armar clave privavada y certificado para el index server (firmado por SUB CA)
 indexserver: indexserver/private/idx_server.key indexserver/certs/chain.pem
@@ -28,7 +31,7 @@ client: client/private/client.key client/certs/client.crt
 # Root CA
 # -------------------------------------
 
-root/private/ca.key: $(folders)
+root/private/ca.key: root/private
 	touch root/index
 	openssl rand -hex 16 > root/serial
 	# generar clave privada encriptada con passphrase (leida desde env)
@@ -54,7 +57,7 @@ root/certs/ca.crt: root/private/ca.key
 # Sub CA
 # -------------------------------------
 
-sub/private/sub-ca.key: $(folders)
+sub/private/sub-ca.key: sub/private
 	touch sub/index
 	openssl rand -hex 16 > sub/serial
 	# generar clave privada encriptada con passphrase (leida desde env)
@@ -88,7 +91,7 @@ sub/certs/sub-ca.crt: sub/csr/sub-ca.csr root/private/ca.key root/certs/ca.crt
 # File server
 # -------------------------------------
 
-fileserver/private/fs_server.key: $(folders)
+fileserver/private/fs_server.key: fileserver/private
 	# Generar clave privada (sin passphrase)
 	openssl genrsa \
 		-out fileserver/private/fs_server.key 2048
@@ -99,8 +102,8 @@ fileserver/csr/fs_server.csr: fileserver/private/fs_server.key
 		-key fileserver/private/fs_server.key \
 		-new \
 		-sha256 \
-		-addext 'subjectAltName = DNS:file-server,email:admin@file-server' \
-		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=file-server/emailAddress=some@localhost' \
+		-addext 'subjectAltName = DNS:file-server-1,email:admin@file-server-1' \
+		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=file-server-1/emailAddress=some@file-server-1' \
 		-out fileserver/csr/fs_server.csr
 
 fileserver/certs/fs_server.crt: fileserver/csr/fs_server.csr sub/private/sub-ca.key sub/certs/sub-ca.crt
@@ -119,10 +122,44 @@ fileserver/certs/chain.pem: fileserver/certs/fs_server.crt sub/certs/sub-ca.crt
 	cat fileserver/certs/fs_server.crt sub/certs/sub-ca.crt > fileserver/certs/chain.pem
 
 # -------------------------------------
+# File server 2
+# -------------------------------------
+
+fileserver2/private/fs_server.key: fileserver2/private
+	# Generar clave privada (sin passphrase)
+	openssl genrsa \
+		-out fileserver2/private/fs_server.key 2048
+
+fileserver2/csr/fs_server.csr: fileserver2/private/fs_server.key
+	# Crear certificado + solicitud de firma
+	openssl req \
+		-key fileserver2/private/fs_server.key \
+		-new \
+		-sha256 \
+		-addext 'subjectAltName = DNS:file-server-2,email:admin@file-server-2' \
+		-subj '/C=AR/ST=Buenos Aires/L=Tandil/O=UNICEN/OU=IT/CN=file-server-2/emailAddress=some@localhost' \
+		-out fileserver2/csr/fs_server.csr
+
+fileserver2/certs/fs_server.crt: fileserver2/csr/fs_server.csr sub/private/sub-ca.key sub/certs/sub-ca.crt
+	# Firmar certificado con el CA intermedio
+	PKI_CA_NAME="sub-ca" PKI_CA_DIR="./sub" openssl ca -config openssl.conf \
+		-batch \
+		-extensions server_cert \
+		-days 365 \
+		-notext \
+		-passin env:SUB_CA_PASSPHRASE \
+		-in fileserver2/csr/fs_server.csr \
+		-out fileserver2/certs/fs_server.crt
+
+fileserver2/certs/chain.pem: fileserver2/certs/fs_server.crt sub/certs/sub-ca.crt
+	# Armar certificate chain
+	cat fileserver2/certs/fs_server.crt sub/certs/sub-ca.crt > fileserver2/certs/chain.pem
+
+# -------------------------------------
 # Index server
 # -------------------------------------
 
-indexserver/private/idx_server.key: $(folders)
+indexserver/private/idx_server.key: indexserver/private
 	# Generar clave privada (sin passphrase)
 	openssl genrsa \
 		-out indexserver/private/idx_server.key 2048
@@ -157,7 +194,7 @@ indexserver/certs/chain.pem: indexserver/certs/idx_server.crt sub/certs/sub-ca.c
 # Client
 # -------------------------------------
 
-client/private/client.key: $(folders)
+client/private/client.key: client/private
 	# Generar claves y certificado p/cliente
 	openssl genrsa \
 		-out client/private/client.key 2048
@@ -187,6 +224,7 @@ clean:
 	rm -f sub/{index,index.old,serial,serial.old,index.attr,index.attr.old}
 	rm -f sub/{private,certs,newcerts,crl,csr}/*
 	rm -f fileserver/{private,certs,newcerts,crl,csr}/*
+	rm -f fileserver2/{private,certs,newcerts,crl,csr}/*
 	rm -f indexserver/{private,certs,newcerts,crl,csr}/*
 	rm -f client/{private,certs,newcerts,crl,csr}/*
 

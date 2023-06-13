@@ -39,7 +39,7 @@ int main(int argc, char **argv)
                          mifs::apiclients::FileServerClient{client, fs_catalog}, fs_catalog};
     fm.sync();
 
-    ContextData ctx{argv[argc - 1], logger, fm};
+    ContextData ctx{options.mount_point, logger, fm};
     init_fuse(argc, argv, ctx);
     return 0;
 }
